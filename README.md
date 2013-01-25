@@ -1,12 +1,12 @@
 os-fcgi
 =======
 
-ObjectScript language fastcgi daemon
+ObjectScript language fastcgi daemon.
 
 Compile and Install
 =======
 
-Run following commands in a *root* shell:
+Run following commands in a *root* shell
 
 	mkdir build && cd build
 	cmake -DCMAKE_INSTALL_PREFIX=/ ..
@@ -20,7 +20,7 @@ Information
 
 Current os-fcgi version uses 8 threads and listens 127.0.0.1:9000
 
-os-fcgi config is not used at the moment. You could view a demo usage at http://objectscript.org 
+os-fcgi config is not used at the moment. You could view a demo usage at http://objectscript.org or checkout repo https://github.com/unitpoint/objectscript.org
 
 Nginx config example
 ====================
