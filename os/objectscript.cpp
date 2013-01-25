@@ -3485,7 +3485,7 @@ bool OS::Core::Compiler::compile()
 			dump += OS::Core::String::format(allocator, "[%d] %s\n", tokenizer->getErrorLine()+1, tokenizer->getLineString(tokenizer->getErrorLine()).toChar());
 			dump += OS::Core::String::format(allocator, "pos %d\n", tokenizer->getErrorPos()+1);
 		}
-		allocator->echo(dump.toString().toChar());
+		allocator->echo(dump.toString());
 		// FileStreamWriter(allocator, "test-data/debug-exp-dump.txt").writeBytes(dump.toChar(), dump.getDataSize());
 
 		allocator->pushNull();
@@ -11266,10 +11266,19 @@ void OS::closeFile(void * f)
 	}
 }
 
+void OS::echo(const void * buf, int size)
+{
+	OS_OUTPUT(buf, size);
+}
+
 void OS::echo(const OS_CHAR * str)
 {
-	// fputs(os->toString(-params + i).toChar(), stdout);
-	OS_PRINTF(OS_TEXT("%s"), str);
+	echo((void*)str, (int)OS_STRLEN(str) * sizeof(OS_CHAR));
+}
+
+void OS::echo(const Core::String& str)
+{
+	echo((void*)str.toChar(), str.getDataSize());
 }
 
 void OS::printf(const OS_CHAR * format, ...)
@@ -17367,7 +17376,7 @@ void OS::initGlobalFunctions()
 		{
 			for(int i = 0; i < params; i++){
 				// fputs(os->toString(-params + i).toChar(), stdout);
-				os->echo(os->toString(-params + i).toChar());
+				os->echo(os->toString(-params + i));
 			}
 			return 0;
 		}

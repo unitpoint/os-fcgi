@@ -31,9 +31,26 @@ protected:
 	FCGX_Request * request;
 	int shutdown_funcs_id;
 	bool header_sent;
+	Core::Buffer * buffer;
 
 	virtual ~FCGX_OS()
 	{
+		OS_ASSERT(!buffer);
+	}
+
+	virtual bool init(MemoryManager * mem)
+	{
+		if(OS::init(mem)){
+			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
+			return true;
+		}
+		return false;
+	}
+
+	virtual void shutdown()
+	{
+		deleteObj(buffer);
+		OS::shutdown();
 	}
 
 public:
@@ -42,6 +59,7 @@ public:
 	{
 		request = NULL;
 		header_sent = false;
+		buffer = NULL;
 	}
 
 	EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
@@ -66,6 +84,7 @@ public:
 #endif
 		setSetting(OS_SETTING_CREATE_DEBUG_INFO, true);
 		setSetting(OS_SETTING_CREATE_COMPILED_FILE, true);
+
 		OS::initPreScript();
 	}
 
@@ -86,13 +105,41 @@ public:
 		setGlobal(var_name);
 	}
 
-	void echo(const OS_CHAR * str)
+	void flushBuffer()
+	{
+		if(buffer->buffer.count > 0){
+			FCGX_PutStr((const char*)buffer->buffer.buf, buffer->buffer.count, request->out);
+			buffer->buffer.count = 0;
+			buffer->pos = 0;
+		}
+	}
+
+	void appendBuffer(const void * buf, int size)
+	{
+		OS_ASSERT(buffer);
+		const int MAX_BUFFER = 32*1024;
+		if(buffer->buffer.count + size > MAX_BUFFER){
+			flushBuffer();
+			if(size > MAX_BUFFER){
+				FCGX_PutStr((char*)buf, size, request->out);
+				return;
+			}
+		}
+		buffer->append(buf, size);
+	}
+
+	void appendBuffer(const OS_CHAR * str)
+	{
+		appendBuffer((const char*)str, (int)OS_STRLEN(str) * sizeof(OS_CHAR));
+	}
+
+	void echo(const void * buf, int size)
 	{
 		if(!header_sent){
 			header_sent = true;
-			FCGX_PutS("Content-type: text/html\r\n\r\n", request->out);
+			appendBuffer("Content-type: text/html\r\n\r\n");
 		}
-		FCGX_PutS(str, request->out);
+		appendBuffer(buf, size);
 	}
 
 	/* void printf(const OS_CHAR * fmt, ...)
@@ -410,6 +457,8 @@ public:
 		}
 
 		triggerShutdownFunctions();
+		flushBuffer();
+		
 		// FCGX_Finish_r(request);
 		FCGX_FFlush(request->out);
 	}

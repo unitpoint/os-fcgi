@@ -122,6 +122,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VPRINTF ::vprintf
 #define OS_PRINTF ::printf
+#define OS_OUTPUT(buf, size) fwrite((const char*)buf, size, 1, stdout)
 
 #define OS_IS_SPACE(c) ((c) > OS_TEXT('\0') && (c) <= OS_TEXT(' '))
 #define OS_IS_ALPHA ::isalpha
@@ -3115,7 +3116,9 @@ namespace ObjectScript
 		virtual int seekFile(void * f, int offset, int whence);
 		virtual void closeFile(void * f);
 
-		virtual void echo(const OS_CHAR * str);
+		virtual void echo(const void * buf, int size);
+		void echo(const OS_CHAR * str);
+		void echo(const Core::String& str);
 		virtual void printf(const OS_CHAR * fmt, ...);
 
 	};
