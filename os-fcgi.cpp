@@ -410,6 +410,12 @@ public:
 					header_sent = true;
 					if(ext == ".txt"){
 						FCGX_PutS("Content-type: text/plain\r\n", request->out);
+					}else if(ext == ".js"){
+						FCGX_PutS("Content-type: text/javascript\r\n", request->out);
+					}else if(ext == ".css"){
+						FCGX_PutS("Content-type: text/css\r\n", request->out);
+					}else if(ext == ".png"){
+						FCGX_PutS("Content-type: image/png\r\n", request->out);
 					}else{
 						FCGX_PutS("Content-type: text/html\r\n", request->out);
 					}
