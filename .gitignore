@@ -1,0 +1,10 @@
+win32/Release/
+win32/Debug/
+win32/ipch/
+win32/x64/Release/
+win32/x64/Debug/
+*.opensdf
+*.sdf
+*.suo
+*.vcxproj.filters
+*.vcxproj.user
