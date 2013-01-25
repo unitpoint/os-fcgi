@@ -9433,14 +9433,14 @@ OS::Core::Property::Property(const PropertyIndex& index): PropertyIndex(index)
 	next = NULL;
 }
 
-OS::Core::Property::Property(Value index): PropertyIndex(index)
+OS::Core::Property::Property(const Value& index): PropertyIndex(index)
 {
 	hash_next = NULL;
 	prev = NULL;
 	next = NULL;
 }
 
-OS::Core::Property::Property(Value index, const KeepStringIndex& keep): PropertyIndex(index, keep)
+OS::Core::Property::Property(const Value& index, const KeepStringIndex& keep): PropertyIndex(index, keep)
 {
 	hash_next = NULL;
 	prev = NULL;

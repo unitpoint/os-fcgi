@@ -28,7 +28,7 @@ Nginx config example
 	server {
 		listen			80;
 		server_name		mydomain.com www.mydomain.com;
-		root	/home/myuser/mydomain.com/www;
+		root			/home/myuser/mydomain.com/www;
 		error_log		/var/log/nginx/error.mydomain.com.log;
 		access_log		off;
 		location ~ /\.ht {
