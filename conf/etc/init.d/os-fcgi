@@ -2,13 +2,16 @@
 
 ### BEGIN INIT INFO
 # Provides:          os-fcgi
-# Description: starts the os-fcgi daemon for web server
+# Description: Starts ObjectScript FastCGI Process Manager Daemon
 ### END INIT INFO
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 NAME=os-fcgi
 DAEMON=/usr/sbin/$NAME
-DESC="os-fcgi daemon for web server"
+DESC="ObjectScript FastCGI Process Manager"
+USER=www-data
+GROUP=www-data
+PIDFILE=/var/run/$NAME.pid
 
 test -x $DAEMON || exit 0
 
@@ -19,32 +22,32 @@ set -e
 case "$1" in
 	start)
 		echo -n "Starting $DESC: "
-		start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
-		    --exec $DAEMON  || true
+		start-stop-daemon --start --quiet --pidfile $PIDFILE \
+			--exec $DAEMON --chuid=$USER:$GROUP || true
 		echo "$NAME."
 		;;
 
 	stop)
 		echo -n "Stopping $DESC: "
-		start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
-		    --exec $DAEMON || true
+		start-stop-daemon --stop --quiet --exec $DAEMON || true
 		echo "$NAME."
+		rm -f /var/run/$NAME.pid
 		;;
 
 	restart)
 		echo -n "Restarting $DESC: "
-		start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
-		    --exec $DAEMON || true
+		start-stop-daemon --stop --quiet --exec $DAEMON || true
 		sleep 1
-		start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
-		    --exec $DAEMON || true
+		start-stop-daemon --start --quiet --pidfile $PIDFILE \
+			--exec $DAEMON --chuid=$USER:$GROUP || true
 		echo "$NAME."
 		;;
 
 	status)
-		status_of_proc -p /var/run/$NAME.pid "$DAEMON" $NAME && exit 0 || exit $?
+		status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
 		;;
 	*)
+
 		echo "Usage: $NAME {start|stop|restart|status}" >&2
 		exit 1
 		;;
