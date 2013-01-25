@@ -13,3 +13,4 @@ Run following commands in a *root* shell:
 	make
 	make install
 	chmod +x /etc/init.d/os-fcgi
+	service os-fcgi start
