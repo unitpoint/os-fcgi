@@ -2817,6 +2817,8 @@ namespace ObjectScript
 		virtual void initPreScript();
 		virtual void initPostScript();
 
+		virtual bool gcStepIfNeeded();
+
 		template<class Core> friend struct UserDataDestructor;
 
 	public:

@@ -12658,6 +12658,16 @@ void OS::Core::gcFinishMarkPhase()
 	}
 }
 
+bool OS::gcStepIfNeeded()
+{
+	if(core->gc_start_next_values <= core->values.count){
+		core->gcFinishSweepPhase();
+		core->gcStep();
+		return true;
+	}
+	return false;
+}
+
 void OS::Core::gcStepIfNeeded()
 {
 	if(gc_in_process){
@@ -12665,9 +12675,8 @@ void OS::Core::gcStepIfNeeded()
 	}
 	if(gc_values_head_index >= 0 || gc_grey_root_initialized || gc_continuous){
 		gcStep();
-	}else if(gc_start_next_values <= values.count){
-		gcFinishSweepPhase();
-		gcStep();
+	}else{
+		allocator->gcStepIfNeeded();
 	}
 }
 

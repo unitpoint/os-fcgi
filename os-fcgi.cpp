@@ -237,6 +237,14 @@ public:
 		pop();
 	}
 
+	bool gcStepIfNeeded()
+	{
+		if(getAllocatedBytes() > 32*1024*1024){
+			return OS::gcStepIfNeeded();
+		}
+		return false;
+	}
+
 	void processRequest(FCGX_Request * p_request)
 	{
 		request = p_request;
@@ -351,36 +359,53 @@ public:
 		getGlobal("_SERVER");
 		getProperty("SCRIPT_FILENAME");
 		String script_filename = popString();
-		
-		String ext = getFilenameExt(script_filename);
-		if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE){
-			require(script_filename, true);
-		}else{
-			// TODO: output not OS file
+		if(script_filename.getLen() == 0){
 			if(!header_sent){
 				header_sent = true;
-				if(ext == ".txt"){
-					FCGX_PutS("Content-type: text/plain\r\n", request->out);
-				}else{
-					FCGX_PutS("Content-type: text/html\r\n", request->out);
-				}
+				FCGX_PutS("Content-type: text/plain\r\n", request->out);
 				FCGX_PutS("\r\n", request->out);
 			}
-			void * f = openFile(script_filename, "rb");
-			if(f){
-				const int BUF_SIZE = 1024*256;
-				int size = getFileSize(f);
-				void * buf = malloc(BUF_SIZE < size ? BUF_SIZE : size OS_DBG_FILEPOS);
-				for(int i = 0; i < size; i += BUF_SIZE){
-					int len = BUF_SIZE < size - i ? BUF_SIZE : size - i;
-					readFile(buf, len, f);
-					FCGX_PutStr((const char*)buf, len, request->out);
+			FCGX_PutS("Filename is not defined", request->out);
+		}else{
+			if(getFilename(script_filename).getLen() == 0){
+				String new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_TEMPLATE;
+				if(!isFileExist(new_script_filename)){
+					new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_SOURCECODE;
+					new_script_filename = resolvePath(new_script_filename);
 				}
-				free(buf);				
-				closeFile(f);
+				script_filename = new_script_filename;
+			}
+		
+			String ext = getFilenameExt(script_filename);
+			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE){
+				require(script_filename, true);
 			}else{
-				FCGX_PutS("Error open file: ", request->out);
-				FCGX_PutS(script_filename, request->out);
+				// TODO: output not OS file
+				if(!header_sent){
+					header_sent = true;
+					if(ext == ".txt"){
+						FCGX_PutS("Content-type: text/plain\r\n", request->out);
+					}else{
+						FCGX_PutS("Content-type: text/html\r\n", request->out);
+					}
+					FCGX_PutS("\r\n", request->out);
+				}
+				void * f = openFile(script_filename, "rb");
+				if(f){
+					const int BUF_SIZE = 1024*256;
+					int size = getFileSize(f);
+					void * buf = malloc(BUF_SIZE < size ? BUF_SIZE : size OS_DBG_FILEPOS);
+					for(int i = 0; i < size; i += BUF_SIZE){
+						int len = BUF_SIZE < size - i ? BUF_SIZE : size - i;
+						readFile(buf, len, f);
+						FCGX_PutStr((const char*)buf, len, request->out);
+					}
+					free(buf);				
+					closeFile(f);
+				}else{
+					FCGX_PutS("Error open file: ", request->out);
+					FCGX_PutS(script_filename, request->out);
+				}
 			}
 		}
 
