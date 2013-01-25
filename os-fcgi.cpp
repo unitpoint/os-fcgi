@@ -62,7 +62,7 @@ public:
 		buffer = NULL;
 	}
 
-	EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
+	OS_EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
 	{
 		struct stat sourcecode_st, compiled_st;
 		stat(sourcecode_filename, &sourcecode_st);
@@ -141,14 +141,6 @@ public:
 		}
 		appendBuffer(buf, size);
 	}
-
-	/* void printf(const OS_CHAR * fmt, ...)
-	{
-		va_list ap;
-		va_start(ap, fmt);
-		FCGX_VFPrintF(request->out, fmt, ap);
-		va_end(ap);
-	} */
 
 	static int triggerHeaderSent(OS * p_os, int params, int, int, void*)
 	{
@@ -318,19 +310,6 @@ public:
 		newObject();
 		setGlobal("_COOKIE");
 
-#if 0
-#define OS_AUTO_TEXT(exp) OS_TEXT(#exp)
-		eval(OS_AUTO_TEXT(
-			if('HTTP_COOKIE' in _SERVER)
-			for(var k, v in _SERVER.HTTP_COOKIE.split(';')){
-				v = v.trim().split('=')
-				if(#v == 2){
-					_COOKIE[v[0]] = v[1]
-				}
-			}	
-		));
-#endif
-
 		getGlobal("_SERVER");
 		getProperty("CONTENT_LENGTH");
 		int content_length = popInt();
@@ -409,8 +388,7 @@ public:
 		if(script_filename.getLen() == 0){
 			if(!header_sent){
 				header_sent = true;
-				FCGX_PutS("Content-type: text/plain\r\n", request->out);
-				FCGX_PutS("\r\n", request->out);
+				FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
 			}
 			FCGX_PutS("Filename is not defined", request->out);
 		}else{
@@ -424,7 +402,7 @@ public:
 			}
 		
 			String ext = getFilenameExt(script_filename);
-			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE){
+			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
 				require(script_filename, true);
 			}else{
 				// TODO: output not OS file
@@ -503,6 +481,7 @@ void * doit(void * a)
 		FCGX_OS * os = OS::create(new FCGX_OS());
 		os->processRequest(&request);
         os->release();
+
 		FCGX_Finish_r(&request);
     }
 }

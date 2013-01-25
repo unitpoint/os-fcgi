@@ -147,6 +147,8 @@ inline void operator delete(void *, void *){}
 #define OS_DEBUGINFO_HEADER OS_TEXT("OBJECTSCRIPT.DEBUGINFO")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
 #define OS_EXT_TEMPLATE OS_TEXT(".osh")
+#define OS_EXT_TEMPLATE_HTML OS_TEXT(".html")
+#define OS_EXT_TEMPLATE_HTM OS_TEXT(".htm")
 #define OS_EXT_COMPILED OS_TEXT(".osc")
 #define OS_EXT_DEBUG_INFO OS_TEXT(".osd")
 #define OS_EXT_DEBUG_OPCODES OS_TEXT(".txt")
@@ -240,6 +242,12 @@ namespace ObjectScript
 		OS_SOURCECODE_AUTO,
 		OS_SOURCECODE_PLAIN,
 		OS_SOURCECODE_TEMPLATE
+	};
+
+	enum OS_EFileUseType
+	{
+		COMPILE_SOURCECODE_FILE,
+		LOAD_COMPILED_FILE
 	};
 
 	enum // OS_ValueRegister
@@ -3100,12 +3108,9 @@ namespace ObjectScript
 		virtual String getDebugInfoFilename(const String& resolved_filename);
 		virtual String getDebugOpcodesFilename(const String& resolved_filename);
 
-		enum EFileUseType
-		{
-			COMPILE_SOURCECODE_FILE,
-			LOAD_COMPILED_FILE
-		};
-		virtual EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename);
+		virtual OS_EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename);
+
+		virtual OS_ESourceCodeType getSourceCodeType(const String& filename);
 
 		virtual bool isFileExist(const OS_CHAR * filename);
 		virtual int getFileSize(const OS_CHAR * filename);

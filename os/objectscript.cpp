@@ -1713,7 +1713,7 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 					}
 					s.append(line_pos);
 					s.append(OS_TEXT("\n"));
-					if(cur_line >= text_data->lines.count){
+					if(cur_line+1 >= text_data->lines.count){
 						if(s.getSize() > 0){
 							addToken(s, OUTPUT_STRING, cur_line, (int)(str - line_pos) OS_DBG_FILEPOS);
 						}
@@ -2183,6 +2183,16 @@ bool OS::Core::Compiler::Expression::isAssignOperator() const
 
 OS::Core::String OS::Core::Compiler::Expression::getSlotStr(OS::Core::Compiler * compiler, Scope * scope, int slot_num, int up_count)
 {
+	struct Lib {
+		static String getInfoStr(OS::Core::Compiler * compiler, const String& str)
+		{
+			if(str.getLen() > 100){
+				return OS::String(compiler->allocator, str.toChar(), 48) + OS_TEXT("...") 
+					+ String(compiler->allocator, str.toChar() + str.getLen() - 48, 48);
+			}
+			return str;
+		}
+	};
 	// OS_ASSERT(slot_num);
 	OS * allocator = compiler->allocator;
 	for(; up_count > 0; up_count--){
@@ -2204,7 +2214,7 @@ OS::Core::String OS::Core::Compiler::Expression::getSlotStr(OS::Core::Compiler *
 			return String::format(allocator, OS_TEXT("const number %g"), compiler->prog_numbers[slot_num]);
 		}
 		slot_num -= compiler->prog_numbers.count;
-		return String::format(allocator, OS_TEXT("const string \"%s\""), compiler->prog_strings[slot_num].toChar());
+		return String::format(allocator, OS_TEXT("const string \"%s\""), Lib::getInfoStr(compiler, compiler->prog_strings[slot_num]).toChar());
 	}
 	if(slot_num >= scope->function->num_locals){
 		return allocator->core->strings->var_temp_prefix;
@@ -12236,7 +12246,7 @@ OS::String OS::resolvePath(const String& filename)
 	return resolvePath(filename, cur_path);
 }
 
-OS::EFileUseType OS::checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
+OS_EFileUseType OS::checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
 {
 	return COMPILE_SOURCECODE_FILE;
 }
@@ -20058,6 +20068,15 @@ int OS::Core::call(int params, int ret_values, GCValue * self_for_proto, bool al
 	return ret_values;
 }
 
+OS_ESourceCodeType OS::getSourceCodeType(const String& filename)
+{
+	String ext = getFilenameExt(filename);
+	if(ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
+		return OS_SOURCECODE_TEMPLATE;
+	}
+	return OS_SOURCECODE_AUTO;
+}
+
 bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
 {
 	String filename = resolvePath(p_filename);
@@ -20117,8 +20136,8 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 	Core::MemStreamWriter file_data(this);
 	file_data.writeFromStream(&file);
 
-	if(source_code_type == OS_SOURCECODE_AUTO && getFilenameExt(filename) == OS_EXT_TEMPLATE){
-		source_code_type = OS_SOURCECODE_TEMPLATE;
+	if(source_code_type == OS_SOURCECODE_AUTO){
+		source_code_type = getSourceCodeType(filename);
 	}
 
 	Core::Tokenizer tokenizer(this);
