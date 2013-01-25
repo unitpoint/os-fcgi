@@ -213,7 +213,6 @@ int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
 
 int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
 {
-
 	va_list va;
 	va_start(va, format);
 	int ret = OS_VSNPRINTF(str, size, format, va);
@@ -627,7 +626,24 @@ OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, double a, int precision)
 	if(precision == OS_AUTO_PRECISION){
 		/* %G already handles removing trailing zeros from the fractional part, yay */ 
 #if 1
-		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%G"), a);
+		// OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%G"), a);
+		int i;
+		double num = a;
+		OS_CHAR * tmp = dst;
+		double abs_num = ::fabs(num);
+		if(abs_num >= 1.0 && abs_num < 1e30){
+			i = OS_SNPRINTF(tmp, sizeof(OS_CHAR)*128, OS_TEXT("%-18f"), num);
+			while(i > 1 && tmp[i-1] == OS_TEXT(' ')) tmp[--i] = OS_TEXT('\0');
+			for(int j = 1; j < i; j++){
+				if(tmp[j] == OS_TEXT('.')){
+					while(i > j && tmp[i-1] == OS_TEXT('0')) tmp[--i] = OS_TEXT('\0');
+					if(i == j+1) tmp[--i] = OS_TEXT('\0');
+					break;
+				}
+			}
+		}else{
+			i = OS_SNPRINTF(tmp, sizeof(OS_CHAR)*128, OS_TEXT("%G"), num);
+		}
 #else
 		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%.*G"), 17, a);
 #endif
@@ -17143,21 +17159,26 @@ void OS::initGlobalFunctions()
 		static void flt(OS::Core::Buffer& buf, double num)
 		{
 			OS_CHAR tmp[128];
+#if 1
+			Utils::numToStr(tmp, num);
+#else
 			int i;
-			if(::fabs(num) >= 1.0){
+			double abs_num = ::fabs(num);
+			if(abs_num >= 1.0 && abs_num < 1e30){
 				i = OS_SNPRINTF(tmp, sizeof(tmp), OS_TEXT("%-18f"), num);
 				while(i > 1 && tmp[i-1] == OS_TEXT(' ')) tmp[--i] = OS_TEXT('\0');
 				for(int j = 1; j < i; j++){
 					if(tmp[j] == OS_TEXT('.')){
 						while(i > j && tmp[i-1] == OS_TEXT('0')) tmp[--i] = OS_TEXT('\0');
-						if(i == j) tmp[--i] = OS_TEXT('\0');
+						if(i == j+1) tmp[--i] = OS_TEXT('\0');
 						break;
 					}
 				}
 			}else{
 				i = OS_SNPRINTF(tmp, sizeof(tmp), OS_TEXT("%G"), num);
 			}
-			buf.append(tmp, i);
+#endif
+			buf.append(tmp); // , i);
 		}
 
 		static int sprintf(OS * os, int params, int, int, void*)
