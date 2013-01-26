@@ -142,7 +142,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("0.99-vm4")
+#define OS_VERSION OS_TEXT("1.0-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_DEBUGINFO_HEADER OS_TEXT("OBJECTSCRIPT.DEBUGINFO")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
@@ -258,18 +258,13 @@ namespace ObjectScript
 
 	enum
 	{
-		OS_GC_PHASE_MARK,
-		OS_GC_PHASE_SWEEP,
+		TERMINATED_EXCEPTION_CODE = 1<<30
 	};
 
 	enum
 	{
-		OS_E_ERROR		= 1<<0,
-		OS_E_WARNING	= 1<<1,
-		OS_E_NOTICE		= 1<<2,
-		// --------------------------
-		OS_ERROR_LEVELS	= 3,
-		OS_E_ALL		= (1<<OS_ERROR_LEVELS)-1
+		OS_GC_PHASE_MARK,
+		OS_GC_PHASE_SWEEP,
 	};
 
 	enum OS_EOpcode
@@ -300,6 +295,9 @@ namespace ObjectScript
 		OP_POW, // **
 
 		OP_CONCAT,	// ..
+		OP_IN,		// in
+		OP_IS,		// is
+		OP_ISPROTOTYPEOF, // isprototypeof
 
 		// unary operators
 
@@ -1598,6 +1596,7 @@ namespace ObjectScript
 				OP_MULTI_GET_REST_ARGUMENTS,
 				OP_MULTI_SUPER,
 				OP_MULTI_DEBUGGER,
+				OP_MULTI_THROW,
 			};
 
 			enum OpcodeType
@@ -1688,6 +1687,9 @@ namespace ObjectScript
 					
 					EXP_TYPE_IF,
 					EXP_TYPE_QUESTION,
+
+					EXP_TYPE_TRY_CATCH,
+					EXP_TYPE_THROW,
 
 					EXP_TYPE_ARRAY,
 
@@ -1924,10 +1926,18 @@ namespace ObjectScript
 						ELoopBreakType type;
 					};
 
+					struct TryBlock
+					{
+						int start_code_pos;
+						int end_code_pos;
+						int catch_var_index;
+					};
+
 					// used by function scope
 					int prog_func_index;
 					Vector<LocalVar> locals;
 					Vector<LocalVarCompiled> locals_compiled;
+					Vector<TryBlock> try_blocks;
 					int num_params;
 					int num_locals;
 					int opcodes_pos;
@@ -1957,6 +1967,8 @@ namespace ObjectScript
 
 					int allocTempVar();
 					void popTempVar(int count = 1);
+
+					void addTryBlock(int start, int end, Scope * catch_block);
 				};
 
 				enum ErrorType {
@@ -2117,6 +2129,9 @@ namespace ObjectScript
 				Expression * expectArrayExpression(Scope*, const Params& p);
 				Expression * expectParamsExpression(Scope*);
 				Expression * expectReturnExpression(Scope*);
+				Expression * expectTryExpression(Scope*);
+				Expression * expectThrowExpression(Scope*);
+				Expression * expectFilenameExpression(Scope*);
 				Expression * expectIfExpression(Scope*);
 				Expression * expectForExpression(Scope*);
 				Expression * expectDebugLocalsExpression(Scope*);
@@ -2182,6 +2197,13 @@ namespace ObjectScript
 					~LocalVar();
 				};
 
+				struct TryBlock
+				{
+					int start_code_pos;
+					int end_code_pos;
+					int catch_var_index;
+				};
+
 #ifdef OS_DEBUG
 				int prog_func_index;
 #endif
@@ -2194,6 +2216,8 @@ namespace ObjectScript
 				int func_depth;
 				int func_index; // in parent space
 				int num_local_funcs;
+				TryBlock * try_blocks;
+				int num_try_blocks;
 				int opcodes_pos;
 				int opcodes_size;
 
@@ -2396,6 +2420,8 @@ namespace ObjectScript
 				String __rshift;
 				String __pow;
 				
+				String func_unhandledException;
+				String func_getFilename;
 				String func_extends;
 				String func_delete;
 				String func_in;
@@ -2459,6 +2485,8 @@ namespace ObjectScript
 				String syntax_static;
 				String syntax_debugger;
 				String syntax_debuglocals;
+				String syntax_line;
+				String syntax_file;
 
 #ifdef OS_GLOBAL_VAR_ENABLED
 				String var_globals;
@@ -2483,7 +2511,6 @@ namespace ObjectScript
 			GCObjectValue * check_recursion;
 			Value global_vars;
 			Value user_pool;
-			Value error_handlers[OS_ERROR_LEVELS];
 
 			enum {
 				PROTOTYPE_BOOL,
@@ -2565,6 +2592,7 @@ namespace ObjectScript
 
 			bool terminated;
 			int terminated_code;
+			Value terminated_exception;
 
 			void randInitialize(OS_U32 seed);
 			void randReload();
@@ -2575,8 +2603,15 @@ namespace ObjectScript
 			void * malloc(int size OS_DBG_FILEPOS_DECL);
 			void free(void * p);
 
-			void error(int code, const OS_CHAR * message);
-			void error(int code, const String& message);
+			struct DebugInfo
+			{
+				Program * prog;
+				Program::DebugInfoItem * pos;
+
+				bool isValid() const { return prog && pos; }
+			};
+			DebugInfo getDebugInfo();
+
 			void errorDivisionByZero();
 
 			void gcInitGreyList();
@@ -2673,6 +2708,7 @@ namespace ObjectScript
 			bool pushFunctionOf(const Value& val);
 
 			void pushCloneValue(Value val);
+			void pushCloneValueProtected(OS * other, Value val);
 
 			// unary operator
 			void pushOpResultValue(OpcodeType opcode, const Value& value);
@@ -2686,6 +2722,8 @@ namespace ObjectScript
 
 			int getStackOffs(int offs);
 			Value getStackValue(int offs);
+
+			void setExceptionValue(Value);
 
 			void removeStackValues(int offs, int count);
 			void removeStackValue(int offs = -1);
@@ -2820,6 +2858,7 @@ namespace ObjectScript
 		void initStringClass();
 		void initBufferClass();
 		void initFileClass();
+		void initExceptionClass();
 		void initMathModule();
 		void initGCModule();
 		void initLangTokenizerModule();
@@ -2901,6 +2940,13 @@ namespace ObjectScript
 		int getTerminatedCode();
 		void setTerminated(bool = true, int = 0);
 		void resetTerminated();
+
+		bool isExceptionSet();
+		void getException();
+		void setException(); // set & pop value from stack
+		void setException(const OS_CHAR*);
+		void setException(const Core::String&);
+		void handleException();
 
 		void getProperty(bool getter_enabled = true, bool prototype_enabled = true);
 		void getProperty(const OS_CHAR*, bool getter_enabled = true, bool prototype_enabled = true);
@@ -3037,11 +3083,10 @@ namespace ObjectScript
 		int eval(const OS_CHAR * str, int params = 0, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
 		int eval(const String& str, int params = 0, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
 
-		int require(const OS_CHAR * filename, bool required = false, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
-		int require(const String& filename, bool required = false, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
+		int evalProtected(const OS_CHAR * str, int params = 0, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
 
-		void getErrorHandler(int code);
-		void setErrorHandler(int code = OS_E_ALL);
+		int require(const OS_CHAR * filename, bool required = false, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
+		virtual int require(const String& filename, bool required = false, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
 
 		// return next gc phase
 		int gc();
@@ -3079,12 +3124,6 @@ namespace ObjectScript
 		void getObject(const OS_CHAR * name, bool getter_enabled = true, bool prototype_enabled = true);
 		void getGlobalObject(const OS_CHAR * name, bool getter_enabled = true, bool prototype_enabled = true);
 		void getModule(const OS_CHAR * name, bool getter_enabled = true, bool prototype_enabled = true);
-
-		void triggerError(int code, const OS_CHAR * message);
-		void triggerError(int code, const String& message);
-
-		void triggerError(const OS_CHAR * message);
-		void triggerError(const String& message);
 
 		String changeFilenameExt(const String& filename, const String& ext);
 		String changeFilenameExt(const String& filename, const OS_CHAR * ext);
@@ -3125,7 +3164,6 @@ namespace ObjectScript
 		void echo(const OS_CHAR * str);
 		void echo(const Core::String& str);
 		virtual void printf(const OS_CHAR * fmt, ...);
-
 	};
 } // namespace ObjectScript
 
