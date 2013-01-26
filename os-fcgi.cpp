@@ -405,20 +405,11 @@ public:
 			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
 				require(script_filename, true);
 			}else{
-				// TODO: output not OS file
 				if(!header_sent){
 					header_sent = true;
-					if(ext == ".txt"){
-						FCGX_PutS("Content-type: text/plain\r\n", request->out);
-					}else if(ext == ".js"){
-						FCGX_PutS("Content-type: text/javascript\r\n", request->out);
-					}else if(ext == ".css"){
-						FCGX_PutS("Content-type: text/css\r\n", request->out);
-					}else if(ext == ".png"){
-						FCGX_PutS("Content-type: image/png\r\n", request->out);
-					}else{
-						FCGX_PutS("Content-type: text/html\r\n", request->out);
-					}
+					FCGX_PutS("Content-type: ", request->out);
+					FCGX_PutS(getContentType(ext), request->out);
+					FCGX_PutS("\r\n", request->out);
 					FCGX_PutS("\r\n", request->out);
 				}
 				void * f = openFile(script_filename, "rb");
@@ -445,6 +436,38 @@ public:
 		
 		// FCGX_Finish_r(request);
 		FCGX_FFlush(request->out);
+	}
+
+	const OS_CHAR * getContentType(const OS_CHAR * ext)
+	{
+		if(ext[0] == OS_TEXT('.')){
+			ext++;
+		}
+		static const OS_CHAR * mime_types[][2] = {
+			{"html", "text/html"},
+			{"htm", "text/html"},
+			{"js", "text/javascript"},
+			{"css", "text/css"},
+			{"png", "image/png"},
+			{"jpeg", "image/jpeg"},
+			{"jpg", "image/jpeg"},
+			{"gif", "image/gif"},
+			{"txt", "text/plain"},
+			{"log", "text/plain"},
+			{OS_EXT_SOURCECODE, "text/os"},
+			{OS_EXT_TEMPLATE, "text/osh"},
+			{}
+		};
+		for(int i = 0;; i++){
+			const OS_CHAR ** mime = mime_types[i];
+			if(!mime[0]){
+				break;
+			}
+			if(OS_STRCMP(ext, mime[0]) == 0){
+				return mime[1];
+			}
+		}
+		return "application/octet-stream";
 	}
 };
 
