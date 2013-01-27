@@ -12,8 +12,7 @@ Run following commands in a *root* shell
 	cmake -DCMAKE_INSTALL_PREFIX=/ ..
 	make
 	make install
-	chmod +x /etc/init.d/os-fcgi
-	service os-fcgi start
+	service os-fcgi restart
 	
 Information
 ===========
