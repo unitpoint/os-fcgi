@@ -17815,8 +17815,10 @@ void OS::initGlobalFunctions()
 				source_code_type = (OS_ESourceCodeType)os->toInt(-params+1);
 			}
 			bool check_utf8_bom = params >= 3 ? os->toBool(-params+2) : true;
-			os->compile(text, source_code_type, check_utf8_bom);
-			return 1;
+			if(os->compile(text, source_code_type, check_utf8_bom)){
+				return 1;
+			}
+			return 0;
 		}
 
 		static int compileFile(OS * os, int params, int, int need_ret_values, void*)
@@ -17831,8 +17833,10 @@ void OS::initGlobalFunctions()
 				source_code_type = (OS_ESourceCodeType)os->toInt(-params+2);
 			}
 			bool check_utf8_bom = params >= 4 ? os->toBool(-params+3) : true;
-			os->compileFile(filename, required, source_code_type, check_utf8_bom);
-			return 1;
+			if(os->compileFile(filename, required, source_code_type, check_utf8_bom)){
+				return 1;
+			}
+			return 0;
 		}
 
 		static int resolvePath(OS * os, int params, int, int, void*)
@@ -20496,9 +20500,11 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 	String compiled_filename = getCompiledFilename(filename);
 	bool sourcecode_file_exist = isFileExist(filename);
 	bool compiled_file_exist = isFileExist(compiled_filename);
+	bool recompile_enabled = false;
 	if(compiled_file_exist && sourcecode_file_exist){
 		if(core->settings.primary_compiled_file || checkFileUsage(filename, compiled_filename) == LOAD_COMPILED_FILE){
 			sourcecode_file_exist = false;
+			recompile_enabled = true;
 		}else{
 			compiled_file_exist = false;
 		}
@@ -20521,6 +20527,7 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 		prog_file_data.writeFromStream(&prog_file_reader);
 		Core::MemStreamReader prog_reader(NULL, prog_file_data.buffer.buf, prog_file_data.getSize());
 
+		bool loaded = true;
 		String debug_info_filename = getDebugInfoFilename(filename);
 		if(isFileExist(debug_info_filename)){
 			Core::FileStreamReader debug_info_file_reader(this, debug_info_filename);
@@ -20528,16 +20535,22 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 			debug_info_file_data.writeFromStream(&debug_info_file_reader);
 			Core::MemStreamReader debug_info_reader(NULL, debug_info_file_data.buffer.buf, debug_info_file_data.getSize());
 			if(!prog->loadFromStream(&prog_reader, &debug_info_reader)){
-				prog->release();
-				return false;
+				// prog->release();
+				loaded = false;
 			}
 		}else if(!prog->loadFromStream(&prog_reader, NULL)){
+			// prog->release();
+			loaded = false;
+		}
+		if(loaded){
+			prog->pushStartFunction();
 			prog->release();
+			return true;
+		}
+		prog->release();
+		if(!recompile_enabled){
 			return false;
 		}
-		prog->pushStartFunction();
-		prog->release();
-		return true;
 	}
 
 	Core::FileStreamReader file(this, filename);
