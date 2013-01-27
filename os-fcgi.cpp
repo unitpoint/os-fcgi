@@ -425,8 +425,8 @@ public:
 					free(buf);				
 					closeFile(f);
 				}else{
-					FCGX_PutS("Error open file: ", request->out);
-					FCGX_PutS(script_filename, request->out);
+					// FCGX_PutS("Error open file: ", request->out);
+					// FCGX_PutS(script_filename, request->out);
 				}
 			}
 		}
@@ -452,6 +452,7 @@ public:
 			{"jpeg", "image/jpeg"},
 			{"jpg", "image/jpeg"},
 			{"gif", "image/gif"},
+			{"ico", "image/x-icon"},
 			{"txt", "text/plain"},
 			{"log", "text/plain"},
 			{OS_EXT_SOURCECODE, "text/os"},
