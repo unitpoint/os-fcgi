@@ -648,7 +648,7 @@ OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, OS_FLOAT a, int precision)
 		}
 #else
 		/* %G already handles removing trailing zeros from the fractional part */ 
-		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%.*G"), 30, a);
+		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%.*G"), a < 1e10 ? 15 : 30, a);
 #endif
 		return dst;
 	}
