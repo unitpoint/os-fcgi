@@ -55,6 +55,7 @@ inline void operator delete(void *, void *){}
 
 // select ObjectScript number type here
 #ifndef OS_NUMBER
+// #define OS_NUMBER long double
 #define OS_NUMBER double
 // #define OS_NUMBER float	// could be a bit faster
 // #define OS_NUMBER int	// not recomended, math.random returns float value [0..1]
@@ -77,7 +78,6 @@ inline void operator delete(void *, void *){}
 #define OS_ENV_VAR_NAME OS_TEXT("_E")
 #define OS_GLOBALS_VAR_NAME OS_TEXT("_G")
 
-#define OS_FLOAT double
 #define OS_INT8 signed char
 #define OS_BYTE unsigned char
 #define OS_INT16 short
@@ -142,7 +142,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("1.0-dev")
+#define OS_VERSION OS_TEXT("1.0.1-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_DEBUGINFO_HEADER OS_TEXT("OBJECTSCRIPT.DEBUGINFO")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
@@ -205,6 +205,11 @@ inline void operator delete(void *, void *){}
 
 namespace ObjectScript
 {
+	template <class T> struct FloatType { typedef float type; };
+	template <> struct FloatType<double> { typedef double type; };
+	template <> struct FloatType<long double> { typedef long double type; };
+	#define OS_FLOAT FloatType<OS_NUMBER>::type
+
 	class OS;
 
 	typedef void (*OS_UserdataDtor)(OS*, void * data, void * user_param);
@@ -455,8 +460,7 @@ namespace ObjectScript
 
 			static OS_CHAR * numToStr(OS_CHAR*, OS_INT32 value);
 			static OS_CHAR * numToStr(OS_CHAR*, OS_INT64 value);
-			static OS_CHAR * numToStr(OS_CHAR*, float value, int precision = OS_AUTO_PRECISION);
-			static OS_CHAR * numToStr(OS_CHAR*, double value, int precision = OS_AUTO_PRECISION);
+			static OS_CHAR * numToStr(OS_CHAR*, OS_FLOAT value, int precision = OS_AUTO_PRECISION);
 
 			static OS_INT strToInt(const OS_CHAR*);
 			static OS_FLOAT strToFloat(const OS_CHAR*);
@@ -699,6 +703,9 @@ namespace ObjectScript
 
 				virtual void writeDouble(double);
 				virtual void writeDoubleAtPos(double value, int pos);
+
+				virtual void writeLongDouble(long double);
+				virtual void writeLongDoubleAtPos(long double value, int pos);
 			};
 
 			class MemStreamWriter: public StreamWriter
@@ -788,6 +795,9 @@ namespace ObjectScript
 
 				virtual double readDouble();
 				virtual double readDoubleAtPos(int pos);
+
+				virtual long double readLongDouble();
+				virtual long double readLongDoubleAtPos(int pos);
 			};
 
 			class MemStreamReader: public StreamReader
@@ -1486,6 +1496,7 @@ namespace ObjectScript
 				Value(OS_INT64);
 				Value(float);
 				Value(double);
+				Value(long double);
 				Value(GCValue*);
 				Value(const String&);
 				Value(int, const WeakRef&);
@@ -1496,6 +1507,7 @@ namespace ObjectScript
 				Value& operator=(OS_INT64);
 				Value& operator=(float);
 				Value& operator=(double);
+				Value& operator=(long double);
 
 #ifdef OS_NUMBER_NAN_TRICK
 				// Value& operator=(const Value& b){ OS_SET_VALUE_NUMBER(*this, OS_VALUE_NUMBER(b)); return *this;  }
@@ -2682,10 +2694,19 @@ namespace ObjectScript
 			void insertValue(Value val, int offs);
 			void pushNull();
 			void pushBool(bool);
-			void pushNumber(OS_INT32);
-			void pushNumber(OS_INT64);
-			void pushNumber(float);
-			void pushNumber(double);
+			
+			template<class T> void pushNumber(const T& val)
+			{
+			#if 1 // speed optimization
+				StackValues& stack_values = this->stack_values;
+				if(stack_values.capacity < stack_values.count+1){
+					reserveStackValues(stack_values.count+1);
+				}
+				stack_values.buf[stack_values.count++] = (OS_NUMBER)val;
+			#else
+				pushValue((OS_NUMBER)val);
+			#endif
+			}
 			
 			GCStringValue * pushStringValue(const String&);
 			GCStringValue * pushStringValue(const OS_CHAR*);
@@ -2985,10 +3006,7 @@ namespace ObjectScript
 		int getValueId(int offs = -1);
 
 		void pushNull();
-		void pushNumber(OS_INT32);
-		void pushNumber(OS_INT64);
-		void pushNumber(float);
-		void pushNumber(double);
+		template<class T> void pushNumber(const T& val){ core->pushNumber(val); }
 		void pushBool(bool);
 		void pushString(const OS_CHAR*);
 		void pushString(const OS_CHAR*, int len);

@@ -221,15 +221,9 @@ int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
 }
 
 #ifndef OS_NUMBER_NAN_TRICK
-static bool OS_ISNAN(float a)
+static bool OS_ISNAN(OS_FLOAT a)
 {
-	volatile float b = a;
-	return b != b;
-}
-
-static bool OS_ISNAN(double a)
-{
-	volatile double b = a;
+	volatile OS_FLOAT b = a;
 	return b != b;
 }
 #endif
@@ -238,6 +232,7 @@ static bool OS_ISNAN(double a)
 #include <limits.h>
 
 template <class T> T OS_getMaxValue();
+template <> long double OS_getMaxValue<long double>(){ return LDBL_MAX; }
 template <> double OS_getMaxValue<double>(){ return DBL_MAX; }
 template <> float OS_getMaxValue<float>(){ return FLT_MAX; }
 template <> int OS_getMaxValue<int>(){ return INT_MAX; }
@@ -350,6 +345,19 @@ static inline double toLittleEndianByteOrder(double val)
 	((OS_BYTE*)&r)[5] = ((OS_BYTE*)&val)[2];
 	((OS_BYTE*)&r)[6] = ((OS_BYTE*)&val)[1];
 	((OS_BYTE*)&r)[7] = ((OS_BYTE*)&val)[0];
+	return r;
+}
+
+static inline long double toLittleEndianByteOrder(long double val)
+{
+	// OS_ASSERT(sizeof(val) == sizeof(OS_BYTE)*8);
+	if(IS_LITTLE_ENDIAN){
+		return val;
+	}
+	long double r;
+	for(int i = 0; i < sizeof(long double); i++){
+		((OS_BYTE*)&r)[i] = ((OS_BYTE*)&val)[sizeof(long double)-1-i];
+	}
 	return r;
 }
 
@@ -605,12 +613,7 @@ OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, OS_INT64 a)
 	return dst;
 }
 
-OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, float a, int precision)
-{
-	return numToStr(dst, (double)a, precision);
-}
-
-OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, double a, int precision)
+OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, OS_FLOAT a, int precision)
 {
 	if(precision <= 0) {
 		if(precision < 0) {
@@ -624,8 +627,7 @@ OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, double a, int precision)
 		return dst;
 	}
 	if(precision == OS_AUTO_PRECISION){
-		/* %G already handles removing trailing zeros from the fractional part, yay */ 
-#if 1
+#if 0
 		// OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%G"), a);
 		int i;
 		double num = a;
@@ -645,7 +647,8 @@ OS_CHAR * OS::Utils::numToStr(OS_CHAR * dst, double a, int precision)
 			i = OS_SNPRINTF(tmp, sizeof(OS_CHAR)*128, OS_TEXT("%G"), num);
 		}
 #else
-		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%.*G"), 17, a);
+		/* %G already handles removing trailing zeros from the fractional part */ 
+		OS_SNPRINTF(dst, sizeof(OS_CHAR)*127, OS_TEXT("%.*G"), 30, a);
 #endif
 		return dst;
 	}
@@ -7031,21 +7034,16 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::newBinaryExpression(Scope *
 				return exp;
 			}
 
-			Expression * newExpression(double val, Expression * left_exp, Expression * right_exp)
+			Expression * newExpression(OS_FLOAT val, Expression * left_exp, Expression * right_exp)
 			{
 				token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(token->text_data, String(compiler->allocator, (OS_FLOAT)val, OS_AUTO_PRECISION), Tokenizer::NUMBER, token->line, token->pos);
-				token->setFloat((OS_FLOAT)val);
+				token->setFloat(val);
 				Expression * exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_CONST_NUMBER, token);
 				exp->ret_values = 1;
 				token->release();
 				compiler->allocator->deleteObj(left_exp);
 				compiler->allocator->deleteObj(right_exp);
 				return exp;
-			}
-
-			Expression * newExpression(float val, Expression * left_exp, Expression * right_exp)
-			{
-				return newExpression((double)val, left_exp, right_exp);
 			}
 
 			Expression * newExpression(OS_INT val, Expression * left_exp, Expression * right_exp)
@@ -8572,30 +8570,38 @@ bool OS::Core::Compiler::saveToStream(StreamWriter * writer, StreamWriter * debu
 	MemStreamWriter int_stream(allocator);
 	MemStreamWriter float_stream(allocator);
 	MemStreamWriter double_stream(allocator);
-	int int_count = 0, float_count = 0, double_count = 0;
-	int int_index = 0, float_index = 0, double_index = 0;
+	MemStreamWriter long_double_stream(allocator);
+	int int_count = 0, float_count = 0, double_count = 0, long_double_count = 0;
+	int int_index = 0, float_index = 0, double_index = 0, long_double_index = 0;
 	for(i = 0; i < prog_numbers.count; i++){
-		double val = prog_numbers[i];
-		if(val >= 0 && (double)(int)val == val){
+		long double val = prog_numbers[i];
+		if(val >= 0 && (long double)(int)val == val){
 			int_count++;
 			int_stream.writeUVariable(i - int_index); int_index = i;
 			int_stream.writeUVariable((int)val);
 			continue;
 		}
-		if((double)(float)val == val){
+		if((long double)(float)val == val){
 			float_count++;
 			float_stream.writeUVariable(i - float_index); float_index = i;
 			float_stream.writeFloat((float)val);
 			continue;
 		}
-		double_count++;
-		double_stream.writeUVariable(i - double_index); double_index = i;
-		double_stream.writeDouble(val);
+		if((long double)(double)val == val){
+			double_count++;
+			double_stream.writeUVariable(i - double_index); double_index = i;
+			double_stream.writeDouble((double)val);
+			continue;
+		}
+		long_double_count++;
+		long_double_stream.writeUVariable(i - long_double_index); long_double_index = i;
+		long_double_stream.writeLongDouble(val);
 	}
 
 	writer->writeUVariable(int_count);
 	writer->writeUVariable(float_count);
 	writer->writeUVariable(double_count);
+	writer->writeUVariable(long_double_count);
 	writer->writeUVariable(prog_strings.count);
 	writer->writeUVariable(prog_functions.count);
 	writer->writeUVariable(prog_opcodes.count);
@@ -8693,7 +8699,8 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader, StreamReader * deb
 	int int_count = reader->readUVariable();
 	int float_count = reader->readUVariable();
 	int double_count = reader->readUVariable();
-	num_numbers = int_count + float_count + double_count;
+	int long_double_count = reader->readUVariable();
+	num_numbers = int_count + float_count + double_count + long_double_count;
 	num_strings = reader->readUVariable();
 	num_functions = reader->readUVariable();
 	int opcodes_size = reader->readUVariable();
@@ -8721,6 +8728,12 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader, StreamReader * deb
 		num_index += reader->readUVariable();
 		OS_ASSERT(num_index >= 0 && num_index < num_numbers);
 		OS_NUMBER number = (OS_NUMBER)reader->readDouble();
+		const_values[num_index + CONST_STD_VALUES] = number;
+	}
+	for(num_index = 0, i = 0; i < long_double_count; i++){
+		num_index += reader->readUVariable();
+		OS_ASSERT(num_index >= 0 && num_index < num_numbers);
+		OS_NUMBER number = (OS_NUMBER)reader->readLongDouble();
 		const_values[num_index + CONST_STD_VALUES] = number;
 	}
 	Buffer buf(allocator);
@@ -9081,6 +9094,18 @@ void OS::Core::StreamWriter::writeDoubleAtPos(double value, int pos)
 	writeBytesAtPos(&le_value, sizeof(le_value), pos);
 }
 
+void OS::Core::StreamWriter::writeLongDouble(long double value)
+{
+	long double le_value = toLittleEndianByteOrder(value);
+	writeBytes(&le_value, sizeof(le_value));
+}
+
+void OS::Core::StreamWriter::writeLongDoubleAtPos(long double value, int pos)
+{
+	long double le_value = toLittleEndianByteOrder(value);
+	writeBytesAtPos(&le_value, sizeof(le_value), pos);
+}
+
 // =====================================================================
 
 OS::Core::MemStreamWriter::MemStreamWriter(OS * allocator): StreamWriter(allocator)
@@ -9348,6 +9373,20 @@ double OS::Core::StreamReader::readDouble()
 double OS::Core::StreamReader::readDoubleAtPos(int pos)
 {
 	double le_value;
+	readBytesAtPos(&le_value, sizeof(le_value), pos);
+	return fromLittleEndianByteOrder(le_value);
+}
+
+long double OS::Core::StreamReader::readLongDouble()
+{
+	long double le_value;
+	readBytes(&le_value, sizeof(le_value));
+	return fromLittleEndianByteOrder(le_value);
+}
+
+long double OS::Core::StreamReader::readLongDoubleAtPos(int pos)
+{
+	long double le_value;
 	readBytesAtPos(&le_value, sizeof(le_value), pos);
 	return fromLittleEndianByteOrder(le_value);
 }
@@ -10393,6 +10432,12 @@ OS::Core::Value::Value(double val)
 	// type = OS_VALUE_TYPE_NUMBER;
 }
 
+OS::Core::Value::Value(long double val)
+{
+	OS_SET_VALUE_NUMBER(*this, val);
+	// type = OS_VALUE_TYPE_NUMBER;
+}
+
 OS::Core::Value::Value(const String& str)
 {
 	OS_ASSERT(str.string);
@@ -10453,6 +10498,12 @@ OS::Core::Value& OS::Core::Value::operator=(float val)
 }
 
 OS::Core::Value& OS::Core::Value::operator=(double val)
+{
+	OS_SET_VALUE_NUMBER(*this, val);
+	return *this;
+}
+
+OS::Core::Value& OS::Core::Value::operator=(long double val)
 {
 	OS_SET_VALUE_NUMBER(*this, val);
 	return *this;
@@ -13901,58 +13952,6 @@ void OS::Core::pushBool(bool val)
 #endif
 }
 
-void OS::Core::pushNumber(OS_INT32 val)
-{
-#if 1 // speed optimization
-	StackValues& stack_values = this->stack_values;
-	if(stack_values.capacity < stack_values.count+1){
-		reserveStackValues(stack_values.count+1);
-	}
-	stack_values.buf[stack_values.count++] = val;
-#else
-	pushValue(val);
-#endif
-}
-
-void OS::Core::pushNumber(OS_INT64 val)
-{
-#if 1 // speed optimization
-	StackValues& stack_values = this->stack_values;
-	if(stack_values.capacity < stack_values.count+1){
-		reserveStackValues(stack_values.count+1);
-	}
-	stack_values.buf[stack_values.count++] = val;
-#else
-	pushValue(val);
-#endif
-}
-
-void OS::Core::pushNumber(float val)
-{
-#if 1 // speed optimization
-	StackValues& stack_values = this->stack_values;
-	if(stack_values.capacity < stack_values.count+1){
-		reserveStackValues(stack_values.count+1);
-	}
-	stack_values.buf[stack_values.count++] = val;
-#else
-	pushValue(val);
-#endif
-}
-
-void OS::Core::pushNumber(double val)
-{
-#if 1 // speed optimization
-	StackValues& stack_values = this->stack_values;
-	if(stack_values.capacity < stack_values.count+1){
-		reserveStackValues(stack_values.count+1);
-	}
-	stack_values.buf[stack_values.count++] = val;
-#else
-	pushValue(val);
-#endif
-}
-
 OS::Core::GCStringValue * OS::Core::pushStringValue(const String& val)
 {
 	pushValue(Value(val)); // newStringValue(val));
@@ -14727,26 +14726,6 @@ void OS::Core::insertValue(Value val, int offs)
 void OS::pushNull()
 {
 	core->pushNull();
-}
-
-void OS::pushNumber(OS_INT32 val)
-{
-	core->pushNumber(val);
-}
-
-void OS::pushNumber(OS_INT64 val)
-{
-	core->pushNumber(val);
-}
-
-void OS::pushNumber(float val)
-{
-	core->pushNumber(val);
-}
-
-void OS::pushNumber(double val)
-{
-	core->pushNumber(val);
 }
 
 void OS::pushBool(bool val)
@@ -17562,29 +17541,11 @@ void OS::initGlobalFunctions()
 		}
 #endif
 
-		static void flt(OS::Core::Buffer& buf, double num)
+		static void flt(OS::Core::Buffer& buf, OS_FLOAT num)
 		{
 			OS_CHAR tmp[128];
-#if 1
 			Utils::numToStr(tmp, num);
-#else
-			int i;
-			double abs_num = ::fabs(num);
-			if(abs_num >= 1.0 && abs_num < 1e30){
-				i = OS_SNPRINTF(tmp, sizeof(tmp), OS_TEXT("%-18f"), num);
-				while(i > 1 && tmp[i-1] == OS_TEXT(' ')) tmp[--i] = OS_TEXT('\0');
-				for(int j = 1; j < i; j++){
-					if(tmp[j] == OS_TEXT('.')){
-						while(i > j && tmp[i-1] == OS_TEXT('0')) tmp[--i] = OS_TEXT('\0');
-						if(i == j+1) tmp[--i] = OS_TEXT('\0');
-						break;
-					}
-				}
-			}else{
-				i = OS_SNPRINTF(tmp, sizeof(tmp), OS_TEXT("%G"), num);
-			}
-#endif
-			buf.append(tmp); // , i);
+			buf.append(tmp);
 		}
 
 		static int sprintf(OS * os, int params, int, int, void*)
