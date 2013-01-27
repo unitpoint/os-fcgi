@@ -16870,7 +16870,6 @@ corrupted:
 				if(ret_stack_funcs >= call_stack_funcs.count){
 					OS_ASSERT(ret_stack_funcs == call_stack_funcs.count);
 					OS_PROFILE_END_OPCODE(opcode);
-					
 					return;
 				}
 				break;
