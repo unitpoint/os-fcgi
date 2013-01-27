@@ -16792,7 +16792,16 @@ void OS::Core::popRecursion(Value root, Value obj, Value name)
 	OS_NUMBER i = valueToNumber(stack_values.lastElement()) - 1;
 	if(i <= 0){
 		OS_ASSERT(i == 0);
-		deleteValueProperty(root, obj, false, false);
+		OS_ASSERT(dynamic_cast<GCObjectValue*>(OS_VALUE_VARIANT(stack_values[stack_values.count-2]).object));
+		GCObjectValue * object = (GCObjectValue*)OS_VALUE_VARIANT(stack_values[stack_values.count-2]).object;
+		OS_ASSERT(object->table);
+		if(object->table->count <= 1){
+			OS_ASSERT(object->table->count == 1);
+			deleteValueProperty(root, obj, false, false);
+		}else{
+			deleteValueProperty(stack_values[stack_values.count-2], name, false, false);
+			OS_ASSERT(object->table->count > 0);
+		}
 	}else{
 		setPropertyValue(stack_values[stack_values.count-2], name, i, false);
 	}
