@@ -404,6 +404,10 @@ public:
 			String ext = getFilenameExt(script_filename);
 			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
 				require(script_filename, true);
+				if(!header_sent){
+					header_sent = true;
+					FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
+				}
 			}else{
 				if(!header_sent){
 					header_sent = true;
