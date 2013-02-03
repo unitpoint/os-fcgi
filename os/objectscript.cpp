@@ -2,7 +2,7 @@
 #include "os-binder.h"
 #include <time.h>
 
-#ifdef _WIN
+#ifdef _MSC_VER
 #include <direct.h>
 #else
 #include <unistd.h>
@@ -1663,12 +1663,22 @@ static bool isValidCharAfterNumber(const OS_CHAR * str)
 
 bool OS::Core::Tokenizer::parseFloat(const OS_CHAR *& str, OS_FLOAT& fval, bool parse_end_spaces)
 {
+	const OS_CHAR * start = str;
 	if(Utils::parseFloat(str, fval)){
 		if(isValidCharAfterNumber(str)){
 			if(parse_end_spaces){
 				parseSpaces(str);
 			}
 			return true;
+		}
+		for(int i = -1; str+i > start; i--){
+			if(OS_IS_SPACE(str[i])){
+				continue;
+			}
+			if(str[i] == OS_TEXT('.')){
+				str += i;
+				return true;
+			}
 		}
 		if(*str == OS_TEXT('f') && isValidCharAfterNumber(str+1)){
 			str++;
@@ -2425,10 +2435,8 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 		}
 
 	case EXP_TYPE_RETURN:
-		if(list.count > 0){
-			for(i = 0; i < list.count; i++){
-				list[i]->debugPrint(out, compiler, scope, depth+1);
-			}
+		for(i = 0; i < list.count; i++){
+			list[i]->debugPrint(out, compiler, scope, depth+1);
 		}
 		out += String::format(allocator, OS_TEXT("%sreturn: %s (%d), count %d\n"), spaces, 
 			slots.a ? getSlotStr(compiler, scope, slots.a).toChar() : OS_TEXT("{main}"), 
@@ -2461,6 +2469,9 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 				out += String::format(allocator, OS_TEXT("%s%s: %s (%d) = %s (%d)\n"), spaces, exp_name,
 					getSlotStr(compiler, scope, slots.a).toChar(), slots.a, 
 					getSlotStr(compiler, scope, slots.b).toChar(), slots.b);
+			}else if(slots.a){
+				out += String::format(allocator, OS_TEXT("%suse value: %s (%d)\n"), spaces,
+					getSlotStr(compiler, scope, slots.a).toChar(), slots.a);
 			}
 			break;
 		}
@@ -2660,7 +2671,9 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 	case EXP_TYPE_GET_LOCAL_VAR:
 	case EXP_TYPE_GET_LOCAL_VAR_AUTO_CREATE:
 		{
-			OS_ASSERT(list.count == 0);
+			for(i = 0; i < list.count; i++){
+				list[i]->debugPrint(out, compiler, scope, depth);
+			}
 			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type);
 			String info = String::format(allocator, OS_TEXT("(%d %d%s)"),
 				local_var.index, local_var.up_count, 
@@ -2679,6 +2692,7 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 		}
 
 	case EXP_TYPE_SET_PROPERTY:
+	case EXP_TYPE_SET_PROPERTY_NO_POP:
 	case EXP_TYPE_INIT_PROPERTY:
 		{
 			OS_ASSERT(list.count >= 1 && list.count <= 3);
@@ -2783,7 +2797,11 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, ExpressionList& list, bool 
 				if(OS_GET_OPCODE_TYPE(cur) == OP_MOVE){
 					int prev_a = OS_GETARG_A(prev);
 					int cur_a = OS_GETARG_A(cur);
-					if(prev_a+1 == cur_a){
+					if(prev_a == OS_GETARG_B(cur) && cur_a == OS_GETARG_B(prev)){
+						OS_SETARG_B(cur, cur_a); // use value
+						prog_opcodes[prog_opcodes.count - 1] = cur;
+						start = prog_opcodes.count + 1;
+					}else if(prev_a+1 == cur_a){
 						Instruction instruction = OS_FROM_OPCODE_TYPE(OP_MOVE2);
 						OS_SETARG_A(instruction, prev_a);
 						int prev_b = OS_GETARG_B(prev & ~OS_OPCODE_CONST_B);
@@ -3176,6 +3194,7 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 
 	case EXP_TYPE_GET_PROPERTY:
 	case EXP_TYPE_SET_PROPERTY:
+	case EXP_TYPE_SET_PROPERTY_NO_POP:
 	case EXP_TYPE_INIT_PROPERTY:
 
 	case EXP_TYPE_GET_UPVALUE:
@@ -4050,6 +4069,26 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectExpressionValues(Expr
 			return exp;
 		}
 		break;
+
+	case EXP_TYPE_SET_LOCAL_VAR:
+		if(ret_values == 1){
+			exp->type = EXP_TYPE_SET_LOCAL_VAR_NO_POP;
+			exp->ret_values = 1;
+			return exp;
+		}
+		break;
+
+	case EXP_TYPE_SET_PROPERTY:
+		OS_ASSERT(!exp->ret_values);
+		exp->type = EXP_TYPE_SET_PROPERTY_NO_POP;
+		exp->ret_values = 1;
+		break;
+
+	case EXP_TYPE_SET_DIM:
+		OS_ASSERT(!exp->ret_values && ret_values >= 1);
+		exp->type = EXP_TYPE_SET_DIM_NO_POP;
+		exp->ret_values = 1;
+		break;
 	}
 	while(exp->ret_values > ret_values){
 		int new_ret_values = exp->ret_values-1;
@@ -4420,6 +4459,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass2(Scope * sc
 		}
 
 	case EXP_TYPE_SET_DIM:
+	case EXP_TYPE_SET_DIM_NO_POP:
 		{
 			OS_ASSERT(exp->list.count == 3);
 			exp->list[0] = postCompilePass2(scope, exp->list[0]);
@@ -4430,7 +4470,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass2(Scope * sc
 				exp->list[2] = params->list[0];
 				allocator->vectorClear(params->list);
 				allocator->deleteObj(params);
-				exp->type = EXP_TYPE_SET_PROPERTY;
+				exp->type = exp->type == EXP_TYPE_SET_DIM ? EXP_TYPE_SET_PROPERTY : EXP_TYPE_SET_PROPERTY_NO_POP;
 				for(Expression * get_exp = exp->list[1];;){
 					switch(get_exp->type){
 					case EXP_TYPE_GET_PROPERTY:
@@ -4453,6 +4493,43 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass2(Scope * sc
 			}
 			if(params->list.count == 0){
 				// nop
+			}
+			if(exp->type == EXP_TYPE_SET_DIM_NO_POP){
+				exp->type = EXP_TYPE_SET_DIM;
+
+				Expression * exp_value = exp->list[0];
+
+				String temp_var_name = String(allocator, OS_TEXT("#temp"));
+				TokenData * temp_var_token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(tokenizer->getTextData(), 
+					temp_var_name, Tokenizer::NAME, exp_value->token->line, exp_value->token->pos);
+
+				Expression * result_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_CODE_LIST, exp_value->token);
+				Expression * copy_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_SET_LOCAL_VAR, temp_var_token, exp_value OS_DBG_FILEPOS);
+				// OS_ASSERT(!findLocalVar(copy_exp->local_var, scope, temp_var_name, scope->function->num_locals, false));
+				scope->addLocalVar(temp_var_name, copy_exp->local_var);
+				result_exp->list.add(copy_exp OS_DBG_FILEPOS);
+				
+				temp_var_token->release();
+
+				Expression * get_temp_var_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_GET_LOCAL_VAR, temp_var_token);
+				get_temp_var_exp->ret_values = 1;
+				get_temp_var_exp->local_var = copy_exp->local_var;
+
+				result_exp->list.add(get_temp_var_exp OS_DBG_FILEPOS);
+				result_exp->ret_values = 1;
+
+				exp->list[0] = result_exp;
+
+				// result_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_CODE_LIST, exp->token, exp OS_DBG_FILEPOS);
+				get_temp_var_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_GET_LOCAL_VAR, temp_var_token, exp OS_DBG_FILEPOS);
+				get_temp_var_exp->ret_values = 1;
+				get_temp_var_exp->local_var = copy_exp->local_var;
+				return get_temp_var_exp;
+
+				/* result_exp->list.add(get_temp_var_exp OS_DBG_FILEPOS);
+				result_exp->ret_values = 1;
+				result_exp->local_var = copy_exp->local_var;
+				return result_exp; */
 			}
 			break;
 		}
@@ -4493,6 +4570,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass2(Scope * sc
 			Expression * params = exp->list[1];
 			OS_ASSERT(params->type == EXP_TYPE_PARAMS);
 			if(params->list.count == 1){
+				OS_ASSERT(exp->type == EXP_TYPE_CALL_DIM);
 				exp->list[1] = params->list[0];
 				allocator->vectorClear(params->list);
 				allocator->deleteObj(params);
@@ -4631,6 +4709,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass3(Scope * sc
 		break;
 
 	case EXP_TYPE_SET_DIM:
+	case EXP_TYPE_SET_DIM_NO_POP:
 		OS_ASSERT(exp->list.count == 3);
 		OS_ASSERT(exp->list[2]->type == EXP_TYPE_PARAMS);
 		exp->slots.b = cacheString(exp->list[2]->ret_values > 0 ? allocator->core->strings->__setdim : allocator->core->strings->__setempty);
@@ -4762,6 +4841,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 	};
 	Expression * exp1, * exp2, * exp_xconst;
 	int stack_pos, b;
+	bool no_pop;
 	switch(exp->type){
 	default:
 		OS_ASSERT(false);
@@ -4845,7 +4925,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		if(exp->slots.b == 1){
 			OS_ASSERT(exp->list.count == 1);
 			exp1 = exp->list[0];
-			if(exp1->type == EXP_TYPE_MOVE && exp1->slots.b >= 0){
+			if(exp1->type == EXP_TYPE_MOVE && exp1->slots.b >= 0){ // && exp1->slots.a >= scope->function->num_locals){
 				exp->slots.a = exp1->slots.b;
 				exp1->type = EXP_TYPE_NOP;
 			}
@@ -4882,6 +4962,15 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		stack_pos = scope->function->stack_cur_size;
 		exp->list[0] = exp1 = postCompileNewVM(scope, exp->list[0]);
 		OS_ASSERT(stack_pos+1 == scope->function->stack_cur_size);
+		if(exp->list[0]->type == EXP_TYPE_SET_UPVALUE || exp->list[0]->slots.a < scope->function->num_locals){
+			Expression * exp_value = exp->list[0];
+			exp2 = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_MOVE, exp->token);
+			exp2->slots.a = stack_pos;
+			exp2->slots.b = exp_value->type == EXP_TYPE_MOVE || exp_value->type == EXP_TYPE_SET_UPVALUE ? exp_value->slots.b : exp_value->slots.a;
+			exp2->ret_values = 1;
+			exp2->list.add(exp_value OS_DBG_FILEPOS);
+			exp->list[0] = exp2;
+		}
 		scope->popTempVar();
 		exp->list[1] = exp1 = postCompileNewVM(scope, exp->list[1]);
 		OS_ASSERT(stack_pos == scope->function->stack_cur_size);
@@ -4889,7 +4978,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			exp->list[2] = exp1 = postCompileNewVM(scope, exp->list[2]);
 			OS_ASSERT(stack_pos == scope->function->stack_cur_size);
 		}
-		OS_ASSERT(stack_pos == scope->function->stack_cur_size);
 		return exp;
 
 	case EXP_TYPE_QUESTION:
@@ -5332,7 +5420,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 
 	case EXP_TYPE_GET_LOCAL_VAR:
 	case EXP_TYPE_GET_LOCAL_VAR_AUTO_CREATE:
-		OS_ASSERT(exp->list.count == 0);
+		exp = Lib::processList(this, scope, exp);
 		if(exp->local_var.up_count){
 			exp->type = EXP_TYPE_GET_UPVALUE;
 			exp->slots.a = scope->allocTempVar();
@@ -5346,7 +5434,9 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		return exp;
 
 	case EXP_TYPE_SET_LOCAL_VAR:
+	case EXP_TYPE_SET_LOCAL_VAR_NO_POP:
 		OS_ASSERT(exp->list.count == 1);
+		no_pop = exp->type == EXP_TYPE_SET_LOCAL_VAR_NO_POP;
 		stack_pos = scope->function->stack_cur_size;
 		exp = Lib::processList(this, scope, exp);
 		OS_ASSERT(stack_pos < scope->function->stack_cur_size);
@@ -5359,6 +5449,10 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			exp->type = EXP_TYPE_MOVE;
 			exp->slots.a = exp->local_var.index;
 			exp->slots.b = --scope->function->stack_cur_size;
+		}
+		if(no_pop){
+			scope->function->stack_cur_size++;
+			return exp;
 		}
 		exp1 = exp->list[0];
 		if(exp1->type == EXP_TYPE_PARAMS){
@@ -5381,8 +5475,10 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		return exp;
 
 	case EXP_TYPE_SET_PROPERTY:
+	case EXP_TYPE_SET_PROPERTY_NO_POP:
 	case EXP_TYPE_INIT_PROPERTY:
 		OS_ASSERT(exp->list.count == 3);
+		no_pop = exp->type == EXP_TYPE_SET_PROPERTY_NO_POP;
 		stack_pos = scope->function->stack_cur_size;
 		exp = Lib::processList(this, scope, exp);
 		OS_ASSERT(stack_pos+3 <= scope->function->stack_cur_size);
@@ -5405,6 +5501,13 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		if(exp1->type == EXP_TYPE_MOVE){
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
+		}
+		if(no_pop){
+			Expression * exp_value = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_MOVE, exp->token, exp OS_DBG_FILEPOS);
+			exp_value->slots.a = scope->allocTempVar();
+			exp_value->slots.b = exp->slots.c;
+			exp_value->ret_values = 1;
+			return exp_value;
 		}
 		return exp;
 
@@ -5703,6 +5806,9 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectObjectOrFunctionExpre
 	}
 	if(recent_token->type == Tokenizer::OPERATOR_BIT_OR || recent_token->type == Tokenizer::OPERATOR_LOGIC_OR){ // {|| - no params
 		Expression * exp = expectFunctionSugarExpression(scope); // {|x, x2| x*x2}
+		if(!exp){
+			return NULL;
+		}
 		// TODO: process org_p, allow_finish_exp ?
 		return allow_finish_exp ? finishValueExpression(scope, exp, org_p) : exp;
 		// return exp;
@@ -6632,7 +6738,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectForExpression(Scope *
 			String assing_operator(allocator, OS_TEXT("="));
 			TokenData * assign_token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(tokenizer->getTextData(), assing_operator, Tokenizer::OPERATOR_ASSIGN, exp->token->line, exp->token->pos);
 			exp = newBinaryExpression(scope, EXP_TYPE_ASSIGN, assign_token, params, exp);
-			OS_ASSERT(exp && exp->type == EXP_TYPE_SET_LOCAL_VAR && !exp->ret_values);
+			OS_ASSERT(exp && (exp->type == EXP_TYPE_SET_LOCAL_VAR && exp->ret_values == 0 
+				|| exp->type == EXP_TYPE_SET_LOCAL_VAR_NO_POP && exp->ret_values == 1));
 			assign_token->release();
 
 			list.add(exp OS_DBG_FILEPOS); exp = NULL;
@@ -6689,7 +6796,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectForExpression(Scope *
 			TokenData * assign_token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(tokenizer->getTextData(), assing_operator, 
 				Tokenizer::OPERATOR_ASSIGN, loop_scope->token->line, loop_scope->token->pos);
 			exp = newBinaryExpression(scope, EXP_TYPE_ASSIGN, assign_token, params, call_exp);
-			OS_ASSERT(exp && exp->type == EXP_TYPE_SET_LOCAL_VAR && !exp->ret_values);
+			OS_ASSERT(exp && (exp->type == EXP_TYPE_SET_LOCAL_VAR && exp->ret_values == 0 
+				|| exp->type == EXP_TYPE_SET_LOCAL_VAR_NO_POP && exp->ret_values == 1));
 			assign_token->release();
 
 			loop_scope->list.add(exp OS_DBG_FILEPOS); exp = NULL;
@@ -6933,11 +7041,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectIfExpression(Scope * 
 	if(!if_exp){
 		return NULL;
 	}
-	if(if_exp->ret_values < 1){
-		setError(ERROR_EXPECT_VALUE, token);
-		allocator->deleteObj(if_exp);
-		return NULL;
-	}
 	if_exp = expectExpressionValues(if_exp, 1);
 	if(!recent_token || recent_token->type != Tokenizer::END_BRACKET_BLOCK){
 		setError(Tokenizer::END_BRACKET_BLOCK, recent_token);
@@ -7019,6 +7122,12 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectReturnExpression(Scop
 	if(!exp){
 		allocator->deleteObj(ret_exp);
 		return NULL;
+	}
+	switch(exp->type){
+	case EXP_TYPE_SET_LOCAL_VAR:
+	case EXP_TYPE_SET_PROPERTY:
+	case EXP_TYPE_SET_DIM:
+		exp = expectExpressionValues(exp, 1);
 	}
 	if(exp->type == EXP_TYPE_PARAMS){
 		ret_exp->list.swap(exp->list);
@@ -7155,6 +7264,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::newBinaryExpression(Scope *
 				}
 			}
 			allocator->deleteObj(left_exp);
+			OS_ASSERT(values_exp->ret_values == 0);
 			return values_exp;
 		}
 	}
@@ -7296,7 +7406,9 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::newAssingExpression(Scope *
 			return NULL;
 		}
 	}
-	return new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_ASSIGN, var_exp->token, var_exp, value_exp OS_DBG_FILEPOS);
+	var_exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_ASSIGN, var_exp->token, var_exp, value_exp OS_DBG_FILEPOS);
+	var_exp->ret_values = 1;
+	return var_exp;
 }
 
 OS::Core::Compiler::Expression * OS::Core::Compiler::finishBinaryOperator(Scope * scope, OpcodeLevel prev_level, Expression * exp, 
@@ -7340,6 +7452,9 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::finishBinaryOperator(Scope 
 	ExpressionType right_exp_type = getExpressionType(recent_token->type);
 	OpcodeLevel left_level = getOpcodeLevel(left_exp_type);
 	OpcodeLevel right_level = getOpcodeLevel(right_exp_type);
+	if(left_exp_type == EXP_TYPE_ASSIGN && right_exp_type == EXP_TYPE_ASSIGN){
+		right_level = (OpcodeLevel)(right_level + 1);
+	}
 	if(left_level == right_level){
 		exp = newBinaryExpression(scope, left_exp_type, binary_operator, exp, exp2);
 		return finishBinaryOperator(scope, prev_level, exp, p, is_finished);
@@ -7495,7 +7610,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::finishValueExpression(Scope
 			return NULL;
 
 		case Tokenizer::OPERATOR_ASSIGN: // =
-			if(!p.allow_assing){ // allow_binary_operator){
+			if(!p.allow_binary_operator){ // allow_assing){ // allow_binary_operator){
 				return exp;
 			}
 			exp = finishBinaryOperator(scope, OP_LEVEL_NOTHING, exp, Params(p).setAllowAssign(false), is_finished);
@@ -7512,6 +7627,14 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::finishValueExpression(Scope
 			return exp;
 
 		case Tokenizer::BEGIN_CODE_BLOCK: // {
+			switch(exp->type){
+			case EXP_TYPE_CONST_NUMBER:
+			case EXP_TYPE_CONST_STRING:
+			case EXP_TYPE_CONST_FALSE:
+			case EXP_TYPE_CONST_TRUE:
+			case EXP_TYPE_CONST_NULL:
+				return exp;
+			}
 			exp2 = expectObjectOrFunctionExpression(scope, p, false);
 			if(!exp2){
 				allocator->deleteObj(exp);
@@ -8225,6 +8348,7 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 		return OS_TEXT("indirect");
 
 	case EXP_TYPE_SET_PROPERTY:
+	case EXP_TYPE_SET_PROPERTY_NO_POP:
 		return OS_TEXT("set property");
 
 	case EXP_TYPE_INIT_PROPERTY:
@@ -8253,6 +8377,9 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 
 	case EXP_TYPE_SET_DIM:
 		return OS_TEXT("set dim");
+
+	case EXP_TYPE_SET_DIM_NO_POP:
+		return OS_TEXT("set dim no pop");
 
 	case EXP_TYPE_POP_VALUE:
 		return OS_TEXT("pop");
@@ -8320,6 +8447,9 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 
 	case EXP_TYPE_SET_LOCAL_VAR:
 		return OS_TEXT("set local var");
+
+	case EXP_TYPE_SET_LOCAL_VAR_NO_POP:
+		return OS_TEXT("set local var no pop");
 
 	case EXP_TYPE_SET_LOCAL_VAR_BY_BIN_OPERATOR_LOCALS:
 		return OS_TEXT("set local var by bin operator locals");
@@ -8942,6 +9072,7 @@ OS::Core::OpcodeType OS::Core::Program::getOpcodeType(Compiler::ExpressionType e
 	case Compiler::EXP_TYPE_GET_PROPERTY: return OP_GET_PROPERTY;
 	case Compiler::EXP_TYPE_SET_PROPERTY: return OP_SET_PROPERTY;
 	case Compiler::EXP_TYPE_INIT_PROPERTY: return OP_INIT_PROPERTY;
+	case Compiler::EXP_TYPE_SET_PROPERTY_NO_POP: return OP_SET_PROPERTY;
 
 	case Compiler::EXP_TYPE_GET_UPVALUE: return OP_GET_UPVALUE;
 	case Compiler::EXP_TYPE_SET_UPVALUE: return OP_SET_UPVALUE;
@@ -9664,11 +9795,11 @@ bool OS::Core::PropertyIndex::isEqual(const PropertyIndex& b) const
 	case OS_VALUE_TYPE_NULL:
 		return OS_VALUE_TYPE(b.index) == OS_VALUE_TYPE_NULL;
 
-		// case OS_VALUE_TYPE_BOOL:
-		//	return b.index.type == OS_VALUE_TYPE_BOOL && index.v.boolean == b.index.v.boolean;
+	case OS_VALUE_TYPE_BOOL:
+		return OS_VALUE_TYPE(b.index) == OS_VALUE_TYPE_BOOL && OS_VALUE_VARIANT(index).boolean == OS_VALUE_VARIANT(b.index).boolean;
 
 	case OS_VALUE_TYPE_NUMBER:
-		return OS_VALUE_TYPE(b.index) == OS_VALUE_TYPE_NUMBER && OS_VALUE_NUMBER(index) == OS_VALUE_NUMBER(b.index);
+		return OS_IS_VALUE_NUMBER(b.index) && OS_VALUE_NUMBER(index) == OS_VALUE_NUMBER(b.index);
 	}
 	return type == OS_VALUE_TYPE(b.index) && OS_VALUE_VARIANT(index).value == OS_VALUE_VARIANT(b.index).value;
 }
@@ -9735,6 +9866,12 @@ template <> int getNumberHash<int>(int t)
 int OS::Core::PropertyIndex::getHash() const
 {
 	switch(OS_VALUE_TYPE(index)){
+	case OS_VALUE_TYPE_NULL:
+		return 0;
+
+	case OS_VALUE_TYPE_BOOL:
+		return OS_VALUE_VARIANT(index).boolean;
+
 	case OS_VALUE_TYPE_NUMBER:
 		{
 			union { 
@@ -9749,7 +9886,7 @@ int OS::Core::PropertyIndex::getHash() const
 		return OS_VALUE_VARIANT(index).string->hash;
 	}
 	// all other values share same area with index.v.value so just use it as hash
-	return (int)(ptrdiff_t)OS_VALUE_VARIANT(index).value;
+	return OS_PTR_HASH(OS_VALUE_VARIANT(index).value);
 }
 
 // =====================================================================
@@ -19977,7 +20114,11 @@ void OS::initProcessModule()
 		static int mkdir(OS * os, int params, int, int, void*)
 		{
 			if(params >= 1){
+#ifdef _MSC_VER
+				os->pushBool(OS_MKDIR(os->toString(-params).toChar()) == 0);
+#else
 				os->pushBool(OS_MKDIR(os->toString(-params).toChar(), 0755) == 0);
+#endif
 				return 1;
 			}
 			return 0;
