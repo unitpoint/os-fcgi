@@ -489,8 +489,8 @@ void * doit(void * a)
 {
     int listen_socket = (int)(ptrdiff_t)a;
 
-    FCGX_Request request;
-    if(FCGX_InitRequest(&request, listen_socket, 0)){
+    FCGX_Request * request = new FCGX_Request();
+    if(FCGX_InitRequest(request, listen_socket, 0)){
 		printf("error init request \n");
 		exit(1);
 	}
@@ -503,21 +503,32 @@ void * doit(void * a)
 #ifndef _MSC_VER
 		pthread_mutex_lock(&accept_mutex);
 #endif		
-		int rc = FCGX_Accept_r(&request);
+		int rc = FCGX_Accept_r(request);
 #ifndef _MSC_VER
 		pthread_mutex_unlock(&accept_mutex);
 #endif
 		if(rc){
-			printf("error accept code: %d\n", rc);
+			// TODO: log error
+			printf("Error accept code: %d\n", rc);
 			exit(1);
 		}
 
+		/*
+			TODO: need to fork request but FCGX_Detach & FCGX_Attach are not fully implemented
+
+		FCGX_Detach(request);
+		fork();
+		FCGX_Attach(request);
+		*/
+
 		FCGX_OS * os = OS::create(new FCGX_OS());
-		os->processRequest(&request);
+		os->processRequest(request);
         os->release();
 
-		FCGX_Finish_r(&request);
+		FCGX_Finish_r(request);
     }
+	// we are not here
+	delete request;
 }
 
 #ifndef _MSC_VER
