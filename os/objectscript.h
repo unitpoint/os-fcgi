@@ -154,7 +154,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("1.0.2-dev")
+#define OS_VERSION OS_TEXT("1.0.3-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_DEBUGINFO_HEADER OS_TEXT("OBJECTSCRIPT.DEBUGINFO")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
@@ -162,8 +162,7 @@ inline void operator delete(void *, void *){}
 #define OS_EXT_TEMPLATE_HTML OS_TEXT(".html")
 #define OS_EXT_TEMPLATE_HTM OS_TEXT(".htm")
 #define OS_EXT_COMPILED OS_TEXT(".osc")
-#define OS_EXT_DEBUG_INFO OS_TEXT(".osd")
-#define OS_EXT_DEBUG_OPCODES OS_TEXT(".txt")
+#define OS_EXT_TEXT_OPCODES OS_TEXT(".txt")
 
 #define OS_MEMORY_MANAGER_PAGE_BLOCKS 32
 
@@ -229,8 +228,8 @@ namespace ObjectScript
 
 	enum OS_ESettings
 	{
-		OS_SETTING_CREATE_DEBUG_OPCODES,
-		OS_SETTING_CREATE_DEBUG_EVAL_OPCODES,
+		OS_SETTING_CREATE_TEXT_OPCODES,
+		OS_SETTING_CREATE_TEXT_EVAL_OPCODES,
 		OS_SETTING_CREATE_DEBUG_INFO,
 		OS_SETTING_CREATE_COMPILED_FILE,
 		OS_SETTING_PRIMARY_COMPILED_FILE,
@@ -251,7 +250,7 @@ namespace ObjectScript
 
 		// internal
 		OS_VALUE_TYPE_WEAKREF,
-		OS_VALUE_TYPE_UNKNOWN,
+		OS_VALUE_TYPE_UNKNOWN
 	};
 
 	enum OS_ESourceCodeType
@@ -424,6 +423,9 @@ namespace ObjectScript
 
 			PageDesc page_desc[MAX_PAGE_TYPE_COUNT];
 			int num_page_desc;
+
+			int * page_map;
+			int page_map_size;
 
 			Page * pages[MAX_PAGE_TYPE_COUNT];
 
@@ -736,6 +738,7 @@ namespace ObjectScript
 				
 				int getSize() const;
 
+				void clear();
 				void reserveCapacity(int new_capacity);
 
 				void writeBytes(const void*, int len);
@@ -1288,6 +1291,7 @@ namespace ObjectScript
 				GCValue * hash_next;
 
 				Table * table;
+				GCStringValue * name;
 
 				GCValue * gc_grey_next;
 #ifdef OS_DEBUG
@@ -1400,7 +1404,6 @@ namespace ObjectScript
 
 			struct GCCFunctionValue: public GCValue
 			{
-				GCStringValue * name;
 				OS_CFunction func;
 				void * user_param;
 				int num_closure_values;
@@ -1572,7 +1575,6 @@ namespace ObjectScript
 				FunctionDecl * func_decl;
 				Value env;
 				Locals * locals; // retained
-				GCStringValue * name;
 
 				GCFunctionValue();
 				~GCFunctionValue();
@@ -1580,20 +1582,19 @@ namespace ObjectScript
 
 			struct PropertyIndex
 			{
-				struct KeepStringIndex
+				struct AutoNumber
 				{
-					KeepStringIndex(){}
+					AutoNumber(){}
 				};
 
 				Value index;
 
 				PropertyIndex(const PropertyIndex& index);
 				PropertyIndex(const Value& index);
-				PropertyIndex(const Value& index, const KeepStringIndex&);
 				PropertyIndex(GCStringValue * index);
-				PropertyIndex(GCStringValue * index, const KeepStringIndex&);
+				PropertyIndex(GCStringValue * index, const AutoNumber&);
 				PropertyIndex(const String& index);
-				PropertyIndex(const String& index, const KeepStringIndex&);
+				PropertyIndex(const String& index, const AutoNumber&);
 
 				void convertIndexStringToNumber();
 
@@ -1612,9 +1613,10 @@ namespace ObjectScript
 
 				Property(const PropertyIndex& index);
 				Property(const Value& index);
-				Property(const Value& index, const KeepStringIndex&);
 				Property(GCStringValue * index);
-				Property(GCStringValue * index, const KeepStringIndex&);
+				Property(GCStringValue * index, const AutoNumber&);
+				Property(const String& index);
+				Property(const String& index, const AutoNumber&);
 				~Property();
 			};
 
@@ -1744,6 +1746,7 @@ namespace ObjectScript
 					EXP_TYPE_GET_ENV_VAR,
 					EXP_TYPE_GET_ENV_VAR_AUTO_CREATE,
 					EXP_TYPE_SET_ENV_VAR,
+					EXP_TYPE_SET_ENV_VAR_NO_POP,
 
 					EXP_TYPE_INDIRECT, // temp
 
@@ -2064,16 +2067,21 @@ namespace ObjectScript
 				int recent_printed_line;
 
 				// code generation
+				struct DebugInfoItem
+				{
+					OS_U32 line;
+					OS_U32 pos;
+					DebugInfoItem(int line, int pos);
+				};
+
 				Table * prog_numbers_table;
 				Table * prog_strings_table;
-				Table * prog_debug_strings_table;
 				Vector<OS_NUMBER> prog_numbers;
 				Vector<String> prog_strings;
-				Vector<String> prog_debug_strings;
 				Vector<Scope*> prog_functions;
 				Vector<OS_U32> prog_opcodes;
-				MemStreamWriter * prog_debug_info;
-				int prog_num_debug_infos;
+				Vector<DebugInfoItem> prog_debug_info;
+				int prog_filename_string_index;
 				int prog_max_up_count;
 
 				bool isError();
@@ -2205,7 +2213,7 @@ namespace ObjectScript
 				bool writeOpcodesOld(Scope*, Expression*);
 				bool writeOpcodesOld(Scope*, ExpressionList&);
 				void writeDebugInfo(Expression*);
-				bool saveToStream(StreamWriter * writer, StreamWriter * debug_info_writer);
+				bool saveToStream(StreamWriter * writer);
 
 			public:
 
@@ -2279,15 +2287,12 @@ namespace ObjectScript
 				int num_functions;
 
 				Vector<OS_U32> opcodes;
-
+				
 				struct DebugInfoItem
 				{
-					int opcode_pos;
-					int line;
-					int pos;
-					String token;
-
-					DebugInfoItem(int opcode_pos, int line, int pos, const String&);
+					OS_U32 line;
+					OS_U32 pos;
+					DebugInfoItem(int line, int pos);
 				};
 				Vector<DebugInfoItem> debug_info;
 
@@ -2298,7 +2303,7 @@ namespace ObjectScript
 
 				static OpcodeType getOpcodeType(Compiler::ExpressionType);
 
-				bool loadFromStream(StreamReader * reader, StreamReader * debuginfo_reader);
+				bool loadFromStream(StreamReader * reader);
 				DebugInfoItem * getDebugInfo(int opcode_pos);
 
 				void pushStartFunction();
@@ -2607,8 +2612,8 @@ namespace ObjectScript
 			int gc_step_size;
 
 			struct {
-				bool create_debug_opcodes;
-				bool create_debug_eval_opcodes;
+				bool create_text_opcodes;
+				bool create_text_eval_opcodes;
 				bool create_debug_info;
 				bool create_compiled_file;
 				bool primary_compiled_file;
@@ -2930,6 +2935,7 @@ namespace ObjectScript
 			typedef Core::String super;
 			friend class Core;
 			friend class Buffer;
+			friend class OS;
 
 		protected:
 
@@ -3035,6 +3041,7 @@ namespace ObjectScript
 		void setPrototype(int userdata_crc);
 
 		int getValueId(int offs = -1);
+		String getValueName(int offs = -1);
 
 		void pushNull();
 		template<class T> void pushNumber(const T& val){ core->pushNumber(val); }
@@ -3087,6 +3094,7 @@ namespace ObjectScript
 		bool isObject(int offs = -1);
 		bool isArray(int offs = -1);
 		bool isFunction(int offs = -1);
+		bool isUserdata(int offs = -1);
 		bool isUserdata(int crc, int offs, int prototype_crc = 0);
 		bool isPrototypeOf(int value_offs = -2, int prototype_offs = -1);
 		bool is(int value_offs = -2, int prototype_offs = -1);
@@ -3176,6 +3184,7 @@ namespace ObjectScript
 		void getModule(const OS_CHAR * name, bool getter_enabled = true, bool prototype_enabled = true);
 
 		bool nextIteratorStep(int results = 2);
+		bool nextIteratorStep(int results, const Core::String& iter_func);
 
 		String changeFilenameExt(const String& filename, const String& ext);
 		String changeFilenameExt(const String& filename, const OS_CHAR * ext);
@@ -3196,8 +3205,7 @@ namespace ObjectScript
 		String resolvePath(const String& filename);
 		virtual String resolvePath(const String& filename, const String& cur_path);
 		virtual String getCompiledFilename(const String& resolved_filename);
-		virtual String getDebugInfoFilename(const String& resolved_filename);
-		virtual String getDebugOpcodesFilename(const String& resolved_filename);
+		virtual String getTextOpcodesFilename(const String& resolved_filename);
 
 		virtual OS_EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename);
 

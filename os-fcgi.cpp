@@ -76,11 +76,11 @@ public:
 	void initPreScript()
 	{
 #if defined _MSC_VER && defined OS_DEBUG
-		setSetting(OS_SETTING_CREATE_DEBUG_EVAL_OPCODES, false);
-		setSetting(OS_SETTING_CREATE_DEBUG_OPCODES, true);
+		setSetting(OS_SETTING_CREATE_TEXT_EVAL_OPCODES, false);
+		setSetting(OS_SETTING_CREATE_TEXT_OPCODES, true);
 #else
-		setSetting(OS_SETTING_CREATE_DEBUG_EVAL_OPCODES, false);
-		setSetting(OS_SETTING_CREATE_DEBUG_OPCODES, false);
+		setSetting(OS_SETTING_CREATE_TEXT_EVAL_OPCODES, false);
+		setSetting(OS_SETTING_CREATE_TEXT_OPCODES, false);
 #endif
 		setSetting(OS_SETTING_CREATE_DEBUG_INFO, true);
 		setSetting(OS_SETTING_CREATE_COMPILED_FILE, true);
@@ -155,7 +155,7 @@ public:
 			FCGX_OS * os = (FCGX_OS*)p_os;
 			int offs = os->getAbsoluteOffs(-params);
 			os->pushValueById(os->shutdown_funcs_id);
-			for(int i = 0; i < params; i++){
+			for(int i = params-1; i >= 0; i--){
 				os->pushStackValue();
 				os->pushStackValue(offs+i);
 				os->pushStackValue();
@@ -247,21 +247,24 @@ public:
 
 	void triggerShutdownFunctions()
 	{
+		resetTerminated();
+		String iter_func(this, "reverseIter");
 		pushValueById(shutdown_funcs_id);
-		Core::Value list = core->getStackValue(-1);
-		Core::GCValue * obj = list.getGCValue();
-		OS_ASSERT(OS_VALUE_TYPE(list) == OS_VALUE_TYPE_OBJECT && obj);
-		if(obj->table && obj->table->count){
-			Core::Property * prop = obj->table->last;
-			for(; prop; prop = prop->prev){
-				if(prop->value.isFunction()){
-					core->pushValue(prop->value);
-					pushNull();
-					call();
-				}
+		while(nextIteratorStep(2, iter_func)){
+			if(isFunction()){
+				pushStackValue();
+				pushNull();
+				call();
 			}
+			pop(2);
 		}
 		pop();
+		
+		// reset shutdown_funcs_id
+		pushValueById(shutdown_funcs_id);
+		getProperty(-1, "clear");
+		pushValueById(shutdown_funcs_id);
+		call();
 	}
 
 	void initGlobalFunctions()
@@ -385,14 +388,14 @@ public:
 		getGlobal("_SERVER");
 		getProperty("SCRIPT_FILENAME");
 		String script_filename = popString();
-		if(script_filename.getLen() == 0){
+		if(script_filename.isEmpty()){
 			if(!header_sent){
 				header_sent = true;
 				FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
 			}
 			FCGX_PutS("Filename is not defined", request->out);
 		}else{
-			if(getFilename(script_filename).getLen() == 0){
+			if(getFilename(script_filename).isEmpty()){
 				String new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_TEMPLATE;
 				if(!isFileExist(new_script_filename)){
 					new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_SOURCECODE;
@@ -404,17 +407,18 @@ public:
 			String ext = getFilenameExt(script_filename);
 			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
 				require(script_filename, true);
+				triggerShutdownFunctions();
 				if(!header_sent){
 					header_sent = true;
 					FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
+					FCGX_PutS("<h1>Server is just ready to use ObjectScript</h1>", request->out);
 				}
 			}else{
 				if(!header_sent){
 					header_sent = true;
 					FCGX_PutS("Content-type: ", request->out);
 					FCGX_PutS(getContentType(ext), request->out);
-					FCGX_PutS("\r\n", request->out);
-					FCGX_PutS("\r\n", request->out);
+					FCGX_PutS("\r\n\r\n", request->out);
 				}
 				void * f = openFile(script_filename, "rb");
 				if(f){
