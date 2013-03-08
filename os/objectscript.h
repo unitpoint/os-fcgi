@@ -2,7 +2,7 @@
 #define __OBJECT_SCRIPT_H__
 
 /******************************************************************************
-* Copyright (C) 2012 Evgeniy Golovin (evgeniy.golovin@unitpoint.ru)
+* Copyright (C) 2012-2013 Evgeniy Golovin (evgeniy.golovin@unitpoint.ru)
 *
 * Latest source code: https://github.com/unitpoint/objectscript
 *
@@ -154,7 +154,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("1.0.3-dev")
+#define OS_VERSION OS_TEXT("1.2.2-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_DEBUGINFO_HEADER OS_TEXT("OBJECTSCRIPT.DEBUGINFO")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
@@ -488,6 +488,8 @@ namespace ObjectScript
 
 		class String;
 		class ObjectScriptExtention;
+		
+		struct FileHandle {};
 
 	protected:
 
@@ -752,7 +754,7 @@ namespace ObjectScript
 			{
 			public:
 
-				void * f;
+				FileHandle * f;
 
 				FileStreamWriter(OS*, const OS_CHAR * filename);
 				~FileStreamWriter();
@@ -853,7 +855,7 @@ namespace ObjectScript
 			{
 			public:
 
-				void * f;
+				FileHandle * f;
 
 				FileStreamReader(OS*, const OS_CHAR * filename);
 				~FileStreamReader();
@@ -981,7 +983,7 @@ namespace ObjectScript
 			protected:
 
 				OS * os;
-				void * f;
+				FileHandle * f;
 
 			public:
 
@@ -1244,7 +1246,7 @@ namespace ObjectScript
 			typedef Tokenizer::TextData TextData;
 
 			struct Property;
-			struct PropertyIndex;
+			struct Value;
 			struct Table
 			{
 				struct IteratorState
@@ -1269,7 +1271,7 @@ namespace ObjectScript
 				Table();    
 				~Table();
 
-				Property * get(const PropertyIndex& index);
+				Property * get(const Value& index);
 
 				bool containsIterator(IteratorState*);
 				void addIterator(IteratorState*);
@@ -1413,17 +1415,29 @@ namespace ObjectScript
 
 			struct WeakRef { WeakRef(){} };
 
+#if defined(_MSC_VER) && defined(_M_IX86) && !defined(OS_NUMBER_TO_INT_ASM_DISABLED)
+#define OS_NUMBER_TO_INT(i, _n) do { OS_FLOAT n = (OS_FLOAT)(_n); __asm { __asm fld n __asm fistp i } }while(false)
+#else
+#define OS_NUMBER_TO_INT(i, n) i = (int)(n)
+#endif
+
 /* Microsoft compiler on a Pentium (32 bit) ? */
 #if defined(_MSC_VER) && defined(_M_IX86)
 
 #define OS_NUMBER_IEEEENDIAN	0
+
+#ifndef OS_NUMBER_NAN_TRICK_DISABLED
 #define OS_NUMBER_NAN_TRICK
+#endif // OS_NUMBER_NAN_TRICK_DISABLED
 
 /* pentium 32 bits? */
 #elif defined(__i386__) || defined(__i386) || defined(__X86__)
 
 #define OS_NUMBER_IEEEENDIAN	1
+
+#ifndef OS_NUMBER_NAN_TRICK_DISABLED
 #define OS_NUMBER_NAN_TRICK
+#endif // OS_NUMBER_NAN_TRICK_DISABLED
 
 #elif defined(__x86_64)
 
@@ -1580,43 +1594,22 @@ namespace ObjectScript
 				~GCFunctionValue();
 			};
 
-			struct PropertyIndex
-			{
-				struct AutoNumber
-				{
-					AutoNumber(){}
-				};
+			static bool isEqual(const Value& index, int hash, const void * b, int size);
+			static bool isEqual(const Value& index, int hash, const void * buf1, int size1, const void * buf2, int size2) ;
+			static int getValueHash(const Value& index);
 
+			struct Property
+			{
 				Value index;
-
-				PropertyIndex(const PropertyIndex& index);
-				PropertyIndex(const Value& index);
-				PropertyIndex(GCStringValue * index);
-				PropertyIndex(GCStringValue * index, const AutoNumber&);
-				PropertyIndex(const String& index);
-				PropertyIndex(const String& index, const AutoNumber&);
-
-				void convertIndexStringToNumber();
-
-				bool isEqual(const PropertyIndex& b) const;
-				bool isEqual(int hash, const void * b, int size) const;
-				bool isEqual(int hash, const void * buf1, int size1, const void * buf2, int size2) const;
-				int getHash() const;
-			};
-
-			struct Property: public PropertyIndex
-			{
 				Value value;
 
 				Property * hash_next;
 				Property * prev, * next;
 
-				Property(const PropertyIndex& index);
 				Property(const Value& index);
+				Property(const Value& index, const Value& value);
 				Property(GCStringValue * index);
-				Property(GCStringValue * index, const AutoNumber&);
 				Property(const String& index);
-				Property(const String& index, const AutoNumber&);
 				~Property();
 			};
 
@@ -2470,6 +2463,8 @@ namespace ObjectScript
 				String func_concat;
 				String func_echo;
 				String func_require;
+				String func_core;
+				String func_main;
 
 				String typeof_null;
 				String typeof_boolean;
@@ -2609,6 +2604,7 @@ namespace ObjectScript
 			float gc_step_size_mult;
 			float gc_step_size_auto_mult;
 			int gc_start_next_values;
+			int gc_start_used_bytes;
 			int gc_step_size;
 
 			struct {
@@ -2770,7 +2766,7 @@ namespace ObjectScript
 
 			// binary operator
 			void pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value);
-			bool isEqualExactly(const Value& left_value, const Value& right_value);
+			static bool isEqualExactly(const Value& left_value, const Value& right_value);
 
 			void setGlobalValue(const String& name, Value value, bool setter_enabled);
 			void setGlobalValue(const OS_CHAR * name, Value value, bool setter_enabled);
@@ -2822,11 +2818,11 @@ namespace ObjectScript
 			void clearTable(Table*);
 			void deleteTable(Table*);
 			void addTableProperty(Table * table, Property * prop);
-			Property * removeTableProperty(Table * table, const PropertyIndex& index);
-			void changePropertyIndex(Table * table, Property * prop, const PropertyIndex& new_index);
-			bool deleteTableProperty(Table * table, const PropertyIndex& index);
-			void deleteValueProperty(GCValue * table_value, const PropertyIndex& index, bool del_enabled, bool prototype_enabled);
-			void deleteValueProperty(const Value& table_value, const PropertyIndex& index, bool del_enabled, bool prototype_enabled);
+			Property * removeTableProperty(Table * table, const Value& index);
+			void changePropertyIndex(Table * table, Property * prop, const Value& new_index);
+			bool deleteTableProperty(Table * table, const Value& index);
+			void deleteValueProperty(GCValue * table_value, Value index, bool del_enabled, bool prototype_enabled);
+			void deleteValueProperty(const Value& table_value, const Value& index, bool del_enabled, bool prototype_enabled);
 			
 			void copyTableProperties(Table * dst, Table * src);
 			void copyTableProperties(GCValue * dst_value, GCValue * src_value, bool setter_enabled);
@@ -2853,20 +2849,16 @@ namespace ObjectScript
 
 			static int compareUserReverse(OS*, const void*, const void*, void*);
 
-			bool hasSpecialPrefix(const Value&);
+			Property * setTableValue(Table * table, const Value& index, const Value& val);
+			void setPropertyValue(GCValue * table_value, const Value& index, Value val, bool setter_enabled);
+			void setPropertyValue(const Value& table_value, const Value& index, const Value& val, bool setter_enabled);
 
-			Property * setTableValue(Table * table, const PropertyIndex& index, Value val);
-			void setPropertyValue(GCValue * table_value, const PropertyIndex& index, Value val, bool setter_enabled);
-			void setPropertyValue(const Value& table_value, const PropertyIndex& index, const Value& val, bool setter_enabled);
+			bool getPropertyValue(Value& result, GCValue * table_value, const Value& index, bool prototype_enabled);
+			bool getPropertyValue(Value& result, const Value& table_value, const Value& index, bool prototype_enabled);
 
-			bool getPropertyValue(Value& result, Table * table, const PropertyIndex& index);
-			bool getPropertyValue(Value& result, GCValue * table_value, const PropertyIndex& index, bool prototype_enabled);
-			bool getPropertyValue(Value& result, const Value& table_value, const PropertyIndex& index, bool prototype_enabled);
-
-			bool hasProperty(GCValue * table_value, const PropertyIndex& index, bool getter_enabled, bool prototype_enabled);
-			void pushPropertyValue(GCValue * table_value, const PropertyIndex& index, bool getter_enabled, bool prototype_enabled);
-			void pushPropertyValueForPrimitive(Value self, const PropertyIndex& index, bool getter_enabled, bool prototype_enabled);
-			void pushPropertyValue(Value table_value, const PropertyIndex& index, bool getter_enabled, bool prototype_enabled);
+			bool hasProperty(GCValue * table_value, Value index, bool getter_enabled, bool prototype_enabled);
+			void pushPropertyValue(GCValue * table_value, const Value& index, bool getter_enabled, bool prototype_enabled);
+			void pushPropertyValue(const Value& table_value, const Value& index, bool getter_enabled, bool prototype_enabled);
 
 			void setPrototype(const Value& val, const Value& proto, int userdata_crc);
 			void pushPrototype(const Value& val);
@@ -2915,6 +2907,7 @@ namespace ObjectScript
 		void initFileClass();
 		void initExceptionClass();
 		void initProcessModule();
+		void initPathModule();
 		void initMathModule();
 		void initGCModule();
 		void initLangTokenizerModule();
@@ -3005,6 +2998,7 @@ namespace ObjectScript
 		void setException(const OS_CHAR*);
 		void setException(const Core::String&);
 		void handleException();
+		void resetException();
 
 		void getProperty(bool getter_enabled = true, bool prototype_enabled = true);
 		void getProperty(const OS_CHAR*, bool getter_enabled = true, bool prototype_enabled = true);
@@ -3147,7 +3141,7 @@ namespace ObjectScript
 		virtual void require(const String& filename, bool required = false, int ret_values = 0, OS_ESourceCodeType source_code_type = OS_SOURCECODE_AUTO, bool check_utf8_bom = true);
 
 		// return next gc phase
-		int gc();
+		int gcStep();
 		void gcFull();
 
 		struct FuncDef {
@@ -3213,12 +3207,12 @@ namespace ObjectScript
 
 		virtual bool isFileExist(const OS_CHAR * filename);
 		virtual int getFileSize(const OS_CHAR * filename);
-		virtual int getFileSize(void * f);
-		virtual void * openFile(const OS_CHAR * filename, const OS_CHAR * mode);
-		virtual int readFile(void * buf, int size, void * f);
-		virtual int writeFile(const void * buf, int size, void * f);
-		virtual int seekFile(void * f, int offset, int whence);
-		virtual void closeFile(void * f);
+		virtual int getFileSize(FileHandle * f);
+		virtual FileHandle * openFile(const OS_CHAR * filename, const OS_CHAR * mode);
+		virtual int readFile(void * buf, int size, FileHandle * f);
+		virtual int writeFile(const void * buf, int size, FileHandle * f);
+		virtual int seekFile(FileHandle * f, int offset, int whence);
+		virtual void closeFile(FileHandle * f);
 
 		virtual void echo(const void * buf, int size);
 		void echo(const OS_CHAR * str);

@@ -41,6 +41,7 @@ protected:
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
+			core->gc_start_used_bytes = 32*1024*1024;
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
 			return true;
 		}
@@ -279,22 +280,23 @@ public:
 		pop();
 	}
 
-	bool gcStepIfNeeded()
+	/* bool gcStepIfNeeded()
 	{
 		if(getAllocatedBytes() > 32*1024*1024){
 			return OS::gcStepIfNeeded();
 		}
 		return false;
-	}
+	} */
 
 	void processRequest(FCGX_Request * p_request)
 	{
 		request = p_request;
 
-		pushStackValue(OS_REGISTER_USERPOOL);
+		// pushStackValue(OS_REGISTER_USERPOOL);
 		newObject();
 		shutdown_funcs_id = getValueId();
-		addProperty();
+		retainValueById(shutdown_funcs_id);
+		// addProperty();
 
 		initGlobalFunctions();
 		initUrlLibrary();
@@ -420,7 +422,7 @@ public:
 					FCGX_PutS(getContentType(ext), request->out);
 					FCGX_PutS("\r\n\r\n", request->out);
 				}
-				void * f = openFile(script_filename, "rb");
+				FileHandle * f = openFile(script_filename, "rb");
 				if(f){
 					const int BUF_SIZE = 1024*256;
 					int size = getFileSize(f);
