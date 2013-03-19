@@ -20,6 +20,18 @@
 #include <pthread.h>
 #endif
 
+#ifndef OS_CURL_DISABLED
+#include "os/ext-curl/os-curl.h"
+#endif
+
+#ifndef OS_SQLITE3_DISABLED
+#include "os/ext-sqlite3/os-sqlite3.h"
+#endif
+
+#ifndef OS_REGEXP_DISABLED
+#include "os/ext-regexp/os-regexp.h"
+#endif
+
 #define PID_FILE "/var/run/os-fcgi.pid"
 
 using namespace ObjectScript;
@@ -43,6 +55,18 @@ protected:
 		if(OS::init(mem)){
 			core->gc_start_used_bytes = 32*1024*1024;
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
+
+#ifndef OS_CURL_DISABLED
+			initCurlLibrary(this);
+#endif
+
+#ifndef OS_SQLITE3_DISABLED
+			initSqlite3Library(this);
+#endif
+
+#ifndef OS_REGEXP_DISABLED
+			initRegexpLibrary(this);
+#endif
 			return true;
 		}
 		return false;

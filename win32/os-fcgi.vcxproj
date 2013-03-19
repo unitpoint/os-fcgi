@@ -64,7 +64,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../fcgi-2.4.1/include;$(IncludePath)</IncludePath>
+    <IncludePath>..\fcgi-2.4.1\include;..\libcurl-7.19.3-win32-ssl-msvc\include;..\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -72,7 +73,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../fcgi-2.4.1/include;$(IncludePath)</IncludePath>
+    <IncludePath>..\fcgi-2.4.1\include;..\libcurl-7.19.3-win32-ssl-msvc\include;..\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -84,12 +86,16 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;SUPPORT_UTF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libcurl_imp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y ..\libcurl-7.19.3-win32-ssl-msvc\*.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -119,7 +125,11 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>libcurl_imp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y ..\libcurl-7.19.3-win32-ssl-msvc\*.dll $(OutDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -153,6 +163,12 @@
     <ClInclude Include="..\MPFDParser-1.0\Exception.h" />
     <ClInclude Include="..\MPFDParser-1.0\Field.h" />
     <ClInclude Include="..\MPFDParser-1.0\Parser.h" />
+    <ClInclude Include="..\os\ext-curl\os-curl.h" />
+    <ClInclude Include="..\os\ext-regexp\os-regexp.h" />
+    <ClInclude Include="..\os\ext-sqlite3\os-sqlite3.h" />
+    <ClInclude Include="..\os\ext-sqlite3\sqlite3.h" />
+    <ClInclude Include="..\pcrelib\config.h" />
+    <ClInclude Include="..\pcrelib\pcre.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -164,7 +180,31 @@
     <ClCompile Include="..\MPFDParser-1.0\Field.cpp" />
     <ClCompile Include="..\MPFDParser-1.0\Parser.cpp" />
     <ClCompile Include="..\os-fcgi.cpp" />
+    <ClCompile Include="..\os\ext-curl\os-curl.cpp" />
+    <ClCompile Include="..\os\ext-regexp\os-regexp.cpp" />
+    <ClCompile Include="..\os\ext-sqlite3\os-sqlite3.cpp" />
+    <ClCompile Include="..\os\ext-sqlite3\sqlite3.c" />
     <ClCompile Include="..\os\objectscript.cpp" />
+    <ClCompile Include="..\pcrelib\pcreposix.c" />
+    <ClCompile Include="..\pcrelib\pcre_chartables.c" />
+    <ClCompile Include="..\pcrelib\pcre_compile.c" />
+    <ClCompile Include="..\pcrelib\pcre_config.c" />
+    <ClCompile Include="..\pcrelib\pcre_exec.c" />
+    <ClCompile Include="..\pcrelib\pcre_fullinfo.c" />
+    <ClCompile Include="..\pcrelib\pcre_get.c" />
+    <ClCompile Include="..\pcrelib\pcre_globals.c" />
+    <ClCompile Include="..\pcrelib\pcre_info.c" />
+    <ClCompile Include="..\pcrelib\pcre_maketables.c" />
+    <ClCompile Include="..\pcrelib\pcre_newline.c" />
+    <ClCompile Include="..\pcrelib\pcre_ord2utf8.c" />
+    <ClCompile Include="..\pcrelib\pcre_refcount.c" />
+    <ClCompile Include="..\pcrelib\pcre_study.c" />
+    <ClCompile Include="..\pcrelib\pcre_tables.c" />
+    <ClCompile Include="..\pcrelib\pcre_try_flipped.c" />
+    <ClCompile Include="..\pcrelib\pcre_ucd.c" />
+    <ClCompile Include="..\pcrelib\pcre_valid_utf8.c" />
+    <ClCompile Include="..\pcrelib\pcre_version.c" />
+    <ClCompile Include="..\pcrelib\pcre_xclass.c" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
