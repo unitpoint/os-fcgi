@@ -230,13 +230,13 @@ int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
 	return ret;
 }
 
-#ifndef OS_NUMBER_NAN_TRICK
+// #ifndef OS_NUMBER_NAN_TRICK
 static bool OS_ISNAN(OS_FLOAT a)
 {
 	volatile OS_FLOAT b = a;
 	return b != b;
 }
-#endif
+// #endif
 
 #include <float.h>
 #include <limits.h>
@@ -5111,6 +5111,10 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			while(stack_pos + exp->ret_values > scope->function->stack_cur_size){
 				scope->allocTempVar();
 			}
+			if(exp->ret_values > 0){
+				OS_ASSERT(exp->list.count > 0);
+				exp->slots.a = exp->list.lastElement()->slots.a;
+			}
 			return exp;
 		}
 
@@ -5926,7 +5930,7 @@ OS::Core::Compiler::Scope * OS::Core::Compiler::expectTextExpression()
 
 	case EXP_TYPE_FUNCTION:
 		if(!ret_eval_value){
-			OS_ASSERT(scope->num_locals == 0);
+			// OS_ASSERT(scope->num_locals == 0);
 			allocator->deleteObj(scope);
 			scope = dynamic_cast<Scope*>(exp);
 			OS_ASSERT(scope);
@@ -6227,7 +6231,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectArrayExpression(Scope
 
 		TokenData * index_token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(tokenizer->getTextData(), exp->token->str, 
 			Tokenizer::NUMBER, exp->token->line, exp->token->pos);
-		index_token->setFloat(auto_index++);
+		index_token->setFloat((OS_FLOAT)(auto_index++));
 		exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_OBJECT_SET_BY_INDEX, index_token, exp OS_DBG_FILEPOS);
 		index_token->release();
 		params->list.add(exp OS_DBG_FILEPOS);
@@ -11228,10 +11232,10 @@ bool OS::Core::valueToBool(const Value& val)
 	case OS_VALUE_TYPE_BOOL:
 		return OS_VALUE_VARIANT(val).boolean ? true : false;
 
-#ifndef OS_NUMBER_NAN_TRICK
+// #ifndef OS_NUMBER_NAN_TRICK
 	case OS_VALUE_TYPE_NUMBER:
 		return !OS_ISNAN((OS_FLOAT)OS_VALUE_NUMBER(val));
-#endif
+// #endif
 	}
 	// OS_EValueType type = (OS_EValueType)OS_VALUE_TYPE(val);
 	return true;
@@ -19031,7 +19035,7 @@ void OS::initCoreFunctions()
 		static int toBool(OS * os, int params, int, int, void*)
 		{
 			if(params < 1) return 0;
-			os->toBool(-params);
+			os->pushBool(os->toBool(-params));
 			return 1;
 		}
 
@@ -20089,6 +20093,14 @@ void OS::initBufferClass()
 			return 1;
 		}
 
+		static int clear(OS * os, int params, int, int, void * user_param)
+		{
+			OS_GET_SELF(Core::Buffer*);
+			self->clear();
+			CtypeValue<Core::Buffer*>::push(os, self);
+			return 1;
+		}
+
 		static int valueOf(OS * os, int params, int, int, void * user_param)
 		{
 			if(os->isUserdata(CtypeId<Core::Buffer>::getId(), -params-1)){
@@ -20116,6 +20128,7 @@ void OS::initBufferClass()
 	OS::FuncDef funcs[] = {
 		{OS_TEXT("__construct"), Lib::__construct},
 		{OS_TEXT("append"), Lib::append},
+		{OS_TEXT("clear"), Lib::clear},
 		{core->strings->func_valueOf, Lib::valueOf},
 		{core->strings->__len, Lib::len},
 		// {OS_TEXT("printf"), Lib::printf},
@@ -21565,18 +21578,18 @@ void OS::initPreScript()
 			return this
 		}
 
-		modules_loaded = {};
+		modulesLoaded = {}
 		function require(filename, required, source_code_type, check_utf8_bom){
 			required === null && required = true
-			var resolved_filename = require.resolve(filename)
-			if(!resolved_filename){
-				required && throw "required "..filename.." is not found"
+			var resolvedFilename = require.resolve(filename)
+			if(!resolvedFilename){
+				required && throw "required ${filename} is not found"
 				return
 			}
-			filename = resolved_filename
-			return (modules_loaded.getProperty(filename) || {||
-				modules_loaded[filename] = {} // block recursive require
-				return modules_loaded[filename] = compileFile(filename, required, source_code_type, check_utf8_bom)()
+			filename = resolvedFilename
+			return (modulesLoaded.getProperty(filename) || {||
+				modulesLoaded[filename] = {} // block recursive require
+				return modulesLoaded[filename] = compileFile(filename, required, source_code_type, check_utf8_bom)()
 			}())
 		}
 		require.paths = []
