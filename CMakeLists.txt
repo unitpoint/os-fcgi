@@ -61,7 +61,7 @@ if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 endif()
 
 add_executable(${target} ${SOURCES} ${HEADERS})
-target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT} ${CURL_LIBRARIES} ${PCRE_LIBRARIES})
 
 install(TARGETS ${target} RUNTIME DESTINATION usr/sbin)
 install(FILES conf/etc/init.d/${target} DESTINATION etc/init.d
