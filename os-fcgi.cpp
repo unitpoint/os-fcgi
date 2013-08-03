@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+#include "md5/md5.h"
+
 #ifndef _MSC_VER
 #include <pthread.h>
 #endif
@@ -32,6 +34,10 @@
 #include "os/ext-regexp/os-regexp.h"
 #endif
 
+#ifndef OS_ODBO_DISABLED
+#include "os/ext-odbo/os-odbo.h"
+#endif
+
 #define PID_FILE "/var/run/os-fcgi.pid"
 
 using namespace ObjectScript;
@@ -44,6 +50,7 @@ protected:
 	int shutdown_funcs_id;
 	bool header_sent;
 	Core::Buffer * buffer;
+	Core::String * cache_path;
 
 	virtual ~FCGX_OS()
 	{
@@ -55,6 +62,7 @@ protected:
 		if(OS::init(mem)){
 			core->gc_start_used_bytes = 32*1024*1024;
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
+			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, "cache-osc");
 
 #ifndef OS_CURL_DISABLED
 			initCurlLibrary(this);
@@ -67,6 +75,10 @@ protected:
 #ifndef OS_REGEXP_DISABLED
 			initRegexpLibrary(this);
 #endif
+
+#ifndef OS_ODBO_DISABLED
+			initODBOLibrary(this);
+#endif
 			return true;
 		}
 		return false;
@@ -74,6 +86,7 @@ protected:
 
 	virtual void shutdown()
 	{
+		deleteObj(cache_path);
 		deleteObj(buffer);
 		OS::shutdown();
 	}
@@ -85,17 +98,6 @@ public:
 		request = NULL;
 		header_sent = false;
 		buffer = NULL;
-	}
-
-	OS_EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
-	{
-		struct stat sourcecode_st, compiled_st;
-		stat(sourcecode_filename, &sourcecode_st);
-		stat(compiled_filename, &compiled_st);
-		if(sourcecode_st.st_mtime >= compiled_st.st_mtime){
-			return COMPILE_SOURCECODE_FILE;
-		}
-		return LOAD_COMPILED_FILE;
 	}
 
 	void initPreScript()
@@ -165,6 +167,53 @@ public:
 			appendBuffer("Content-type: text/html\r\n\r\n");
 		}
 		appendBuffer(buf, size);
+	}
+
+	String md5(const String& buf)
+	{
+		MD5Context context;
+		unsigned char digest[16];
+		MD5Init(&context);
+		MD5Update(&context, (md5byte*)buf.toChar(), buf.getDataSize());
+		MD5Final(&context, digest);
+		
+		char r[34];
+		for(int i = 0; i < 16; i++){
+			r[i*2+0] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 4) & 0xf];
+			r[i*2+1] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 0) & 0xf];
+		}
+		r[32] = 0;
+		return String(this, r, 32);
+	}
+
+	String getCompiledFilename(const String& resolved_filename)
+	{
+		String path = getFilenamePath(resolved_filename);
+		if(path == *cache_path){
+			return resolved_filename;
+		}
+		
+		Core::Buffer buf(this);
+		buf.append(*cache_path);
+		buf.append("/");
+		buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));
+		return buf.toStringOS(); 
+	}
+
+	String getTextOpcodesFilename(const String& resolved_filename)
+	{
+		return changeFilenameExt(getCompiledFilename(resolved_filename), OS_EXT_TEXT_OPCODES);
+	}
+
+	OS_EFileUseType checkFileUsage(const String& sourcecode_filename, const String& compiled_filename)
+	{
+		struct stat sourcecode_st, compiled_st;
+		stat(sourcecode_filename, &sourcecode_st);
+		stat(compiled_filename, &compiled_st);
+		if(sourcecode_st.st_mtime >= compiled_st.st_mtime){
+			return COMPILE_SOURCECODE_FILE;
+		}
+		return LOAD_COMPILED_FILE;
 	}
 
 	static int triggerHeaderSent(OS * p_os, int params, int, int, void*)

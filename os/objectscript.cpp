@@ -67,8 +67,8 @@ using namespace ObjectScript;
 #define OS_FROM_OPCODE_TYPE(i)	((i)<<0)
 #define OS_TO_OPCODE_TYPE(i)	((i)>>0)
 
-#define getarg(i,pos,size)		(((i)>>pos) & OS_MASK1(size, 0))
-#define setarg(i,v,pos,size)	((i) = (((i)&OS_MASK0(size,pos)) | (((Instruction)(v))<<pos) & OS_MASK1(size, pos)))
+#define getarg(i,pos,size)		(int)(((i)>>pos) & OS_MASK1(size, 0))
+#define setarg(i,v,pos,size)	((i) = (int)(((i)&OS_MASK0(size,pos)) | (((Instruction)(v))<<pos) & OS_MASK1(size, pos)))
 
 #define OS_GETARG_A(i)		getarg(i, OS_POS_A, OS_SIZE_A)
 #define OS_SETARG_A(i,v)	setarg(i, v, OS_POS_A, OS_SIZE_A)
@@ -97,7 +97,24 @@ using namespace ObjectScript;
 			| (((Instruction)(a)) << OS_POS_A) \
 			| (((Instruction)(bc)) << OS_POS_Bx))
 
-#define OS_MAX_GENERIC_CONST_INDEX ((1<<(OS_SIZE_B-1))-1)
+#if 1 // pack const values to opcodes, it's faster
+#define OS_MAX_GENERIC_CONST_INDEX		((1<<(OS_SIZE_B-1))-1)
+#else
+#define OS_MAX_GENERIC_CONST_INDEX		0
+#endif
+
+#if OS_MAX_GENERIC_CONST_INDEX == 0
+
+static void checkFlagClear(int instruction, int flag)
+{
+	OS_ASSERT(!(instruction & flag));
+}
+
+#define OS_GETARG_B_VALUE() (checkFlagClear(instruction, OS_OPCODE_CONST_B), stack_func_locals[b])
+
+#define OS_GETARG_C_VALUE() (checkFlagClear(instruction, OS_OPCODE_CONST_C), stack_func_locals[c])
+
+#else // OS_MAX_GENERIC_CONST_INDEX == 0
 
 #define OS_GETARG_B_VALUE() ((instruction) & OS_OPCODE_CONST_B ? \
 	(stack_func_prog_values[b]) \
@@ -106,6 +123,8 @@ using namespace ObjectScript;
 #define OS_GETARG_C_VALUE() ((instruction) & OS_OPCODE_CONST_C ? \
 	(stack_func_prog_values[c]) \
 	: (stack_func_locals[c]))
+
+#endif // OS_MAX_GENERIC_CONST_INDEX == 0
 
 #define OS_CASE_OPCODE_ALL(opcode) case (opcode)
 #define OS_CASE_OPCODE(opcode) case (opcode)
@@ -365,7 +384,7 @@ static inline long double toLittleEndianByteOrder(long double val)
 		return val;
 	}
 	long double r;
-	for(int i = 0; i < sizeof(long double); i++){
+	for(int i = 0; i < (int)sizeof(long double); i++){
 		((OS_BYTE*)&r)[i] = ((OS_BYTE*)&val)[sizeof(long double)-1-i];
 	}
 	return r;
@@ -1841,7 +1860,7 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 							string_type = NOT_STRING;
 							bool start = str == line_start;
 							str += multi_string_id_len;
-							if(start && buf.buffer.count >= sizeof(OS_CHAR)){
+							if(start && buf.buffer.count >= (int)sizeof(OS_CHAR)){
 								OS_CHAR * end = (OS_CHAR*)buf.buffer.buf + (buf.buffer.count/sizeof(OS_CHAR));
 								if(end[-1] == OS_TEXT('\n')){
 									buf.buffer.count -= sizeof(OS_CHAR);
@@ -2136,7 +2155,8 @@ OS::Core::Compiler::LocalVarDesc::LocalVarDesc()
 	up_count = 0;
 	up_scope_count = 0;
 	index = 0;
-	type = LOCAL_GENERIC;
+	scope_type = LOCAL_GENERIC;
+	type = CVT_UNKNOWN;
 }
 
 OS::Core::Compiler::Expression::Expression(ExpressionType p_type, TokenData * p_token): list(p_token->getAllocator())
@@ -2389,7 +2409,9 @@ OS::Core::String OS::Core::Compiler::Expression::getSlotStr(OS::Core::Compiler *
 		}
 		slot_num -= CONST_STD_VALUES;
 		if(slot_num < compiler->prog_numbers.count){
-			return String::format(allocator, OS_TEXT("const number %g"), compiler->prog_numbers[slot_num]);
+			OS_CHAR temp[128];
+			OS::Utils::numToStr(temp, compiler->prog_numbers[slot_num]); 
+			return String::format(allocator, OS_TEXT("const number %s"), temp); // compiler->prog_numbers[slot_num]);
 		}
 		slot_num -= compiler->prog_numbers.count;
 		return String::format(allocator, OS_TEXT("const string \"%s\""), Lib::getInfoStr(compiler, compiler->prog_strings[slot_num]).toChar());
@@ -2749,7 +2771,7 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 	case EXP_TYPE_POW_ASSIGN: // **=
 		{
 			OS_ASSERT(list.count == 2);
-			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type);
+			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type, local_var.type);
 			list[0]->debugPrint(out, compiler, scope, depth);
 			list[1]->debugPrint(out, compiler, scope, depth);
 			out += String::format(allocator, OS_TEXT("%s%s (%d) = %s (%d) [%s] %s (%d)\n"), spaces,  
@@ -2771,9 +2793,10 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 			OS_ASSERT(list.count == 2);
 			list[0]->debugPrint(out, compiler, scope, depth);
 			list[1]->debugPrint(out, compiler, scope, depth);
+			ECompiledValueType val_type = list[0]->local_var.type == CVT_NUMBER && list[1]->local_var.type == CVT_NUMBER ? CVT_NUMBER : CVT_UNKNOWN;
 			out += String::format(allocator, OS_TEXT("%s%s (%d) = %s (%d) [%s] %s (%d)\n"), spaces,  
 				getSlotStr(compiler, scope, slots.a).toChar(), slots.a, 
-				getSlotStr(compiler, scope, slots.a).toChar(), slots.a, OS::Core::Compiler::getExpName(type),
+				getSlotStr(compiler, scope, slots.a).toChar(), slots.a, OS::Core::Compiler::getExpName(type, val_type),
 				getSlotStr(compiler, scope, slots.a+1).toChar(), slots.a+1);
 			break;
 		}
@@ -2782,7 +2805,7 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 	case EXP_TYPE_LOGIC_OR:  // ||
 		{
 			OS_ASSERT(list.count == 2);
-			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type);
+			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type, local_var.type);
 			list[0]->debugPrint(out, compiler, scope, depth);
 			out += String::format(allocator, OS_TEXT("%s%s: %s (%d)\n"), spaces, exp_name,
 				getSlotStr(compiler, scope, slots.a).toChar(), slots.a);
@@ -2828,7 +2851,7 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 			const OS_CHAR * exp_name = OS::Core::Compiler::getExpName(type);
 			String info = String::format(allocator, OS_TEXT("(%d %d%s)"),
 				local_var.index, local_var.up_count, 
-				local_var.type == LOCAL_PARAM ? OS_TEXT(" param") : (local_var.type == LOCAL_TEMP ? OS_TEXT(" temp") : OS_TEXT("")));
+				local_var.scope_type == LOCAL_PARAM ? OS_TEXT(" param") : (local_var.scope_type == LOCAL_TEMP ? OS_TEXT(" temp") : OS_TEXT("")));
 			out += String::format(allocator, OS_TEXT("%s%s %s %s\n"), spaces, exp_name, token->str.toChar(), info.toChar());
 			break;
 		}
@@ -3168,6 +3191,15 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 					return false;
 				}
 				opcode = OP_LOGIC_EQ;
+				if(exp_compare->list.count == 2){
+					if(exp_compare->list[0]->local_var.type == CVT_NUMBER 
+						&& exp_compare->list[1]->local_var.type == CVT_NUMBER)
+					{
+						opcode = OP_NUMBER_LOGIC_EQ;
+					}
+				}else{
+					// int i = 0;
+				}
 				inverse ^= exp_compare->type != EXP_TYPE_LOGIC_EQ;
 				break;
 
@@ -3177,6 +3209,15 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 					return false;
 				}
 				opcode = OP_LOGIC_GREATER;
+				if(exp_compare->list.count == 2){
+					if(exp_compare->list[0]->local_var.type == CVT_NUMBER 
+						&& exp_compare->list[1]->local_var.type == CVT_NUMBER)
+					{
+						opcode = OP_NUMBER_LOGIC_GREATER;
+					}
+				}else{
+					// int i = 0;
+				}
 				inverse ^= exp_compare->type != EXP_TYPE_LOGIC_GREATER;
 				break;
 
@@ -3186,6 +3227,15 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 					return false;
 				}
 				opcode = OP_LOGIC_GE;
+				if(exp_compare->list.count == 2){
+					if(exp_compare->list[0]->local_var.type == CVT_NUMBER 
+						&& exp_compare->list[1]->local_var.type == CVT_NUMBER)
+					{
+						opcode = OP_NUMBER_LOGIC_GE;
+					}
+				}else{
+					// int i = 0;
+				}
 				inverse ^= exp_compare->type != EXP_TYPE_LOGIC_GE;
 				break;
 
@@ -3391,12 +3441,33 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 	case EXP_TYPE_LSHIFT:
 	case EXP_TYPE_RSHIFT:
 	case EXP_TYPE_POW:
-		if(!writeOpcodes(scope, exp->list)){
-			return false;
+		{
+			if(!writeOpcodes(scope, exp->list)){
+				return false;
+			}
+			writeDebugInfo(exp);
+			OpcodeType opcode = Program::getOpcodeType(exp->type, exp->local_var.type);
+			switch(opcode){
+			case OP_NUMBER_ADD:
+				if(exp->slots.b >= 0 && exp->slots.c < 0){
+					opcode = OP_NUMBER_ADD_LC;	
+				}else if(exp->slots.b >= 0 && exp->slots.c >= 0){
+					opcode = OP_NUMBER_ADD_LL;	
+				}
+				break;
+
+			case OP_NUMBER_SUB:
+				if(exp->slots.b >= 0 && exp->slots.c < 0){
+					opcode = OP_NUMBER_SUB_LC;	
+				}else if(exp->slots.b >= 0 && exp->slots.c >= 0){
+					opcode = OP_NUMBER_SUB_LL;	
+				}
+				break;
+
+			}
+			writeOpcodeABC(opcode, exp->slots.a, exp->slots.b, exp->slots.c);
+			break;
 		}
-		writeDebugInfo(exp);
-		writeOpcodeABC(Program::getOpcodeType(exp->type), exp->slots.a, exp->slots.b, exp->slots.c);
-		break;
 
 	case EXP_TYPE_GET_XCONST:
 		if(!writeOpcodes(scope, exp->list)){
@@ -3446,9 +3517,10 @@ OS::Core::Compiler::Scope::~Scope()
 	getAllocator()->vectorClear(try_blocks);
 }
 
-OS::Core::Compiler::Scope::LocalVar::LocalVar(const String& p_name, int p_index): name(p_name)
+OS::Core::Compiler::Scope::LocalVar::LocalVar(const String& p_name, int p_index, ECompiledValueType p_type): name(p_name)
 {
 	index = p_index;
+	type = p_type;
 }
 
 OS::Core::Compiler::Scope::LocalVarCompiled::LocalVarCompiled()
@@ -3493,7 +3565,7 @@ void OS::Core::Compiler::Scope::fixLoopBreaks(Compiler * compiler, int scope_sta
 void OS::Core::Compiler::Scope::addTryBlock(int start, int end, Scope * catch_block)
 {
 	OS_ASSERT(catch_block->local_var.index > 0);
-	OS_ASSERT(catch_block->local_var.type == LOCAL_GENERIC);
+	OS_ASSERT(catch_block->local_var.scope_type == LOCAL_GENERIC);
 	OS_ASSERT(catch_block->local_var.up_count == 0);
 	TryBlock t;
 	t.start_code_pos = start;
@@ -3507,9 +3579,9 @@ void OS::Core::Compiler::Scope::addPreVars()
 	Core::Strings * strings = getAllocator()->core->strings;
 	// don't change following order
 	OS_ASSERT(PRE_VAR_FUNC == 0);
-	addLocalVar(strings->var_func);
+	addLocalVar(strings->var_func, CVT_DYNAMIC);
 	OS_ASSERT(PRE_VAR_THIS == 1);
-	addLocalVar(strings->var_this);
+	addLocalVar(strings->var_this, CVT_DYNAMIC);
 }
 
 void OS::Core::Compiler::Scope::addPostVars()
@@ -3517,29 +3589,30 @@ void OS::Core::Compiler::Scope::addPostVars()
 	Core::Strings * strings = getAllocator()->core->strings;
 	// don't change following order
 	OS_ASSERT(POST_VAR_ENV == 0);
-	addLocalVar(strings->var_env);
+	addLocalVar(strings->var_env, CVT_DYNAMIC);
 #ifdef OS_GLOBAL_VAR_ENABLED
 	OS_ASSERT(POST_VAR_GLOBALS == 1);
-	addLocalVar(strings->var_globals);
+	addLocalVar(strings->var_globals, CVT_DYNAMIC);
 #endif
 }
 
-void OS::Core::Compiler::Scope::addLocalVar(const String& name)
+void OS::Core::Compiler::Scope::addLocalVar(const String& name, ECompiledValueType type)
 {
 	OS_ASSERT(function->stack_size == function->num_locals);
 	OS_ASSERT(function->stack_cur_size == function->num_locals);
 	OS * allocator = getAllocator();
-	LocalVar local_var(name, function->num_locals);
+	LocalVar local_var(name, function->num_locals, type);
 	allocator->vectorAddItem(locals, local_var OS_DBG_FILEPOS);
 	function->stack_size = function->stack_cur_size = ++function->num_locals;
 }
 
-void OS::Core::Compiler::Scope::addLocalVar(const String& name, LocalVarDesc& local_var)
+void OS::Core::Compiler::Scope::addLocalVar(const String& name, LocalVarDesc& local_var, ECompiledValueType type)
 {
 	local_var.index = function->num_locals;
 	local_var.up_count = 0;
-	local_var.type = LOCAL_GENERIC;
-	addLocalVar(name);
+	local_var.scope_type = LOCAL_GENERIC;
+	local_var.type = type;
+	addLocalVar(name, type);
 }
 
 int OS::Core::Compiler::Scope::allocTempVar()
@@ -3562,6 +3635,8 @@ void OS::Core::Compiler::Scope::popTempVar(int count)
 OS::Core::Compiler::Compiler(Tokenizer * p_tokenizer)
 	: expect_token(p_tokenizer->getAllocator())
 {
+	OS_ASSERT((1<<OS_SIZE_OP) >= OPCODE_COUNT);
+
 	allocator = p_tokenizer->getAllocator();
 	tokenizer = p_tokenizer;
 
@@ -3664,7 +3739,7 @@ bool OS::Core::Compiler::compile()
 		return true;
 	}else{
 		Buffer dump(allocator);
-		dump += OS_TEXT("error");
+		dump += OS_TEXT("compiler error");
 		switch(error){
 		default:
 			dump += OS_TEXT(" unknown");
@@ -3680,10 +3755,6 @@ bool OS::Core::Compiler::compile()
 
 		case ERROR_LOCAL_VAL_NOT_DECLARED:
 			dump += OS_TEXT(" LOCAL_VAL_NOT_DECLARED");
-			break;
-
-		case ERROR_VAR_ALREADY_EXIST:
-			dump += OS_TEXT(" VAR_ALREADY_EXIST");
 			break;
 
 		case ERROR_VAR_NAME:
@@ -4820,6 +4891,151 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass2(Scope * sc
 	for(int i = 0; i < exp->list.count; i++){
 		exp->list[i] = postCompilePass2(scope, exp->list[i]);
 	}
+	switch(exp->type){
+	case EXP_TYPE_CONST_NUMBER:
+		exp->local_var.type = CVT_NUMBER;
+		break;
+
+	case EXP_TYPE_GET_LOCAL_VAR:
+		exp->local_var.type = scope->getLocalVar(exp->local_var).type;
+		break;
+
+	case EXP_TYPE_SET_LOCAL_VAR:
+		{
+			OS_ASSERT(exp->list.count == 1);
+			Expression * exp2 = exp->list[0];
+			if(exp->local_var.type != CVT_DYNAMIC){
+				ECompiledValueType old_type = exp->local_var.type;
+				if(exp2->local_var.type == CVT_NUMBER){
+					exp->local_var.type = CVT_NUMBER;
+				}else{
+					exp->local_var.type = CVT_DYNAMIC;
+				}
+				if(old_type != exp->local_var.type){
+					scope->getLocalVar(exp->local_var).type = exp->local_var.type;
+				}
+			}
+			break;
+		}
+
+	case EXP_TYPE_ASSIGN:
+		OS_ASSERT(false);
+		OS_ASSERT(exp->list.count == 2);
+		if(exp->list[0]->type == EXP_TYPE_NAME){
+			Expression * left_exp = exp->list[0];
+			Expression * right_exp = exp->list[1];
+			if(left_exp->local_var.type != CVT_DYNAMIC){
+				if(right_exp->local_var.type == CVT_NUMBER){
+					left_exp->local_var.type = CVT_NUMBER;
+				}else{
+					left_exp->local_var.type = CVT_DYNAMIC;
+				}
+			}
+		}
+		break;
+
+	case EXP_TYPE_BIT_AND:
+	case EXP_TYPE_BIT_OR:
+	case EXP_TYPE_BIT_XOR:
+	case EXP_TYPE_COMPARE: // <=>
+	case EXP_TYPE_ADD: // +
+	case EXP_TYPE_SUB: // -
+	case EXP_TYPE_MUL: // *
+	case EXP_TYPE_DIV: // /
+	case EXP_TYPE_MOD: // %
+	case EXP_TYPE_LSHIFT: // <<
+	case EXP_TYPE_RSHIFT: // >>
+	case EXP_TYPE_POW: // **
+		{
+			OS_ASSERT(exp->list.count == 2);
+			Expression * left_exp = exp->list[0];
+			Expression * right_exp = exp->list[1];
+			if(left_exp->local_var.type == CVT_NUMBER && right_exp->local_var.type == CVT_NUMBER){
+				exp->local_var.type = CVT_NUMBER;
+			}else{
+				exp->local_var.type = CVT_DYNAMIC;
+			}
+			break;
+		}
+	}
+	return exp;
+}
+
+OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileFixValueType(Scope * scope, Expression * exp)
+{
+	switch(exp->type){
+	case EXP_TYPE_FUNCTION:
+		{
+			Scope * new_scope = dynamic_cast<Scope*>(exp);
+			OS_ASSERT(new_scope && (new_scope->parent == scope || (!new_scope->parent && new_scope->type == EXP_TYPE_FUNCTION)));
+			if(new_scope != scope){
+				new_scope->func_index = scope->function->num_local_funcs++;
+				new_scope->func_depth = scope->function->func_depth + 1;
+			}
+			scope = new_scope;
+			break;
+		}
+
+	case EXP_TYPE_SCOPE:
+	case EXP_TYPE_LOOP_SCOPE:
+	case EXP_TYPE_FOR_LOOP_SCOPE:
+		{
+			Scope * new_scope = dynamic_cast<Scope*>(exp);
+			OS_ASSERT(new_scope && (new_scope->parent == scope || (!new_scope->parent && new_scope->type == EXP_TYPE_FUNCTION)));
+			scope = new_scope;
+			break;
+		}
+	}
+	for(int i = 0; i < exp->list.count; i++){
+		exp->list[i] = postCompileFixValueType(scope, exp->list[i]);
+	}
+	switch(exp->type){
+	case EXP_TYPE_GET_LOCAL_VAR:
+		if(exp->local_var.type == CVT_NUMBER){
+			exp->local_var.type = scope->getLocalVar(exp->local_var).type;
+		}
+		break;
+
+	case EXP_TYPE_SET_LOCAL_VAR:
+		if(exp->local_var.type == CVT_NUMBER){
+			OS_ASSERT(exp->list.count == 1);
+			Expression * exp2 = exp->list[0];
+			ECompiledValueType old_type = exp->local_var.type;
+			if(exp2->local_var.type == CVT_NUMBER){
+				exp->local_var.type = CVT_NUMBER;
+			}else{
+				exp->local_var.type = CVT_DYNAMIC;
+			}
+			if(old_type != exp->local_var.type){
+				scope->getLocalVar(exp->local_var).type = exp->local_var.type;
+			}
+			break;
+		}
+
+	case EXP_TYPE_BIT_AND:
+	case EXP_TYPE_BIT_OR:
+	case EXP_TYPE_BIT_XOR:
+	case EXP_TYPE_COMPARE: // <=>
+	case EXP_TYPE_ADD: // +
+	case EXP_TYPE_SUB: // -
+	case EXP_TYPE_MUL: // *
+	case EXP_TYPE_DIV: // /
+	case EXP_TYPE_MOD: // %
+	case EXP_TYPE_LSHIFT: // <<
+	case EXP_TYPE_RSHIFT: // >>
+	case EXP_TYPE_POW: // **
+		if(exp->local_var.type == CVT_NUMBER){
+			OS_ASSERT(exp->list.count == 2);
+			Expression * left_exp = exp->list[0];
+			Expression * right_exp = exp->list[1];
+			if(left_exp->local_var.type == CVT_NUMBER && right_exp->local_var.type == CVT_NUMBER){
+				exp->local_var.type = CVT_NUMBER;
+			}else{
+				exp->local_var.type = CVT_DYNAMIC;
+			}
+			break;
+		}
+	}
 	return exp;
 }
 
@@ -4830,6 +5046,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileExpression(Scope
 	return exp;
 #elif 1
 	OS_ASSERT(scope->type == EXP_TYPE_FUNCTION);
+	exp = postCompileFixValueType(scope, exp);
 	exp = postCompilePass3(scope, exp);
 	exp = postCompileNewVM(scope, exp);
 	OS_ASSERT(scope->function->stack_cur_size == scope->function->num_locals || scope->function->stack_cur_size == scope->function->num_locals+1);
@@ -5240,7 +5457,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.c = exp1->slots.a;
 		scope->popTempVar(2);
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!!  && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
@@ -5266,7 +5484,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.c = exp1->slots.a;
 		scope->popTempVar(2);
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!!  && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
@@ -5283,12 +5502,13 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.c = exp2->slots.a;
 		scope->popTempVar(2);
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.b >= 0){ // CONST IS NOT ALLOWED HERE!!! scope->function->num_locals){
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals && exp1->slots.b >= 0){ // CONST IS NOT ALLOWED HERE!!!
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
 		// TODO: is it really needed to check slot here?
-		if(exp2->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp2->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp2->type == EXP_TYPE_MOVE && exp2->slots.a >= scope->function->num_locals){ // && (exp2->slots.b < 0 || exp2->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp2->slots.b;
 			exp2->type = EXP_TYPE_NOP;
 		}
@@ -5307,17 +5527,18 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp2 = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_MOVE, exp->token);
 		exp2->slots.a = scope->allocTempVar();
 		exp2->slots.b = scope->function->stack_cur_size-2;
+		exp2->ret_values = 1;
 		exp->list.add(exp2 OS_DBG_FILEPOS);
 		exp->list.add(exp1 OS_DBG_FILEPOS);
 
 		exp2 = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_MOVE, exp->token);
 		exp2->slots.a = scope->allocTempVar();
 		exp2->slots.b = -1 - exp->slots.b - prog_numbers.count - CONST_STD_VALUES; // const string
+		exp2->ret_values = 1;
 		allocator->vectorInsertAtIndex(exp1->list, 0, exp2 OS_DBG_FILEPOS);
 
 		if(exp2->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
 			exp2->type = EXP_TYPE_GET_XCONST;
-			OS_ASSERT(exp2->ret_values == 1);
 		}
 
 		exp1->list[1] = postCompileNewVM(scope, exp1->list[1]);
@@ -5348,21 +5569,21 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		OS_ASSERT(exp->list.count == 0);
 		exp->slots.a = scope->allocTempVar();
 		exp->slots.b = -1 - CONST_NULL;
-		exp->type = EXP_TYPE_MOVE;
+		exp->type = exp->slots.b < -OS_MAX_GENERIC_CONST_INDEX ? EXP_TYPE_GET_XCONST : EXP_TYPE_MOVE;
 		return exp;
 
 	case EXP_TYPE_CONST_FALSE:
 		OS_ASSERT(exp->list.count == 0);
 		exp->slots.a = scope->allocTempVar();
 		exp->slots.b = -1 - CONST_FALSE;
-		exp->type = EXP_TYPE_MOVE;
+		exp->type = exp->slots.b < -OS_MAX_GENERIC_CONST_INDEX ? EXP_TYPE_GET_XCONST : EXP_TYPE_MOVE;
 		return exp;
 
 	case EXP_TYPE_CONST_TRUE:
 		OS_ASSERT(exp->list.count == 0);
 		exp->slots.a = scope->allocTempVar();
 		exp->slots.b = -1 - CONST_TRUE;
-		exp->type = EXP_TYPE_MOVE;
+		exp->type = exp->slots.b < -OS_MAX_GENERIC_CONST_INDEX ? EXP_TYPE_GET_XCONST : EXP_TYPE_MOVE;
 		return exp;
 
 	case EXP_TYPE_GET_THIS:
@@ -5471,7 +5692,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 
 		if(exp2->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
 			exp2->type = EXP_TYPE_GET_XCONST;
-			OS_ASSERT(exp2->ret_values == 1);
 		}
 
 		OS_ASSERT(exp1->list.count == 3);
@@ -5514,9 +5734,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			exp1->ret_values = 1;
 			allocator->vectorInsertAtIndex(exp2->list, 0, exp1 OS_DBG_FILEPOS);
 
-			if(exp2->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
-				exp2->type = EXP_TYPE_GET_XCONST;
-				OS_ASSERT(exp2->ret_values == 1);
+			if(exp1->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
+				exp1->type = EXP_TYPE_GET_XCONST;
 			}
 
 			exp1 = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_MOVE, exp->token);
@@ -5554,7 +5773,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 
 		if(exp2->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
 			exp2->type = EXP_TYPE_GET_XCONST;
-			OS_ASSERT(exp2->ret_values == 1);
 		}
 
 		exp->type = EXP_TYPE_CALL_METHOD;
@@ -5575,7 +5793,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.b = stack_pos;
 		exp1 = exp->list[0];
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}		
@@ -5620,12 +5839,14 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.c = stack_pos+1;
 		scope->popTempVar();
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
 		// TODO: is it really needed to check slot here?
-		if(exp2->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp2->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp2->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp2->slots.b < 0 || exp2->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp2->slots.b;
 			exp2->type = EXP_TYPE_NOP;
 		}
@@ -5691,6 +5912,8 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			exp1 = exp1->list.lastElement();
 		}
 		// TODO: is it really needed to check slot here?
+		// don't optimize assignment of local var
+		// if(exp1->type == EXP_TYPE_MOVE && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 		/* if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp1->slots.b >= scope->function->num_locals){ // stack_cur_size is already decremented
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
@@ -5721,19 +5944,22 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		scope->function->stack_cur_size = stack_pos;
 		exp1 = exp->list[0];
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
 		exp1 = exp->list[1];
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.b >= 0){ // CONST IS NOT ALLOWED HERE!!! scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.a = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
 		exp1 = exp->list[2];
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!!  && exp1->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals){ // && (exp1->slots.b < 0 || exp1->slots.b >= scope->function->num_locals)){
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
@@ -5742,6 +5968,9 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			exp_value->slots.a = scope->allocTempVar();
 			exp_value->slots.b = exp->slots.c;
 			exp_value->ret_values = 1;
+			if(exp_value->slots.b < -OS_MAX_GENERIC_CONST_INDEX){
+				exp_value->type = EXP_TYPE_GET_XCONST;
+			}			
 			return exp_value;
 		}
 		return exp;
@@ -5808,12 +6037,13 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 		exp->slots.c = stack_pos + 1; // exp2->slots.a;
 		scope->popTempVar();
 		// TODO: is it really needed to check slot here?
-		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.b >= 0){ // CONST IS NOT ALLOWED HERE!!! scope->function->num_locals){
+		if(exp1->type == EXP_TYPE_MOVE && exp1->slots.a >= scope->function->num_locals && exp1->slots.b >= 0){ // CONST IS NOT ALLOWED HERE!!!
 			exp->slots.b = exp1->slots.b;
 			exp1->type = EXP_TYPE_NOP;
 		}
 		// TODO: is it really needed to check slot here?
-		if(exp2->type == EXP_TYPE_MOVE){ // CONST IS ALLOWED HERE!!! && exp2->slots.b >= scope->function->num_locals){
+		// don't optimize assignment of local var
+		if(exp2->type == EXP_TYPE_MOVE && exp2->slots.a >= scope->function->num_locals){ // && (exp2->slots.b < 0 || exp2->slots.b >= scope->function->num_locals)){
 			exp->slots.c = exp2->slots.b;
 			exp2->type = EXP_TYPE_NOP;
 		}
@@ -5988,6 +6218,9 @@ OS::Core::Compiler::Scope * OS::Core::Compiler::expectCodeExpression(Scope * par
 		if(exp){
 			list.add(exp OS_DBG_FILEPOS);
 		}
+		if(!recent_token){
+			break;
+		}
 		TokenType token_type = recent_token->type;
 		if(token_type == Tokenizer::CODE_SEPARATOR){
 			if(!readToken()){
@@ -6150,10 +6383,10 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectObjectOrFunctionExpre
 				break;
 
 			case Tokenizer::NUMBER:
-				if(name_token->getFloat() != (OS_FLOAT)(OS_INT)name_token->getFloat()){
+				/* if(name_token->getFloat() != (OS_FLOAT)(OS_INT)name_token->getFloat()){
 					// use it as EXP_TYPE_OBJECT_SET_BY_NAME
 					break;
-				}
+				} */
 				exp_type = EXP_TYPE_OBJECT_SET_BY_INDEX;
 				break;
 
@@ -6168,6 +6401,30 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectObjectOrFunctionExpre
 			}
 			exp = expectExpressionValues(exp, 1);
 			exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(exp_type, name_token, exp OS_DBG_FILEPOS);
+		}else if(name_token->type == Tokenizer::OPERATOR_SUB || name_token->type == Tokenizer::OPERATOR_ADD){
+			if(!expectToken(Tokenizer::NUMBER)){
+				return lib.error();
+			}
+			if(name_token->type == Tokenizer::OPERATOR_SUB){
+				name_token = recent_token;
+				name_token->setFloat(-name_token->getFloat());
+			}else{
+				name_token = recent_token;
+			}
+			ExpressionType exp_type = EXP_TYPE_OBJECT_SET_BY_INDEX;
+			if(isNextToken(Tokenizer::OPERATOR_COLON) || isNextToken(Tokenizer::OPERATOR_ASSIGN)){
+				readToken(); // skip OPERATOR_COLON
+				TokenData * save_token = readToken();
+				exp = expectSingleExpression(scope, p);
+				if(!exp){
+					return isError() ? lib.error() : lib.error(ERROR_EXPECT_EXPRESSION, save_token);
+				}
+				exp = expectExpressionValues(exp, 1);
+				exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(exp_type, name_token, exp OS_DBG_FILEPOS);
+			}else{
+				expectToken(Tokenizer::OPERATOR_ASSIGN);
+				return lib.error();
+			}
 		}else{
 			exp = expectSingleExpression(scope, p);
 			if(!exp){
@@ -6383,6 +6640,11 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectExtendsExpression(Sco
 		exp->ret_values = 1;
 		return exp;
 	}
+#if 1
+	setError(ERROR_SYNTAX, exp->token);
+	allocator->deleteObj(exp);
+	return NULL;
+#else // TODO: delete it???
 	Expression * exp2 = expectSingleExpression(scope, p);
 	if(!exp2){
 		allocator->deleteObj(exp);
@@ -6393,6 +6655,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectExtendsExpression(Sco
 	exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_EXTENDS, save_token, exp, exp2 OS_DBG_FILEPOS);
 	exp->ret_values = 1;
 	return exp;
+#endif
 }
 
 OS::Core::Compiler::Expression * OS::Core::Compiler::finishQuestionOperator(Scope * scope, TokenData * token, Expression * exp, Expression * exp2)
@@ -6520,7 +6783,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectFunctionExpression(Sc
 			break;
 
 		case Tokenizer::NAME:
-			scope->addLocalVar(recent_token->str);
+			scope->addLocalVar(recent_token->str, CVT_DYNAMIC);
 			if(!readToken()){
 				setError(ERROR_SYNTAX, recent_token);
 				allocator->deleteObj(scope);
@@ -6583,7 +6846,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectFunctionSugarExpressi
 			break;
 
 		case Tokenizer::NAME:
-			scope->addLocalVar(recent_token->str);
+			scope->addLocalVar(recent_token->str, CVT_DYNAMIC);
 			if(!readToken()){
 				setError(ERROR_SYNTAX, recent_token);
 				allocator->deleteObj(scope);
@@ -6981,7 +7244,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectForExpression(Scope *
 			scope->addLocalVar(name, name_exp->local_var);
 			OS_ASSERT(scope->function);
 			name_exp->active_locals = scope->function->num_locals;
-			name_exp->local_var.type = LOCAL_TEMP;
+			name_exp->local_var.scope_type = LOCAL_TEMP;
 		}
 
 		ExpressionList list(allocator);
@@ -7570,6 +7833,31 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::newBinaryExpression(Scope *
 	return exp;
 }
 
+OS::Core::Compiler::Scope::LocalVar& OS::Core::Compiler::Scope::getLocalVar(const LocalVarDesc& var)
+{
+	Scope * scope = this;
+	int i;
+	/* for(i = 0; i < var.up_scope_count; i++){
+		scope = scope->parent;
+		OS_ASSERT(scope);
+	} */
+	for(;;){
+		for(i = 0; i < scope->locals.count; i++){
+			LocalVar& r = scope->locals[i];
+			if(r.index == var.index){
+				return r;
+			}
+			if(i == 0 && var.index < r.index){
+				break;
+			}
+		}
+		scope = scope->parent;
+		OS_ASSERT(scope);
+	}
+	OS_ASSERT(false);
+	return *(LocalVar*)NULL;
+}
+
 bool OS::Core::Compiler::findLocalVar(LocalVarDesc& desc, Scope * scope, const String& name, int active_locals, bool all_scopes, bool decl)
 {
 	OS_ASSERT(scope);
@@ -7580,7 +7868,7 @@ bool OS::Core::Compiler::findLocalVar(LocalVarDesc& desc, Scope * scope, const S
 				desc.index = local_var.index;
 				desc.up_count = up_count;
 				desc.up_scope_count = up_scope_count;
-				desc.type = i < scope->num_params ? LOCAL_PARAM : (name.toChar()[0] != OS_TEXT('#') ? LOCAL_GENERIC : LOCAL_TEMP);
+				desc.scope_type = i < scope->num_params ? LOCAL_PARAM : (name.toChar()[0] != OS_TEXT('#') ? LOCAL_GENERIC : LOCAL_TEMP);
 				return true;
 			}
 		}
@@ -8220,6 +8508,38 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectSingleExpression(Scop
 			return NULL;
 		}
 		OS_ASSERT(exp->ret_values == 1);
+		switch(exp->type){
+		case EXP_TYPE_CONST_NUMBER:
+		case EXP_TYPE_CONST_NULL:
+		case EXP_TYPE_CONST_TRUE:
+		case EXP_TYPE_CONST_FALSE:
+			switch(token_type){
+			case Tokenizer::OPERATOR_ADD:
+				exp->type = EXP_TYPE_CONST_NUMBER;
+				exp->token->setFloat(exp->toNumber());
+				return finishValueExpressionNoAutoCall(scope, exp, p);
+
+			case Tokenizer::OPERATOR_SUB:
+				exp->type = EXP_TYPE_CONST_NUMBER;
+				exp->token->setFloat(-exp->toNumber());
+				return finishValueExpressionNoAutoCall(scope, exp, p);
+
+			// case Tokenizer::OPERATOR_LENGTH:
+			case Tokenizer::OPERATOR_BIT_NOT:
+				exp->type = EXP_TYPE_CONST_NUMBER;
+				exp->token->setFloat((OS_FLOAT)~exp->toInt());
+				return finishValueExpressionNoAutoCall(scope, exp, p);
+
+			case Tokenizer::OPERATOR_LOGIC_NOT:
+				{
+					bool b = !exp->toInt();
+					exp->type = b ? EXP_TYPE_CONST_TRUE : EXP_TYPE_CONST_FALSE;
+					exp->token->setFloat((OS_FLOAT)b);
+					return finishValueExpressionNoAutoCall(scope, exp, p);
+				}
+			}
+			break;
+		}
 		exp = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(getUnaryExpressionType(token_type), exp->token, exp OS_DBG_FILEPOS);
 		exp->ret_values = 1;
 		return finishValueExpressionNoAutoCall(scope, exp, p);
@@ -8590,7 +8910,7 @@ void OS::Core::Compiler::debugPrintSourceLine(Buffer& out, TokenData * token)
 	return;
 }
 
-const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
+const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type, ECompiledValueType val_type)
 {
 	switch(type){
 	case EXP_TYPE_NOP:
@@ -8752,10 +9072,10 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 		return OS_TEXT("operator =");
 
 	case EXP_TYPE_LOGIC_AND: // &&
-		return OS_TEXT("logic &&");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op &&") : OS_TEXT("logic &&");
 
 	case EXP_TYPE_LOGIC_OR:  // ||
-		return OS_TEXT("logic ||");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op ||") : OS_TEXT("logic ||");
 
 	case EXP_TYPE_LOGIC_PTR_EQ:  // ===
 		return OS_TEXT("logic ===");
@@ -8764,34 +9084,34 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 		return OS_TEXT("logic !==");
 
 	case EXP_TYPE_LOGIC_EQ:  // ==
-		return OS_TEXT("logic ==");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op ==") : OS_TEXT("logic ==");
 
 	case EXP_TYPE_LOGIC_NE:  // !=
-		return OS_TEXT("logic !=");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op !=") : OS_TEXT("logic !=");
 
 	case EXP_TYPE_LOGIC_GE:  // >=
-		return OS_TEXT("logic >=");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op >=") : OS_TEXT("logic >=");
 
 	case EXP_TYPE_LOGIC_LE:  // <=
-		return OS_TEXT("logic <=");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op <=") : OS_TEXT("logic <=");
 
 	case EXP_TYPE_LOGIC_GREATER: // >
-		return OS_TEXT("logic >");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op >") : OS_TEXT("logic >");
 
 	case EXP_TYPE_LOGIC_LESS:    // <
-		return OS_TEXT("logic <");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op <") : OS_TEXT("logic <");
 
 	case EXP_TYPE_LOGIC_BOOL:     // !!
-		return OS_TEXT("logic bool");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op bool") : OS_TEXT("logic bool");
 
 	case EXP_TYPE_LOGIC_NOT:     // !
-		return OS_TEXT("logic not");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op not") : OS_TEXT("logic not");
 
 	case EXP_TYPE_PLUS:
-		return OS_TEXT("plus");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op plus") : OS_TEXT("plus");
 
 	case EXP_TYPE_NEG:
-		return OS_TEXT("neg");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op neg") : OS_TEXT("neg");
 
 	case EXP_TYPE_LENGTH:
 		return OS_TEXT("length");
@@ -8821,13 +9141,13 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 		return OS_TEXT("post --");
 
 	case EXP_TYPE_BIT_AND: // &
-		return OS_TEXT("bit &");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op &") : OS_TEXT("bit &");
 
 	case EXP_TYPE_BIT_OR:  // |
-		return OS_TEXT("bit |");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op |") : OS_TEXT("bit |");
 
 	case EXP_TYPE_BIT_XOR: // ^
-		return OS_TEXT("bit ^");
+		return val_type == CVT_NUMBER ? OS_TEXT("number ^") : OS_TEXT("bit ^");
 
 	case EXP_TYPE_BIT_NOT: // ~
 		return OS_TEXT("bit ~");
@@ -8853,28 +9173,28 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type)
 		return OS_TEXT("operator <=>");
 
 	case EXP_TYPE_ADD: // +
-		return OS_TEXT("operator +");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op +") : OS_TEXT("operator +");
 
 	case EXP_TYPE_SUB: // -
-		return OS_TEXT("operator -");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op -") : OS_TEXT("operator -");
 
 	case EXP_TYPE_MUL: // *
-		return OS_TEXT("operator *");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op *") : OS_TEXT("operator *");
 
 	case EXP_TYPE_DIV: // /
-		return OS_TEXT("operator /");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op /") : OS_TEXT("operator /");
 
 	case EXP_TYPE_MOD: // %
-		return OS_TEXT("operator %");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op %") : OS_TEXT("operator %");
 
 	case EXP_TYPE_LSHIFT: // <<
-		return OS_TEXT("operator <<");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op <<") : OS_TEXT("operator <<");
 
 	case EXP_TYPE_RSHIFT: // >>
-		return OS_TEXT("operator >>");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op >>") : OS_TEXT("operator >>");
 
 	case EXP_TYPE_POW: // **
-		return OS_TEXT("operator **");
+		return val_type == CVT_NUMBER ? OS_TEXT("number op **") : OS_TEXT("operator **");
 
 	case EXP_TYPE_ADD_ASSIGN: // +=
 		return OS_TEXT("operator +=");
@@ -9131,7 +9451,7 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader)
 	num_functions = reader->readUVariable();
 	int opcodes_size = reader->readUVariable();
 	int num_debug_infos = reader->readUVariable();
-	OS_ASSERT(!num_debug_infos || num_debug_infos == opcodes_size || num_debug_infos + 1 == opcodes_size);
+	// OS_ASSERT(!num_debug_infos || num_debug_infos == opcodes_size || num_debug_infos + 1 == opcodes_size);
 	int prog_filename_string_index = reader->readUVariable();
 	OS_ASSERT(prog_filename_string_index >= 0 && prog_filename_string_index < num_strings);
 
@@ -9296,8 +9616,18 @@ void OS::Core::Program::release()
 	}
 }
 
-OS::Core::OpcodeType OS::Core::Program::getOpcodeType(Compiler::ExpressionType exp_type)
+OS::Core::OpcodeType OS::Core::Program::getOpcodeType(Compiler::ExpressionType exp_type, Compiler::ECompiledValueType value_type)
 {
+	struct Lib {
+		static OpcodeType get(Compiler::ECompiledValueType value_type, OpcodeType num_type, OpcodeType type)
+		{
+			if(value_type == Compiler::CVT_NUMBER){
+				return num_type;
+			}
+			return type;
+		}
+	};
+
 	switch(exp_type){
 	case Compiler::EXP_TYPE_CALL: return OP_CALL;
 	case Compiler::EXP_TYPE_CALL_AUTO_PARAM: return OP_CALL;
@@ -9324,23 +9654,22 @@ OS::Core::OpcodeType OS::Core::Program::getOpcodeType(Compiler::ExpressionType e
 	case Compiler::EXP_TYPE_PLUS: return OP_PLUS;
 	case Compiler::EXP_TYPE_NEG: return OP_NEG;
 
-	case Compiler::EXP_TYPE_BIT_AND: return OP_BIT_AND;
-	case Compiler::EXP_TYPE_BIT_OR: return OP_BIT_OR;
-	case Compiler::EXP_TYPE_BIT_XOR: return OP_BIT_XOR;
+	case Compiler::EXP_TYPE_BIT_AND: return Lib::get(value_type, OP_NUMBER_BIT_AND, OP_BIT_AND);
+	case Compiler::EXP_TYPE_BIT_OR: return Lib::get(value_type, OP_NUMBER_BIT_OR, OP_BIT_OR);
+	case Compiler::EXP_TYPE_BIT_XOR: return Lib::get(value_type, OP_NUMBER_BIT_XOR, OP_BIT_XOR);
 
-	// case Compiler::EXP_TYPE_CONCAT: return OP_CONCAT;
-	case Compiler::EXP_TYPE_COMPARE: return OP_COMPARE;
-	case Compiler::EXP_TYPE_ADD: return OP_ADD;
-	case Compiler::EXP_TYPE_SUB: return OP_SUB;
-	case Compiler::EXP_TYPE_MUL: return OP_MUL;
-	case Compiler::EXP_TYPE_DIV: return OP_DIV;
-	case Compiler::EXP_TYPE_MOD: return OP_MOD;
-	case Compiler::EXP_TYPE_LSHIFT: return OP_LSHIFT;
-	case Compiler::EXP_TYPE_RSHIFT: return OP_RSHIFT;
-	case Compiler::EXP_TYPE_POW: return OP_POW;
+	case Compiler::EXP_TYPE_COMPARE: return Lib::get(value_type, OP_NUMBER_SUB, OP_COMPARE);
+	case Compiler::EXP_TYPE_ADD: return Lib::get(value_type, OP_NUMBER_ADD, OP_ADD);
+	case Compiler::EXP_TYPE_SUB: return Lib::get(value_type, OP_NUMBER_SUB, OP_SUB);
+	case Compiler::EXP_TYPE_MUL: return Lib::get(value_type, OP_NUMBER_MUL, OP_MUL);
+	case Compiler::EXP_TYPE_DIV: return Lib::get(value_type, OP_NUMBER_DIV, OP_DIV);
+	case Compiler::EXP_TYPE_MOD: return Lib::get(value_type, OP_NUMBER_MOD, OP_MOD);
+	case Compiler::EXP_TYPE_LSHIFT: return Lib::get(value_type, OP_NUMBER_LSHIFT, OP_LSHIFT);
+	case Compiler::EXP_TYPE_RSHIFT: return Lib::get(value_type, OP_NUMBER_RSHIFT, OP_RSHIFT);
+	case Compiler::EXP_TYPE_POW: return Lib::get(value_type, OP_NUMBER_POW, OP_POW);
 	}
 	OS_ASSERT(false);
-	return OP_NOP;
+	return OP_ADD;
 }
 
 // =====================================================================
@@ -10369,6 +10698,23 @@ void OS::Core::changePropertyIndex(Table * table, Property * prop, const Value& 
 		: temp == OS_VALUE_TYPE_NULL ? true \
 		: OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value))
 
+#ifdef OS_DEBUG
+int OS::Core::checkSavedType(int type, const Value& value)
+{
+	OS_ASSERT(type == OS_VALUE_TYPE(value));
+	return type;
+}
+#else
+#define checkSavedType(type, value) (type)
+#endif
+
+#define OS_EQUAL_EXACTLY_BY_SAVED_TYPE(temp, left_value, right_value) \
+	(checkSavedType(temp, left_value) == OS_VALUE_TYPE(right_value) \
+		&& (temp == OS_VALUE_TYPE_NUMBER ? OS_VALUE_NUMBER(left_value) == OS_VALUE_NUMBER(right_value) \
+		: temp == OS_VALUE_TYPE_BOOL ? OS_VALUE_VARIANT(left_value).boolean == OS_VALUE_VARIANT(right_value).boolean \
+		: temp == OS_VALUE_TYPE_NULL ? true \
+		: OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value))
+
 OS::Core::Property * OS::Core::removeTableProperty(Table * table, const Value& index)
 {
 	OS_ASSERT(table);
@@ -10380,10 +10726,10 @@ OS::Core::Property * OS::Core::removeTableProperty(Table * table, const Value& i
 	int slot = getValueHash(index) & table->head_mask;
 #endif
 	Property * cur = table->heads[slot], * chain_prev = NULL;
-	for(int temp; cur; chain_prev = cur, cur = cur->hash_next){
+	for(int type = OS_VALUE_TYPE(index); cur; chain_prev = cur, cur = cur->hash_next){
 		// if(isEqualExactly(cur->index, index)){
 		// performance optimization
-		if(OS_EQUAL_EXACTLY(temp, cur->index, index)){
+		if(OS_EQUAL_EXACTLY_BY_SAVED_TYPE(type, index, cur->index)){
 			if(table->first == cur){
 				table->first = cur->next;
 				if(table->first){
@@ -10737,10 +11083,8 @@ OS::Core::Property * OS::Core::Table::get(const Value& index)
 #else
 		Property * cur = heads[getValueHash(index) & head_mask];
 #endif
-		for(int temp; cur; cur = cur->hash_next){
-			// if(isEqualExactly(cur->index, index)){
-			// performance optimization
-			if(OS_EQUAL_EXACTLY(temp, cur->index, index)){
+		for(int type = OS_VALUE_TYPE(index); cur; cur = cur->hash_next){
+			if(OS_EQUAL_EXACTLY_BY_SAVED_TYPE(type, index, cur->index)){
 				return cur;
 			}
 		}
@@ -14347,6 +14691,7 @@ void OS::Core::setPropertyValue(const Value& table_value, const Value& index, co
 void OS::Core::pushPrototype(const Value& val)
 {
 	switch(OS_VALUE_TYPE(val)){
+	default:
 	case OS_VALUE_TYPE_NULL:
 		pushNull();
 		return;
@@ -14513,12 +14858,11 @@ OS::Core::GCStringValue * OS::Core::newStringValue(const void * buf1, int size1,
 		return newStringValue(buf1, size1, buf2, size2);
 	}
 	if(size1 + size2 + size3 <= 1024){
-		OS_BYTE * buf = (OS_BYTE*)alloca(size1 + size2 + size3 + sizeof(OS_CHAR));
+		OS_BYTE * buf = (OS_BYTE*)alloca(size1 + size2 + size3);
 		OS_MEMCPY(buf, buf1, size1);
 		OS_MEMCPY(buf+size1, buf2, size2);
 		OS_MEMCPY(buf+size1+size2, buf3, size3);
-		buf[size1+size2+size3] = (OS_CHAR)0;
-		return newStringValue(buf, (size1 + size2 + size3) / sizeof(OS_CHAR));
+		return newStringValue((void*)buf, size1 + size2 + size3);
 	}
 	GCStringValue * str = newStringValue(buf1, size1, buf2, size2);
 	return newStringValue(str->toBytes(), str->data_size, buf3, size3);
@@ -14659,6 +15003,43 @@ OS::Core::GCUserdataValue * OS::Core::newUserdataValue(int crc, int data_size, O
 	return res;
 }
 
+int OS::findUserPointerValueId(void * data)
+{
+	Core::GCUserdataValue * value = core->findUserPointerValue(data);
+	return value ? value->value_id : 0;
+}
+
+OS::Core::GCUserdataValue * OS::Core::findUserPointerValue(void * ptr)
+{
+	int hash = OS_PTR_HASH(ptr);
+	if(ptr && userptr_refs.count > 0){
+		OS_ASSERT(userptr_refs.heads && userptr_refs.head_mask > 0);
+		int slot = hash & userptr_refs.head_mask;
+		UserptrRef * userptr_ref = userptr_refs.heads[slot];
+		for(UserptrRef * prev = NULL, * next; userptr_ref; userptr_ref = next){
+			next = userptr_ref->hash_next;
+			GCUserdataValue * userptr_value = (GCUserdataValue*)values.get(userptr_ref->userptr_value_id);
+			if(!userptr_value){
+				if(!prev){
+					userptr_refs.heads[slot] = next;
+				}else{
+					prev->hash_next = next;					
+				}
+				free(userptr_ref);
+				userptr_refs.count--;
+				continue;
+			}
+			OS_ASSERT(userptr_value->type == OS_VALUE_TYPE_USERPTR);
+			OS_ASSERT(dynamic_cast<GCUserdataValue*>(userptr_value));
+			if(userptr_value->ptr == ptr){ // && userptr_value->crc == crc){
+				return userptr_value;
+			}
+			prev = userptr_ref;
+		}
+	}
+	return NULL;
+}
+
 OS::Core::GCUserdataValue * OS::Core::newUserPointerValue(int crc, void * ptr, OS_UserdataDtor dtor, void * user_param)
 {
 	int hash = OS_PTR_HASH(ptr);
@@ -14772,7 +15153,7 @@ void OS::Core::copyValue(int raw_from, int raw_to)
 {
 	OS_ASSERT(raw_from < stack_values.count);
 	reserveStackValues(raw_to+1);
-	stack_values.buf[raw_to] = stack_values.buf[raw_from];
+	stack_values[raw_to] = stack_values[raw_from];
 }
 
 void OS::Core::pushBool(bool val)
@@ -15136,29 +15517,8 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& value)
 bool OS::Core::isEqualExactly(const Value& left_value, const Value& right_value)
 {
 	// performance optimization
-	int temp;
-	return OS_EQUAL_EXACTLY(temp, left_value, right_value);
-	/*
-	int left_type = OS_VALUE_TYPE(left_value);
-	if(left_type == OS_VALUE_TYPE(right_value)){ // && left_value->prototype == right_value->prototype){
-		switch(left_type){
-		case OS_VALUE_TYPE_NULL:
-			return true;
-
-		case OS_VALUE_TYPE_NUMBER:
-			return OS_VALUE_NUMBER(left_value) == OS_VALUE_NUMBER(right_value);
-
-		case OS_VALUE_TYPE_BOOL:
-			return OS_VALUE_VARIANT(left_value).boolean == OS_VALUE_VARIANT(right_value).boolean;
-
-		default:
-			return OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value;
-
-		case OS_VALUE_TYPE_WEAKREF:
-			return OS_VALUE_VARIANT(left_value).value_id == OS_VALUE_VARIANT(right_value).value_id;
-		}
-	}
-	return false; */
+	int type;
+	return OS_EQUAL_EXACTLY(type, left_value, right_value);
 }
 
 void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value)
@@ -15391,6 +15751,7 @@ int OS::Core::getStackOffs(int offs)
 
 OS::Core::Value OS::Core::getStackValue(int offs)
 {
+	StackValues& stack_values = this->stack_values;
 	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
 	if(offs >= 0 && offs < stack_values.count){
 		return stack_values.buf[offs];
@@ -15448,6 +15809,7 @@ void OS::Core::removeStackValues(int offs, int count)
 		OS_ASSERT(count == 0);
 		return;
 	}
+	StackValues& stack_values = this->stack_values;
 	int start = offs <= 0 ? stack_values.count + offs : offs - 1;
 	if(start < 0 || start >= stack_values.count){
 		OS_ASSERT(false);
@@ -15480,6 +15842,7 @@ void OS::Core::removeAllStackValues()
 
 void OS::Core::pop(int count)
 {
+	StackValues& stack_values = this->stack_values;
 	if(count >= stack_values.count){
 		OS_ASSERT(count == stack_values.count);
 		stack_values.count = 0;
@@ -15494,6 +15857,7 @@ void OS::Core::moveStackValues(int offs, int count, int new_offs)
 		OS_ASSERT(count == 0);
 		return;
 	}
+	StackValues& stack_values = this->stack_values;
 	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
 	if(offs < 0 || offs >= stack_values.count){
 		OS_ASSERT(false);
@@ -15526,6 +15890,7 @@ void OS::Core::moveStackValues(int offs, int count, int new_offs)
 
 void OS::Core::moveStackValue(int offs, int new_offs)
 {
+	StackValues& stack_values = this->stack_values;
 	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
 	if(offs < 0 || offs >= stack_values.count){
 		OS_ASSERT(false);
@@ -15883,6 +16248,12 @@ OS_EValueType OS::getTypeById(int id)
 {
 	Core::GCValue * val = core->values.get(id);
 	return val ? val->type : OS_VALUE_TYPE_NULL;
+}
+
+OS::Core::String OS::Core::getTypeStr(const Value& val)
+{
+	pushTypeOf(val);
+	return allocator->popString();
 }
 
 OS::String OS::getTypeStr(int offs)
@@ -17014,6 +17385,10 @@ void OS::Core::execute()
 		}
 #endif
 		OS_PROFILE_BEGIN_OPCODE(opcode);
+#if 1
+		Value * stack_func_prog_values = this->stack_func_prog_values;
+		Value * stack_func_locals = this->stack_func_locals;
+#endif
 		switch(opcode){
 		// case 0: case 1: case 2: case 3:
 		default:
@@ -17024,12 +17399,12 @@ corrupted:
 		OS_CASE_OPCODE_ALL(OP_LOGIC_BOOL):
 			{
 				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				// b = GETARG_B(instruction); // inverse
 				// c = GETARG_C(instruction); // if opcode
 				res = (int)valueToBool(stack_func_locals[a]) ^ OS_GETARG_B(instruction);
 				if(!(OS_GETARG_C(instruction))){
-					stack_func_locals[a] = res != 0;
+					this->stack_func_locals[a] = res != 0;
 					break;
 				}
 #ifdef OS_DEBUG
@@ -17089,9 +17464,6 @@ corrupted:
 				a = OS_GETARG_A(instruction);
 				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
 				
-				// left_value = & ARG_B_VALUE(a);
-				// b = a + 1;
-				// right_value = & ARG_C_VALUE(b);
 				left_value = &stack_func_locals[a];
 				right_value = left_value + 1;
 
@@ -17105,6 +17477,38 @@ corrupted:
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
 				}
+				if(!(OS_GETARG_C(instruction))){
+					this->stack_func_locals[a] = res != 0;
+					break;
+				}
+#ifdef OS_DEBUG
+				instruction = stack_func->opcodes[0];
+				opcode = (OpcodeType)OS_GET_OPCODE_TYPE(instruction);
+				OS_ASSERT(opcode == OP_JUMP);
+#endif
+				if(res){
+					stack_func->opcodes++;
+				}else{
+					instruction = stack_func->opcodes[0];
+					b = OS_GETARG_sBx(instruction);
+					stack_func->opcodes += b + 1;
+				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_LOGIC_EQ):
+			{
+				a = OS_GETARG_A(instruction);
+				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
+				
+				left_value = &stack_func_locals[a];
+				right_value = left_value + 1;
+
+				b = OS_GETARG_B(instruction); // inverse
+				// c = GETARG_C(instruction); // if opcode
+
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				res = (int)(OS_VALUE_NUMBER(*left_value) == OS_VALUE_NUMBER(*right_value)) ^ b;
 				if(!(OS_GETARG_C(instruction))){
 					stack_func_locals[a] = res != 0;
 					break;
@@ -17129,9 +17533,6 @@ corrupted:
 				a = OS_GETARG_A(instruction);
 				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
 				
-				// left_value = & ARG_B_VALUE(a);
-				// b = a + 1;
-				// right_value = & ARG_C_VALUE(b);
 				left_value = &stack_func_locals[a];
 				right_value = left_value + 1;
 
@@ -17145,6 +17546,38 @@ corrupted:
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
 				}
+				if(!(OS_GETARG_C(instruction))){
+					this->stack_func_locals[a] = res != 0;
+					break;
+				}
+#ifdef OS_DEBUG
+				instruction = stack_func->opcodes[0];
+				opcode = (OpcodeType)OS_GET_OPCODE_TYPE(instruction);
+				OS_ASSERT(opcode == OP_JUMP);
+#endif
+				if(res){
+					stack_func->opcodes++;
+				}else{
+					instruction = stack_func->opcodes[0];
+					b = OS_GETARG_sBx(instruction);
+					stack_func->opcodes += b + 1;
+				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_LOGIC_GREATER):
+			{
+				a = OS_GETARG_A(instruction);
+				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
+				
+				left_value = &stack_func_locals[a];
+				right_value = left_value + 1;
+
+				b = OS_GETARG_B(instruction); // inverse
+				// c = GETARG_C(instruction); // if opcode
+
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				res = (int)(OS_VALUE_NUMBER(*left_value) > OS_VALUE_NUMBER(*right_value)) ^ b;
 				if(!(OS_GETARG_C(instruction))){
 					stack_func_locals[a] = res != 0;
 					break;
@@ -17169,9 +17602,6 @@ corrupted:
 				a = OS_GETARG_A(instruction);
 				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
 				
-				// left_value = & ARG_B_VALUE(a);
-				// b = a + 1;
-				// right_value = & ARG_C_VALUE(b);
 				left_value = &stack_func_locals[a];
 				right_value = left_value + 1;
 
@@ -17185,6 +17615,38 @@ corrupted:
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
 				}
+				if(!(OS_GETARG_C(instruction))){
+					this->stack_func_locals[a] = res != 0;
+					break;
+				}
+#ifdef OS_DEBUG
+				instruction = stack_func->opcodes[0];
+				opcode = (OpcodeType)OS_GET_OPCODE_TYPE(instruction);
+				OS_ASSERT(opcode == OP_JUMP);
+#endif
+				if(res){
+					stack_func->opcodes++;
+				}else{
+					instruction = stack_func->opcodes[0];
+					b = OS_GETARG_sBx(instruction);
+					stack_func->opcodes += b + 1;
+				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_LOGIC_GE):
+			{
+				a = OS_GETARG_A(instruction);
+				OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
+				
+				left_value = &stack_func_locals[a];
+				right_value = left_value + 1;
+
+				b = OS_GETARG_B(instruction); // inverse
+				// c = GETARG_C(instruction); // if opcode
+
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				res = (int)(OS_VALUE_NUMBER(*left_value) >= OS_VALUE_NUMBER(*right_value)) ^ b;
 				if(!(OS_GETARG_C(instruction))){
 					stack_func_locals[a] = res != 0;
 					break;
@@ -17215,156 +17677,286 @@ corrupted:
 
 		OS_CASE_OPCODE_ALL(OP_BIT_NOT):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value)){
-					OS_SET_VALUE_NUMBER(stack_func_locals[a],  ~(OS_INT)OS_VALUE_NUMBER(*left_value));
+					OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)],  ~(OS_INT)OS_VALUE_NUMBER(*left_value));
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_PLUS):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value)){
-					stack_func_locals[a] =  *left_value; // OS_VALUE_NUMBER(*left_value);
+					stack_func_locals[OS_GETARG_A(instruction)] =  *left_value; // OS_VALUE_NUMBER(*left_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_NEG):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value)){
-					stack_func_locals[a] = -OS_VALUE_NUMBER(*left_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = -OS_VALUE_NUMBER(*left_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_BIT_AND):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = (OS_INT)OS_VALUE_NUMBER(*left_value) & (OS_INT)OS_VALUE_NUMBER(*right_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) & (OS_INT)OS_VALUE_NUMBER(*right_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_BIT_AND):
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) & (OS_INT)OS_VALUE_NUMBER(*right_value);
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_BIT_OR):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = (OS_INT)OS_VALUE_NUMBER(*left_value) | (OS_INT)OS_VALUE_NUMBER(*right_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) | (OS_INT)OS_VALUE_NUMBER(*right_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_BIT_OR):
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) | (OS_INT)OS_VALUE_NUMBER(*right_value);
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_BIT_XOR):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = (OS_INT)OS_VALUE_NUMBER(*left_value) ^ (OS_INT)OS_VALUE_NUMBER(*right_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) ^ (OS_INT)OS_VALUE_NUMBER(*right_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_BIT_XOR):
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) ^ (OS_INT)OS_VALUE_NUMBER(*right_value);
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_ADD): // +
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					OS_SET_VALUE_NUMBER(stack_func_locals[a], OS_VALUE_NUMBER(*left_value) + OS_VALUE_NUMBER(*right_value));
+					OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) + OS_VALUE_NUMBER(*right_value));
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_ADD): // +
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) + OS_VALUE_NUMBER(*right_value));
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_ADD_LC): // +
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				// b = OS_GETARG_B(instruction);
+				// c = OS_GETARG_C(instruction);
+				left_value = & stack_func_locals[OS_GETARG_B(instruction)];
+				right_value = & stack_func_prog_values[OS_GETARG_C(instruction)];
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) + OS_VALUE_NUMBER(*right_value));
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_ADD_LL): // +
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				// b = OS_GETARG_B(instruction);
+				// c = OS_GETARG_C(instruction);
+				left_value = & stack_func_locals[OS_GETARG_B(instruction)];
+				right_value = & stack_func_locals[OS_GETARG_C(instruction)];
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) + OS_VALUE_NUMBER(*right_value));
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_COMPARE): // <=>
 		OS_CASE_OPCODE_ALL(OP_SUB): // -
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					OS_SET_VALUE_NUMBER(stack_func_locals[a], OS_VALUE_NUMBER(*left_value) - OS_VALUE_NUMBER(*right_value));
+					OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) - OS_VALUE_NUMBER(*right_value));
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_SUB): // -
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) - OS_VALUE_NUMBER(*right_value));
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_SUB_LC): // -
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				// b = OS_GETARG_B(instruction);
+				// c = OS_GETARG_C(instruction);
+				left_value = & stack_func_locals[OS_GETARG_B(instruction)];
+				right_value = & stack_func_prog_values[OS_GETARG_C(instruction)];
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) - OS_VALUE_NUMBER(*right_value));
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_SUB_LL): // -
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				// b = OS_GETARG_B(instruction);
+				// c = OS_GETARG_C(instruction);
+				left_value = & stack_func_locals[OS_GETARG_B(instruction)];
+				right_value = & stack_func_locals[OS_GETARG_C(instruction)];
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) - OS_VALUE_NUMBER(*right_value));
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_MUL): // *
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					OS_SET_VALUE_NUMBER(stack_func_locals[a], OS_VALUE_NUMBER(*left_value) * OS_VALUE_NUMBER(*right_value));
+					OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) * OS_VALUE_NUMBER(*right_value));
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_MUL): // *
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) * OS_VALUE_NUMBER(*right_value));
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_DIV): // /
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
@@ -17372,22 +17964,39 @@ corrupted:
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
 					if(!OS_VALUE_NUMBER(*right_value)){
 						errorDivisionByZero();
-						// OS_SET_VALUE_NUMBER(stack_func_locals[a], 0.0); // TODO: NaN or null ???
-						OS_SET_VALUE_NULL(stack_func_locals[a]);
+						OS_SET_VALUE_NULL(stack_func_locals[OS_GETARG_A(instruction)]);
 					}else{
-						OS_SET_VALUE_NUMBER(stack_func_locals[a], OS_VALUE_NUMBER(*left_value) / OS_VALUE_NUMBER(*right_value));
+						OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) / OS_VALUE_NUMBER(*right_value));
 					}
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
+				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_DIV): // /
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				if(!OS_VALUE_NUMBER(*right_value)){
+					errorDivisionByZero();
+					OS_SET_VALUE_NULL(stack_func_locals[OS_GETARG_A(instruction)]);
+				}else{
+					OS_SET_VALUE_NUMBER(stack_func_locals[OS_GETARG_A(instruction)], OS_VALUE_NUMBER(*left_value) / OS_VALUE_NUMBER(*right_value));
 				}
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_MOD): // %
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
@@ -17395,80 +18004,137 @@ corrupted:
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
 					if(!OS_VALUE_NUMBER(*right_value)){
 						errorDivisionByZero();
-						// stack_func_locals[a] = (OS_NUMBER)0.0; // TODO: NaN ???
-						OS_SET_VALUE_NULL(stack_func_locals[a]);
+						OS_SET_VALUE_NULL(stack_func_locals[OS_GETARG_A(instruction)]);
 					}else{
-						stack_func_locals[a] = OS_MATH_MOD_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
+						stack_func_locals[OS_GETARG_A(instruction)] = OS_MATH_MOD_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
 					}
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
+				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_MOD): // %
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				if(!OS_VALUE_NUMBER(*right_value)){
+					errorDivisionByZero();
+					OS_SET_VALUE_NULL(stack_func_locals[OS_GETARG_A(instruction)]);
+				}else{
+					stack_func_locals[OS_GETARG_A(instruction)] = OS_MATH_MOD_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
 				}
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_LSHIFT): // <<
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = (OS_INT)OS_VALUE_NUMBER(*left_value) << (OS_INT)OS_VALUE_NUMBER(*right_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) << (OS_INT)OS_VALUE_NUMBER(*right_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_LSHIFT): // <<
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) << (OS_INT)OS_VALUE_NUMBER(*right_value);
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_RSHIFT): // >>
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = (OS_INT)OS_VALUE_NUMBER(*left_value) >> (OS_INT)OS_VALUE_NUMBER(*right_value);
+					stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) >> (OS_INT)OS_VALUE_NUMBER(*right_value);
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_RSHIFT): // >>
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = (OS_INT)OS_VALUE_NUMBER(*left_value) >> (OS_INT)OS_VALUE_NUMBER(*right_value);
 				break;
 			}
 
 		OS_CASE_OPCODE_ALL(OP_POW): // **
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				c = OS_GETARG_C(instruction);
 				left_value = & OS_GETARG_B_VALUE();
 				right_value = & OS_GETARG_C_VALUE();
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
-					stack_func_locals[a] = OS_MATH_POW_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
+					stack_func_locals[OS_GETARG_A(instruction)] = OS_MATH_POW_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
 				}else{
 					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
-					stack_func_locals[a] = stack_values.buf[--stack_values.count];
+					this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 				}
+				break;
+			}
+
+		OS_CASE_OPCODE_ALL(OP_NUMBER_POW): // **
+			{
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+				b = OS_GETARG_B(instruction);
+				c = OS_GETARG_C(instruction);
+				left_value = & OS_GETARG_B_VALUE();
+				right_value = & OS_GETARG_C_VALUE();
+				OS_ASSERT(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value));
+				stack_func_locals[OS_GETARG_A(instruction)] = OS_MATH_POW_OPERATOR(OS_VALUE_NUMBER(*left_value), OS_VALUE_NUMBER(*right_value));
 				break;
 			}
 
 		OS_CASE_OPCODE(OP_NEW_FUNCTION):
 			{
-				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				// a = OS_GETARG_A(instruction);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				prog = stack_func->func->prog;
 				OS_ASSERT(b > 0 && b < prog->num_functions);
 				FunctionDecl * func_decl = prog->functions + b;
 				// int env_index = stack_func->func->func_decl->num_params + VAR_ENV;
 				GCFunctionValue * func_value = newFunctionValue(stack_func, prog, func_decl, stack_func_locals[stack_func_env_index]);
-				stack_func_locals[a] = func_value;
+				OS_ASSERT(this->stack_func_locals == stack_func_locals);
+				stack_func_locals[OS_GETARG_A(instruction)] = func_value;
 				stack_func->opcodes += func_decl->opcodes_size;
 				break;
 			}
@@ -17476,7 +18142,7 @@ corrupted:
 		OS_CASE_OPCODE(OP_CALL):
 			OS_PROFILE_END_OPCODE(opcode); // we shouldn't profile call here
 			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
 			OS_ASSERT(b >= 2 && a+b <= stack_func->func->func_decl->stack_size);
 			c = OS_GETARG_C(instruction);
@@ -17489,7 +18155,7 @@ corrupted:
 			{
 				OS_PROFILE_END_OPCODE(opcode); // we shouldn't profile call here
 				a = GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = GETARG_B(instruction);
 				OS_ASSERT(b >= 2 && a+b <= stack_func->func->func_decl->stack_size);
 				c = stack_func->need_ret_values; // GETARG_C(instruction);
@@ -17527,17 +18193,19 @@ corrupted:
 		OS_CASE_OPCODE(OP_CALL_METHOD):
 			OS_PROFILE_END_OPCODE(opcode); // we shouldn't profile call here
 			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
 			OS_ASSERT(b >= 2 && a+b <= stack_func->func->func_decl->stack_size);
 			c = OS_GETARG_C(instruction);
 			OS_ASSERT(c >= 0 && a+c <= stack_func->func->func_decl->stack_size);
 #if 1 // performance optimization
 			OS_GETTER_VALUE(value, stack_func_locals[a], stack_func_locals[a + 1], true, true);
+			stack_func_locals = this->stack_func_locals;
 			stack_func_locals[a + 1] = stack_func_locals[a]; // this
 			stack_func_locals[a] = value; // func
 #else
 			pushPropertyValue(stack_func_locals[a], stack_func_locals[a + 1], true, true);
+			stack_func_locals = this->stack_func_locals;
 			stack_func_locals[a + 1] = stack_func_locals[a]; // this
 			stack_func_locals[a] = stack_values.buf[--stack_values.count]; // func
 #endif
@@ -17549,7 +18217,7 @@ corrupted:
 			{
 				OS_PROFILE_END_OPCODE(opcode); // we shouldn't profile call here
 				a = GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = GETARG_B(instruction);
 				OS_ASSERT(b >= 2 && a+b <= stack_func->func->func_decl->stack_size);
 				c = stack_func->need_ret_values; // GETARG_C(instruction);
@@ -17590,7 +18258,7 @@ corrupted:
 			{
 				OS_PROFILE_END_OPCODE(opcode); // we shouldn't profile call here
 				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				OS_ASSERT(b >= 2 && a+b <= stack_func->func->func_decl->stack_size);
 				c = OS_GETARG_C(instruction);
@@ -17611,11 +18279,14 @@ corrupted:
 						if(getPropertyValue(value, proto, func_value->name, prototype_enabled)
 							&& value.isFunction())
 						{
+							stack_func_locals = this->stack_func_locals;
 							stack_func_locals[a] = value;
 							stack_func_locals[a + 1] = stack_func_locals[PRE_VAR_THIS];
 						}else{
+							stack_func_locals = this->stack_func_locals;
 							stack_func_locals[a] = stack_func_locals[a + 1] = Value();
 						}
+						stack_func = this->stack_func;
 					}
 				}
 
@@ -17624,14 +18295,10 @@ corrupted:
 			}
 
 		OS_CASE_OPCODE_ALL(OP_MOVE):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
-#if OS_MAX_GENERIC_CONST_INDEX == 0
-			stack_func_locals[a] = stack_func_locals[b];
-#else
-			stack_func_locals[a] = OS_GETARG_B_VALUE();
-#endif
+			stack_func_locals[OS_GETARG_A(instruction)] = OS_GETARG_B_VALUE();
 			break;
 
 		OS_CASE_OPCODE_ALL(OP_MOVE2):
@@ -17639,105 +18306,100 @@ corrupted:
 			OS_ASSERT(a >= 0 && a+1 < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
 			c = OS_GETARG_C(instruction);
-#if OS_MAX_GENERIC_CONST_INDEX == 0
-			stack_func_locals[a] = stack_func_locals[b];
-			stack_func_locals[a + 1] = stack_func_locals[c];
-#else
 			stack_func_locals[a] = OS_GETARG_B_VALUE();
 			stack_func_locals[a + 1] = OS_GETARG_C_VALUE();
-#endif
 			break;
 
 		OS_CASE_OPCODE(OP_GET_XCONST):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
-			b = OS_GETARG_Bx(instruction);
-			OS_ASSERT(b >= 0 && b < stack_func->func->prog->num_numbers + stack_func->func->prog->num_strings + CONST_STD_VALUES);
-			stack_func_locals[a] = stack_func_prog_values[b];
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			// b = OS_GETARG_Bx(instruction);
+			OS_ASSERT(OS_GETARG_Bx(instruction) >= 0 && OS_GETARG_Bx(instruction) < stack_func->func->prog->num_numbers + stack_func->func->prog->num_strings + CONST_STD_VALUES);
+			stack_func_locals[OS_GETARG_A(instruction)] = stack_func_prog_values[OS_GETARG_Bx(instruction)];
 			break;
 
 		OS_CASE_OPCODE(OP_GET_UPVALUE):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
-			b = OS_GETARG_B(instruction); // src scope local
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			// b = OS_GETARG_B(instruction); // src scope local
 			c = OS_GETARG_C(instruction);
 			OS_ASSERT(c <= stack_func->func->func_decl->max_up_count);
 			scope = stack_func->locals;
 			OS_ASSERT(c <= scope->num_parents);
 			scope = scope->getParent(c-1);
-			OS_ASSERT(b >= 0 && b < scope->func_decl->num_locals);
-			stack_func_locals[a] = scope->values[b];
+			OS_ASSERT(OS_GETARG_B(instruction) >= 0 && OS_GETARG_B(instruction) < scope->func_decl->num_locals);
+			stack_func_locals[OS_GETARG_A(instruction)] = scope->values[OS_GETARG_B(instruction)];
 			break;
 
 		OS_CASE_OPCODE(OP_SET_UPVALUE):
-			a = OS_GETARG_A(instruction); // dest scope local
-			b = OS_GETARG_B(instruction);
-			OS_ASSERT(b >= 0 && b < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction); // dest scope local
+			// b = OS_GETARG_B(instruction);
+			OS_ASSERT(OS_GETARG_B(instruction) >= 0 && OS_GETARG_B(instruction) < stack_func->func->func_decl->stack_size);
 			c = OS_GETARG_C(instruction);
 			OS_ASSERT(c <= stack_func->func->func_decl->max_up_count);
 			scope = stack_func->locals;
 			OS_ASSERT(c <= scope->num_parents);
 			scope = scope->getParent(c-1);
-			OS_ASSERT(a >= 0 && a < scope->func_decl->num_locals);
-			scope->values[a] = stack_func_locals[b]; // OS_GETARG_B_VALUE();
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < scope->func_decl->num_locals);
+			scope->values[OS_GETARG_A(instruction)] = stack_func_locals[OS_GETARG_B(instruction)];
 			break;
 
 		OS_CASE_OPCODE_ALL(OP_GET_PROPERTY):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
-			b = OS_GETARG_B(instruction);
-			OS_ASSERT(b >= 0 && b < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			// b = OS_GETARG_B(instruction);
+			OS_ASSERT(OS_GETARG_B(instruction) >= 0 && OS_GETARG_B(instruction) < stack_func->func->func_decl->stack_size);
 			c = OS_GETARG_C(instruction);
 #if 1 // performance optimization
-			OS_GETTER_VALUE(value, stack_func_locals[b], OS_GETARG_C_VALUE(), true, true);
-			stack_func_locals[a] = value;
+			OS_GETTER_VALUE(value, stack_func_locals[OS_GETARG_B(instruction)], OS_GETARG_C_VALUE(), true, true);
+			this->stack_func_locals[OS_GETARG_A(instruction)] = value;
 #else
-			pushPropertyValue(stack_func_locals[b], OS_GETARG_C_VALUE(), true, true);
-			stack_func_locals[a] = stack_values.buf[--stack_values.count];
+			pushPropertyValue(stack_func_locals[OS_GETARG_B(instruction)], OS_GETARG_C_VALUE(), true, true);
+			this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 #endif
 			break;
 
 		OS_CASE_OPCODE_ALL(OP_INIT_PROPERTY):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
 			c = OS_GETARG_C(instruction);
 #if 1 // performance optimization
-			OS_SETTER_VALUE(stack_func_locals[a], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
+			OS_SETTER_VALUE(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
 #else
-			setPropertyValue(stack_func_locals[a], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
+			setPropertyValue(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
 #endif
 			break;
 
 		OS_CASE_OPCODE_ALL(OP_SET_PROPERTY):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			b = OS_GETARG_B(instruction);
 			c = OS_GETARG_C(instruction);
 #if 1 // performance optimization
-			OS_SETTER_VALUE(stack_func_locals[a], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
+			OS_SETTER_VALUE(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
 #else
-			setPropertyValue(stack_func_locals[a], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
+			setPropertyValue(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
 #endif
 			break;
 
 		OS_CASE_OPCODE(OP_NEW_OBJECT):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
-			stack_func_locals[a] = newObjectValue();
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			stack_func_locals[OS_GETARG_A(instruction)] = newObjectValue();
 			break;
 
 		OS_CASE_OPCODE(OP_NEW_ARRAY):
-			a = OS_GETARG_A(instruction);
-			OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
-			b = OS_GETARG_B(instruction);
-			stack_func_locals[a] = newArrayValue(b);
+			// a = OS_GETARG_A(instruction);
+			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			// b = OS_GETARG_B(instruction);
+			stack_func_locals[OS_GETARG_A(instruction)] = newArrayValue(OS_GETARG_B(instruction));
 			break;
 
 		OS_CASE_OPCODE(OP_MULTI):
 			{
 				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				c = OS_GETARG_C(instruction);
 				switch(c){
 				case OP_MULTI_GET_ARGUMENTS:
@@ -17745,7 +18407,7 @@ corrupted:
 						stack_func_locals[a] = stack_func->arguments;
 					}else{
 						pushArguments(stack_func);
-						stack_func_locals[a] = stack_values.buf[--stack_values.count];
+						this->stack_func_locals[a] = stack_values.buf[--stack_values.count];
 					}
 					break;
 
@@ -17754,7 +18416,7 @@ corrupted:
 						stack_func_locals[a] = stack_func->rest_arguments;
 					}else{
 						pushRestArguments(stack_func);
-						stack_func_locals[a] = stack_values.buf[--stack_values.count];
+						this->stack_func_locals[a] = stack_values.buf[--stack_values.count];
 					}
 					break;
 
@@ -17789,7 +18451,7 @@ corrupted:
 		OS_CASE_OPCODE(OP_RETURN):
 			{
 				a = OS_GETARG_A(instruction);
-				OS_ASSERT(a >= 0 && a < stack_func->func->func_decl->stack_size);
+				OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 				b = OS_GETARG_B(instruction);
 				OS_ASSERT(b >= 0 && a+b <= stack_func->func->func_decl->stack_size);
 				// c = GETARG_C(instruction);
@@ -18065,6 +18727,7 @@ void OS::setFunc(const FuncDef& def, bool setter_enabled, int closure_values, vo
 
 void OS::setFuncs(const FuncDef * list, bool setter_enabled, int closure_values, void * user_param)
 {
+	if(list)
 	for(; list->func; list++){
 		pushStackValue(-1);
 		pushString(list->name);
@@ -18085,6 +18748,7 @@ void OS::setNumber(const NumberDef& def, bool setter_enabled)
 
 void OS::setNumbers(const NumberDef * list, bool setter_enabled)
 {
+	if(list)
 	for(; list->name; list++){
 		pushStackValue(-1);
 		pushString(list->name);
@@ -18101,6 +18765,7 @@ void OS::setString(const StringDef& def, bool setter_enabled)
 
 void OS::setStrings(const StringDef * list, bool setter_enabled)
 {
+	if(list)
 	for(; list->name; list++){
 		pushStackValue(-1);
 		pushString(list->name);
@@ -18117,6 +18782,7 @@ void OS::setNull(const NullDef& def, bool setter_enabled)
 
 void OS::setNulls(const NullDef * list, bool setter_enabled)
 {
+	if(list)
 	for(; list->name; list++){
 		pushStackValue(-1);
 		pushString(list->name);
@@ -20155,8 +20821,832 @@ void OS::initBufferClass()
 		while(input < end && (*input & 0xc0) == 0x80) input++;	\
 	}
 
+static int machine_little_endian;
+
+/* Mapping of byte from char (8bit) to long for machine endian */
+static int byte_map[1];
+
+/* Mappings of bytes from int (machine dependant) to int for machine endian */
+static int int_map[sizeof(int)];
+
+/* Mappings of bytes from shorts (16bit) for all endian environments */
+static int machine_endian_short_map[2];
+static int big_endian_short_map[2];
+static int little_endian_short_map[2];
+
+/* Mappings of bytes from longs (32bit) for all endian environments */
+static int machine_endian_long_map[4];
+static int big_endian_long_map[4];
+static int little_endian_long_map[4];
+
 void OS::initStringClass()
 {
+	struct PackLib
+	{
+		static void packLong(long val, int size, int *map, char *output)
+		{
+			char *v = (char*)&val;
+			for (int i = 0; i < size; i++) {
+				*output++ = v[map[i]];
+			}
+		}
+
+		/* pack() idea stolen from Perl (implemented formats behave the same as there)
+		 * Implemented formats are A, a, h, H, c, C, s, S, i, I, l, L, n, N, f, d, x, X, @.
+		 */
+		static int pack(OS * os, int params, int, int, void*)
+		{
+			int offs = os->getAbsoluteOffs(-(++params));
+			
+			OS::String format_str = os->toString(offs);
+			const OS_CHAR * format = format_str.toChar();
+			int formatlen = format_str.getLen();
+
+			/* We have a maximum of <formatlen> format codes to deal with */
+			char * formatcodes = (char*)os->malloc(formatlen * sizeof(*formatcodes) OS_DBG_FILEPOS);
+			int * formatargs = (int*)os->malloc(formatlen * sizeof(*formatargs) OS_DBG_FILEPOS);
+			int i, currentarg = 1;
+
+			/* Preprocess format into formatcodes and formatargs */
+			int formatcount = 0;
+			for (i = 0; i < formatlen; formatcount++) {
+				char code = format[i++];
+				int arg = 1;
+
+				/* Handle format arguments if any */
+				if (i < formatlen) {
+					char c = format[i];
+					if (c == '*') {
+						arg = -1;
+						i++;
+					}else if (c >= '0' && c <= '9') {
+						// arg = atoi(&format[i]);
+						arg = 0;
+						while (format[i] >= '0' && format[i] <= '9' && i < formatlen) {
+							arg = arg*10 + (format[i] - '0');
+							i++;
+						}
+					}
+				}
+
+				/* Handle special arg '*' for all codes and check argv overflows */
+				switch (code) {
+					/* Never uses any args */
+					case 'x': 
+					case 'X':	
+					case '@':
+						if (arg < 0) {
+							os->setException(OS::String::format(os, "type %c: '*' error", code));
+							os->free(formatcodes);
+							os->free(formatargs);
+							return 0;
+							// arg = 1;
+						}
+						break;
+
+					/* Always uses one arg */
+					case 'a': 
+					case 'A': 
+					case 'h': 
+					case 'H':
+						if (currentarg >= params) {
+							os->setException(OS::String::format(os, "type %c: not enough arguments", code));
+							os->free(formatcodes);
+							os->free(formatargs);
+							return 0;
+						}
+
+						if (arg < 0) {
+							OS::String str = os->toString(offs + currentarg);
+							os->core->stack_values[offs + currentarg] = Core::Value(str);
+							arg = str.getLen();
+						}
+
+						currentarg++;
+						break;
+
+					/* Use as many args as specified */
+					case 'c': 
+					case 'C': 
+					case 's': 
+					case 'S': 
+					case 'i': 
+					case 'I':
+					case 'l': 
+					case 'L': 
+					case 'n': 
+					case 'N': 
+					case 'v': 
+					case 'V':
+					case 'f': 
+					case 'd': 
+						if (arg < 0) {
+							arg = params - currentarg;
+						}
+
+						currentarg += arg;
+
+						if (currentarg > params) {
+							os->setException(OS::String::format(os, "type %c: too few arguments", code));
+							os->free(formatcodes);
+							os->free(formatargs);
+							return 0;
+						}
+						break;
+
+					default:
+						os->setException(OS::String::format(os, "type %c: unknown format code", code));
+						os->free(formatcodes);
+						os->free(formatargs);
+						return 0;
+				}
+
+				formatcodes[formatcount] = code;
+				formatargs[formatcount] = arg;
+			}
+
+			if (currentarg < params) {
+				os->setException(OS::String::format(os, "%d arguments unused", params - currentarg));
+				os->free(formatcodes);
+				os->free(formatargs);
+				return 0;
+			}
+
+			/* Calculate output length and upper bound while processing*/
+#define OS_INC_OUTPUTPOS(a,b) \
+	if ((a) < 0 || ((INT_MAX - outputpos)/((int)b)) < (a)) { \
+		os->setException(OS::String::format(os, "Type %c: integer overflow in format string", code)); \
+		os->free(formatcodes); \
+		os->free(formatargs); \
+		return 0; \
+	} \
+	outputpos += (a)*(b);
+
+			int outputpos = 0, outputsize = 0;
+			for (i = 0; i < formatcount; i++) {
+				char code = formatcodes[i];
+				int arg = formatargs[i];
+
+				switch (code) {
+					case 'h': 
+					case 'H': 
+						OS_INC_OUTPUTPOS((arg + (arg % 2)) / 2, 1)	/* 4 bit per arg */
+						break;
+
+					case 'a': 
+					case 'A':
+					case 'c': 
+					case 'C':
+					case 'x':
+						OS_INC_OUTPUTPOS(arg, 1)		/* 8 bit per arg */
+						break;
+
+					case 's': 
+					case 'S': 
+					case 'n': 
+					case 'v':
+						OS_INC_OUTPUTPOS(arg, 2)		/* 16 bit per arg */
+						break;
+
+					case 'i': 
+					case 'I':
+						OS_INC_OUTPUTPOS(arg, sizeof(int))
+						break;
+
+					case 'l': 
+					case 'L': 
+					case 'N': 
+					case 'V':
+						OS_INC_OUTPUTPOS(arg, 4)		/* 32 bit per arg */
+						break;
+
+					case 'f':
+						OS_INC_OUTPUTPOS(arg, sizeof(float))
+						break;
+
+					case 'd':
+						OS_INC_OUTPUTPOS(arg, sizeof(double))
+						break;
+
+					case 'X':
+						outputpos -= arg;
+
+						if (outputpos < 0) {
+							os->setException(OS::String::format(os, "type %c: outside of string", code));
+							os->free(formatcodes);
+							os->free(formatargs);
+							return 0;
+							// outputpos = 0;
+						}
+						break;
+
+					case '@':
+						outputpos = arg;
+						break;
+				}
+
+				if (outputsize < outputpos) {
+					outputsize = outputpos;
+				}
+			}
+
+			Core::Buffer buf(os);
+			buf.reserveCapacity(outputsize + 1);
+			char * output = (char*)buf.buffer.buf;
+			outputpos = 0;
+			currentarg = 1;
+
+			/* Do actual packing */
+			for (i = 0; i < formatcount; i++) {
+				char code = formatcodes[i];
+				int arg = formatargs[i];
+				switch (code) {
+					case 'a': 
+					case 'A': {
+						memset(&output[outputpos], (code == 'a') ? '\0' : ' ', arg);
+						OS::String val = os->toString(offs + currentarg++);
+						const char * str = val.toChar();
+						int len = val.getLen();
+						memcpy(&output[outputpos], str, len < arg ? len : arg);
+						outputpos += arg;
+						break;
+					}
+
+					case 'h': 
+					case 'H': {
+						int nibbleshift = (code == 'h') ? 0 : 4;
+						int first = 1;
+						
+						OS::String val = os->toString(offs + currentarg++);
+						const char * v = val.toChar();
+						int len = val.getLen();
+							
+						outputpos--;
+						if(arg > len) {
+							os->setException(OS::String::format(os, "type %c: not enough characters in string", code));
+							os->free(formatcodes);
+							os->free(formatargs);
+							return 0;
+							// arg = len;
+						}
+
+						while (arg-- > 0) {
+							char n = *v++;
+
+							if (n >= '0' && n <= '9') {
+								n -= '0';
+							} else if (n >= 'A' && n <= 'F') {
+								n -= ('A' - 10);
+							} else if (n >= 'a' && n <= 'f') {
+								n -= ('a' - 10);
+							} else {
+								os->setException(OS::String::format(os, "type %c: illegal hex digit %c", code, n));
+								os->free(formatcodes);
+								os->free(formatargs);
+								return 0;
+								// n = 0;
+							}
+
+							if (first--) {
+								output[++outputpos] = 0;
+							} else {
+							  first = 1;
+							}
+
+							output[outputpos] |= (n << nibbleshift);
+							nibbleshift = (nibbleshift + 4) & 7;
+						}
+
+						outputpos++;
+						break;
+					}
+
+					case 'c': 
+					case 'C':
+						while (arg-- > 0) {
+							packLong((long)os->toNumber(offs + currentarg++), 1, byte_map, &output[outputpos]);
+							outputpos++;
+						}
+						break;
+
+					case 's': 
+					case 'S': 
+					case 'n': 
+					case 'v': {
+						int *map = machine_endian_short_map;
+						if (code == 'n') {
+							map = big_endian_short_map;
+						} else if (code == 'v') {
+							map = little_endian_short_map;
+						}
+						while (arg-- > 0) {
+							packLong((long)os->toNumber(offs + currentarg++), 2, map, &output[outputpos]);
+							outputpos += 2;
+						}
+						break;
+					}
+
+					case 'i': 
+					case 'I': 
+						while (arg-- > 0) {
+							packLong((long)os->toNumber(offs + currentarg++), sizeof(int), int_map, &output[outputpos]);
+							outputpos += sizeof(int);
+						}
+						break;
+
+					case 'l': 
+					case 'L': 
+					case 'N': 
+					case 'V': {
+						int *map = machine_endian_long_map;
+						if (code == 'N') {
+							map = big_endian_long_map;
+						} else if (code == 'V') {
+							map = little_endian_long_map;
+						}
+						while (arg-- > 0) {
+							packLong((long)os->toNumber(offs + currentarg++), 4, map, &output[outputpos]);
+							outputpos += 4;
+						}
+						break;
+					}
+
+					case 'f': {
+						while (arg-- > 0) {
+							float v = os->toFloat(offs + currentarg++);
+							memcpy(&output[outputpos], &v, sizeof(v));
+							outputpos += sizeof(v);
+						}
+						break;
+					}
+
+					case 'd': {
+						while (arg-- > 0) {
+							double v = os->toDouble(offs + currentarg++);
+							memcpy(&output[outputpos], &v, sizeof(v));
+							outputpos += sizeof(v);
+						}
+						break;
+					}
+
+					case 'x':
+						memset(&output[outputpos], '\0', arg);
+						outputpos += arg;
+						break;
+
+					case 'X':
+						outputpos -= arg;
+						if (outputpos < 0) {
+							outputpos = 0;
+						}
+						break;
+
+					case '@':
+						if (arg > outputpos) {
+							memset(&output[outputpos], '\0', arg - outputpos);
+						}
+						outputpos = arg;
+						break;
+				}
+			}
+			os->free(formatcodes);
+			os->free(formatargs);
+			output[outputpos] = '\0';
+			buf.buffer.count = outputpos;
+			os->pushString(buf);
+			return 1;
+		}
+
+		static long unpackLong(const char *data, int size, int issigned, int *map)
+		{
+			long result = issigned ? -1 : 0;
+			char *cresult = (char *) &result;
+			for (int i = 0; i < size; i++) {
+				cresult[map[i]] = *data++;
+			}
+			return result;
+		}
+
+		/* unpack() is based on Perl's unpack(), but is modified a bit from there.
+		 * Numeric pack types will return numbers, a and A will return strings,
+		 * f and d will return doubles.
+		 * Implemented formats are A, a, h, H, c, C, s, S, i, I, l, L, n, N, f, d, x, X, @.
+		 */
+		static int unpack(OS * os, int params, int, int, void*)
+		{
+			if(params < 1){
+				return 0;
+			}
+
+			OS::String format_str = os->toString(-params+0);
+			const char * format = format_str.toChar();
+			int formatlen = format_str.getLen();
+			
+			OS::String input_str = os->toString(-params-1);
+			const char * input = input_str.toChar();
+			int inputlen = input_str.getLen();
+			int inputpos = 0, ret_values = 0;
+
+			while (formatlen-- > 0) {
+				char type = *(format++);
+				char c;
+				int arg = 1, argb;
+				int size=0;
+
+				/* Handle format arguments if any */
+				if (formatlen > 0) {
+					c = *format;
+
+					if (c >= '0' && c <= '9') {
+						arg = 0; // atoi(format);
+						while (formatlen > 0 && *format >= '0' && *format <= '9') {
+							arg = arg*10 + (*format - '0');
+							format++;
+							formatlen--;
+						}
+					} else if (c == '*') {
+						arg = -1;
+						format++;
+						formatlen--;
+					}
+				}
+
+				/* Get of new value in array */
+				argb = arg;
+				switch (type) {
+					/* Never use any input */
+					case 'X': 
+						size = -1;
+						break;
+
+					case '@':
+						size = 0;
+						break;
+
+					case 'a': 
+					case 'A':
+						size = arg;
+						arg = 1;
+						break;
+
+					case 'h': 
+					case 'H': 
+						size = (arg > 0) ? (arg + (arg % 2)) / 2 : arg;
+						arg = 1;
+						break;
+
+					/* Use 1 byte of input */
+					case 'c': 
+					case 'C':
+					case 'x':
+						size = 1;
+						break;
+
+					/* Use 2 bytes of input */
+					case 's': 
+					case 'S': 
+					case 'n': 
+					case 'v':
+						size = 2;
+						break;
+
+					/* Use sizeof(int) bytes of input */
+					case 'i': 
+					case 'I':
+						size = sizeof(int);
+						break;
+
+					/* Use 4 bytes of input */
+					case 'l': 
+					case 'L': 
+					case 'N': 
+					case 'V':
+						size = 4;
+						break;
+
+					/* Use sizeof(float) bytes of input */
+					case 'f':
+						size = sizeof(float);
+						break;
+
+					/* Use sizeof(double) bytes of input */
+					case 'd':
+						size = sizeof(double);
+						break;
+
+					default:
+						os->setException(OS::String::format(os, "invalid format type %c", type));
+						return 0;
+				}
+
+				/* Do actual unpacking */
+				for (int i = 0; i != arg; i++ ) {
+					/* Space for name + number, safe as namelen is ensured <= 200 */
+					/* char n[256];
+					if (arg != 1 || namelen == 0) {
+						// Need to add element number to name
+						snprintf(n, sizeof(n), "%.*s%d", namelen, name, i + 1);
+					} else {
+						// Truncate name to next format code or end of string
+						snprintf(n, sizeof(n), "%.*s", namelen, name);
+					} */
+
+					if (size != 0 && size != -1 && INT_MAX - size + 1 < inputpos) {
+						os->setException(OS::String::format(os, "type %c: integer overflow", type));
+						return 0;
+						// inputpos = 0;
+					}
+
+					if ((inputpos + size) <= inputlen) {
+						switch ((int) type) {
+							case 'a': 
+							case 'A': {
+								char pad = (type == 'a') ? '\0' : ' ';
+								int len = inputlen - inputpos;	/* Remaining string */
+
+								/* If size was given take minimum of len and size */
+								if ((size >= 0) && (len > size)) {
+									len = size;
+								}
+
+								size = len;
+
+								/* Remove padding chars from unpacked data */
+								while (--len >= 0) {
+									if (input[inputpos + len] != pad)
+										break;
+								}
+								ret_values++;
+								os->pushString(&input[inputpos], len + 1);
+								// add_assoc_stringl(return_value, n, &input[inputpos], len + 1, 1);
+								break;
+							}
+					
+							case 'h': 
+							case 'H': {
+								int len = (inputlen - inputpos) * 2;	/* Remaining */
+								int nibbleshift = (type == 'h') ? 0 : 4;
+								int first = 1;
+								char *buf;
+								int ipos, opos;
+
+								/* If size was given take minimum of len and size */
+								if (size >= 0 && len > (size * 2)) {
+									len = size * 2;
+								} 
+
+								if (argb > 0) {	
+									len -= argb % 2;
+								}
+
+								buf = (char*)os->malloc(len + 1 OS_DBG_FILEPOS);
+								for (ipos = opos = 0; opos < len; opos++) {
+									char cc = (input[inputpos + ipos] >> nibbleshift) & 0xf;
+
+									if (cc < 10) {
+										cc += '0';
+									} else {
+										cc += 'a' - 10;
+									}
+
+									buf[opos] = cc;
+									nibbleshift = (nibbleshift + 4) & 7;
+
+									if (first-- == 0) {
+										ipos++;
+										first = 1;
+									}
+								}
+
+								buf[len] = '\0';
+								ret_values++;
+								os->pushString(buf, len);
+								// add_assoc_stringl(return_value, n, buf, len, 1);
+								os->free(buf);
+								break;
+							}
+
+							case 'c': 
+							case 'C': {
+								int issigned = (type == 'c') ? (input[inputpos] & 0x80) : 0;
+								long v = unpackLong(&input[inputpos], 1, issigned, byte_map);
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_long(return_value, n, v);
+								break;
+							}
+
+							case 's': 
+							case 'S': 
+							case 'n': 
+							case 'v': {
+								long v;
+								int issigned = 0;
+								int *map = machine_endian_short_map;
+
+								if (type == 's') {
+									issigned = input[inputpos + (machine_little_endian ? 1 : 0)] & 0x80;
+								} else if (type == 'n') {
+									map = big_endian_short_map;
+								} else if (type == 'v') {
+									map = little_endian_short_map;
+								}
+
+								v = unpackLong(&input[inputpos], 2, issigned, map);
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_long(return_value, n, v);
+								break;
+							}
+
+							case 'i': 
+							case 'I': {
+								long v;
+								int issigned = 0;
+
+								if (type == 'i') {
+									issigned = input[inputpos + (machine_little_endian ? (sizeof(int) - 1) : 0)] & 0x80;
+								}
+
+								v = unpackLong(&input[inputpos], sizeof(int), issigned, int_map);
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_long(return_value, n, v);
+								break;
+							}
+
+							case 'l': 
+							case 'L': 
+							case 'N': 
+							case 'V': {
+								int issigned = 0;
+								int *map = machine_endian_long_map;
+								long v = 0;
+
+								if (type == 'l' || type == 'L') {
+									issigned = input[inputpos + (machine_little_endian ? 3 : 0)] & 0x80;
+								} else if (type == 'N') {
+									issigned = input[inputpos] & 0x80;
+									map = big_endian_long_map;
+								} else if (type == 'V') {
+									issigned = input[inputpos + 3] & 0x80;
+									map = little_endian_long_map;
+								}
+
+								if (sizeof(long) > 4 && issigned) {
+									v = ~INT_MAX;
+								}
+
+								v |= unpackLong(&input[inputpos], 4, issigned, map);
+								if (sizeof(long) > 4) {
+ 									if (type == 'l') {
+										v = (signed int) v; 
+									} else {
+										v = (unsigned int) v;
+									}
+								}
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_long(return_value, n, v);
+								break;
+							}
+
+							case 'f': {
+								float v;
+								memcpy(&v, &input[inputpos], sizeof(float));
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_double(return_value, n, (double)v);
+								break;
+							}
+
+							case 'd': {
+								double v;
+								memcpy(&v, &input[inputpos], sizeof(double));
+								ret_values++;
+								os->pushNumber(v);
+								// add_assoc_double(return_value, n, v);
+								break;
+							}
+
+							case 'x':
+								/* Do nothing with input, just skip it */
+								break;
+
+							case 'X':
+								if (inputpos < size) {
+									inputpos = -size;
+									i = arg - 1;		/* Break out of for loop */
+
+									if (arg >= 0) {
+										os->setException(OS::String::format(os, "type %c: outside of string", type));
+										return 0;
+									}
+								}
+								break;
+
+							case '@':
+								if (arg <= inputlen) {
+									inputpos = arg;
+								} else {
+									os->setException(OS::String::format(os, "type %c: outside of string", type));
+									return 0;
+								}
+
+								i = arg - 1;	/* Done, break out of for loop */
+								break;
+						}
+
+						inputpos += size;
+						if (inputpos < 0) {
+							if (size != -1) { /* only print warning if not working with * */
+								os->setException(OS::String::format(os, "type %c: outside of string", type));
+								return 0;
+							}
+							inputpos = 0;
+						}
+					} else if (arg < 0) {
+						/* Reached end of input for '*' repeater */
+						break;
+					} else {
+						os->setException(OS::String::format(os, "type %c: not enough input, need %d, have %d", type, size, inputlen - inputpos));
+						return 0;
+					}
+				}
+
+				// formatlen--;	/* Skip '/' separator, does no harm if inputlen == 0 */
+				// format++;
+			}
+			return ret_values;
+		}
+
+		static void init()
+		{
+			int machine_endian_check = 1;
+			machine_little_endian = ((char *)&machine_endian_check)[0];
+			if (machine_little_endian) {
+				OS_ASSERT(IS_LITTLE_ENDIAN);
+				/* Where to get lo to hi bytes from */
+				byte_map[0] = 0;
+				for (int i = 0; i < (int)sizeof(int); i++) {
+					int_map[i] = i;
+				}
+
+				machine_endian_short_map[0] = 0;
+				machine_endian_short_map[1] = 1;
+				big_endian_short_map[0] = 1;
+				big_endian_short_map[1] = 0;
+				little_endian_short_map[0] = 0;
+				little_endian_short_map[1] = 1;
+
+				machine_endian_long_map[0] = 0;
+				machine_endian_long_map[1] = 1;
+				machine_endian_long_map[2] = 2;
+				machine_endian_long_map[3] = 3;
+				big_endian_long_map[0] = 3;
+				big_endian_long_map[1] = 2;
+				big_endian_long_map[2] = 1;
+				big_endian_long_map[3] = 0;
+				little_endian_long_map[0] = 0;
+				little_endian_long_map[1] = 1;
+				little_endian_long_map[2] = 2;
+				little_endian_long_map[3] = 3;
+			}else{
+				OS_ASSERT(!IS_LITTLE_ENDIAN);
+				// zval val;
+				// int size = sizeof(Z_LVAL(val));
+				// Z_LVAL(val)=0; /*silence a warning*/
+				int size = sizeof(long);
+
+				/* Where to get hi to lo bytes from */
+				byte_map[0] = size - 1;
+				for (int i = 0; i < (int)sizeof(int); i++) {
+					int_map[i] = size - (sizeof(int) - i);
+				}
+
+				machine_endian_short_map[0] = size - 2;
+				machine_endian_short_map[1] = size - 1;
+				big_endian_short_map[0] = size - 2;
+				big_endian_short_map[1] = size - 1;
+				little_endian_short_map[0] = size - 1;
+				little_endian_short_map[1] = size - 2;
+
+				machine_endian_long_map[0] = size - 4;
+				machine_endian_long_map[1] = size - 3;
+				machine_endian_long_map[2] = size - 2;
+				machine_endian_long_map[3] = size - 1;
+				big_endian_long_map[0] = size - 4;
+				big_endian_long_map[1] = size - 3;
+				big_endian_long_map[2] = size - 2;
+				big_endian_long_map[3] = size - 1;
+				little_endian_long_map[0] = size - 1;
+				little_endian_long_map[1] = size - 2;
+				little_endian_long_map[2] = size - 3;
+				little_endian_long_map[3] = size - 4;
+			}
+		}
+	};
+
 	struct String
 	{
 		static int length(OS * os, int params, int, int, void*)
@@ -20518,6 +22008,9 @@ void OS::initStringClass()
 			return 1;
 		}
 	};
+
+	PackLib::init();
+
 	FuncDef list[] = {
 		{core->strings->__cmp, String::cmp},
 		{core->strings->__len, String::length},
@@ -20536,6 +22029,8 @@ void OS::initStringClass()
 		{OS_TEXT("lowerAnsi"), String::lower},
 		// TODO: need to implement lowerUtf8
 		{OS_TEXT("split"), String::split},
+		{OS_TEXT("pack"), PackLib::pack},
+		{OS_TEXT("unpack"), PackLib::unpack},
 		{}
 	};
 	core->pushValue(core->prototypes[Core::PROTOTYPE_STRING]);
@@ -21288,7 +22783,7 @@ void OS::initProcessModule()
 		
 		static int exitFunc(OS * os, int params, int, int, void*)
 		{
-#if 0		// TODO: script should be exit using terminate function
+#if 1		// TODO: script should use 'terminate' function instead of exit if possible
 			::exit(params >= 1 ? os->toInt(-params) : 0);
 #else
 			os->setException(OS_TEXT("this function is disabled due to security reason"));
@@ -21573,7 +23068,8 @@ void OS::initLangTokenizerModule()
 	pop();
 }
 
-#define OS_AUTO_TEXT(exp) OS_TEXT(#exp)
+// #define OS_AUTO_TEXT(exp) OS_TEXT(#exp)
+#define OS_AUTO_TEXT(...) OS_TEXT(#__VA_ARGS__)
 
 void OS::initPreScript()
 {
@@ -21900,7 +23396,13 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 				OS_MEMCPY(stack_values.buf + start_pos + call_params, closure_values, sizeof(Value)*cfunc_value->num_closure_values);
 			}
 			stack_values.count = start_pos + call_params + cfunc_value->num_closure_values;
-			int cur_ret_values = cfunc_value->func(allocator, call_params - 2, cfunc_value->num_closure_values, ret_values, cfunc_value->user_param);
+			int cur_ret_values;
+			try{
+				cur_ret_values = cfunc_value->func(allocator, call_params - 2, cfunc_value->num_closure_values, ret_values, cfunc_value->user_param);
+			}catch(...){
+				cur_ret_values = 0;
+				allocator->setException(OS_TEXT("internal error"));
+			}
 #if 0		// does store closure values back?
 			if(cfunc_value->num_closure_values > 0){
 				Value * closure_values = (Value*)(cfunc_value + 1);
@@ -21971,6 +23473,13 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 			}
 			break;
 		}
+
+	case OS_VALUE_TYPE_NULL:
+		break;
+
+	default:
+		allocator->setException(String::format(allocator, OS_TEXT("attempt to call not function: %s"), getTypeStr(func).toChar()));
+		break;
 	}
 	reserveStackValues(start_pos + ret_values);
 	OS_SET_NULL_VALUES(stack_values.buf + start_pos, ret_values);

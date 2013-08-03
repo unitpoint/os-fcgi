@@ -154,14 +154,14 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("1.5.11-dev")
+#define OS_VERSION OS_TEXT("1.7-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
 #define OS_EXT_TEMPLATE OS_TEXT(".osh")
 #define OS_EXT_TEMPLATE_HTML OS_TEXT(".html")
 #define OS_EXT_TEMPLATE_HTM OS_TEXT(".htm")
 #define OS_EXT_COMPILED OS_TEXT(".osc")
-#define OS_EXT_TEXT_OPCODES OS_TEXT(".txt")
+#define OS_EXT_TEXT_OPCODES OS_TEXT(".ost")
 
 #define OS_MEMORY_MANAGER_PAGE_BLOCKS 32
 
@@ -488,7 +488,7 @@ namespace ObjectScript
 		
 		struct FileHandle {};
 
-	protected:
+	// protected:
 
 		template<class T>
 		struct Vector
@@ -667,6 +667,8 @@ namespace ObjectScript
 				obj = NULL;
 			}
 		}
+
+	protected:
 
 		class Core
 		{
@@ -1625,7 +1627,7 @@ namespace ObjectScript
 
 			enum OpcodeType
 			{
-				OP_NOP,
+				// OP_NOP,
 				OP_NEW_FUNCTION,
 				OP_NEW_ARRAY,
 				OP_NEW_OBJECT,
@@ -1658,9 +1660,9 @@ namespace ObjectScript
 				OP_LOGIC_GE,
 				OP_LOGIC_BOOL,
 
-				OP_BIT_AND,
-				OP_BIT_OR,
-				OP_BIT_XOR,
+				OP_BIT_AND, // &
+				OP_BIT_OR,  // |
+				OP_BIT_XOR, // ^
 
 				OP_COMPARE, // <=>
 				OP_ADD, // +
@@ -1672,13 +1674,36 @@ namespace ObjectScript
 				OP_RSHIFT, // >>
 				OP_POW, // **
 
-				// OP_CONCAT,	// ..
-
 				OP_BIT_NOT,
 				OP_PLUS,
 				OP_NEG,
 
-				OPCODE_COUNT
+				// -----
+
+				OP_NUMBER_LOGIC_EQ,
+				OP_NUMBER_LOGIC_GREATER,
+				OP_NUMBER_LOGIC_GE,
+
+				OP_NUMBER_BIT_AND, // &
+				OP_NUMBER_BIT_OR,  // |
+				OP_NUMBER_BIT_XOR, // ^
+
+				OP_NUMBER_ADD, // +
+				OP_NUMBER_SUB, // -
+				OP_NUMBER_MUL, // *
+				OP_NUMBER_DIV, // /
+				OP_NUMBER_MOD, // %
+				OP_NUMBER_LSHIFT, // <<
+				OP_NUMBER_RSHIFT, // >>
+				OP_NUMBER_POW, // **
+
+				OP_NUMBER_ADD_LC, // +
+				OP_NUMBER_SUB_LC, // -
+
+				OP_NUMBER_ADD_LL, // +
+				OP_NUMBER_SUB_LL, // -
+
+				OPCODE_COUNT	// max is 64
 			};
 
 			class Compiler
@@ -1869,11 +1894,18 @@ namespace ObjectScript
 					void swap(ExpressionList&);
 				};
 
-				enum ELocalVarType
+				enum ELocalVarScopeType
 				{
 					LOCAL_GENERIC,
 					LOCAL_PARAM,
 					LOCAL_TEMP
+				};
+
+				enum ECompiledValueType
+				{
+					CVT_UNKNOWN,
+					CVT_NUMBER,
+					CVT_DYNAMIC
 				};
 
 				struct LocalVarDesc
@@ -1881,7 +1913,8 @@ namespace ObjectScript
 					OS_U16 up_count;
 					OS_U16 up_scope_count;
 					OS_U16 index;
-					ELocalVarType type;
+					ELocalVarScopeType scope_type;
+					ECompiledValueType type;
 
 					LocalVarDesc();
 				};
@@ -1934,8 +1967,9 @@ namespace ObjectScript
 					{
 						String name;
 						int index;
+						ECompiledValueType type;
 
-						LocalVar(const String& name, int index);
+						LocalVar(const String& name, int index, ECompiledValueType type = CVT_UNKNOWN);
 					};
 
 					struct LocalVarCompiled
@@ -1990,13 +2024,15 @@ namespace ObjectScript
 					Scope(Scope * parent, ExpressionType, TokenData*);
 					virtual ~Scope();
 
+					LocalVar& getLocalVar(const LocalVarDesc&);
+
 					bool addLoopBreak(int pos, ELoopBreakType);
 					void fixLoopBreaks(Compiler*, int scope_start_pos, int scope_end_pos);
 
 					void addPreVars();
 					void addPostVars();
-					void addLocalVar(const String& name);
-					void addLocalVar(const String& name, LocalVarDesc&);
+					void addLocalVar(const String& name, ECompiledValueType type = CVT_UNKNOWN);
+					void addLocalVar(const String& name, LocalVarDesc&, ECompiledValueType type = CVT_UNKNOWN);
 
 					int allocTempVar();
 					void popTempVar(int count = 1);
@@ -2009,7 +2045,6 @@ namespace ObjectScript
 					ERROR_SYNTAX,
 					ERROR_NESTED_ROOT_BLOCK,
 					ERROR_LOCAL_VAL_NOT_DECLARED,
-					ERROR_VAR_ALREADY_EXIST,
 					ERROR_VAR_NAME,
 					ERROR_EXPECT_TOKEN_TYPE,
 					ERROR_EXPECT_TOKEN_STR,
@@ -2151,6 +2186,7 @@ namespace ObjectScript
 				
 				Expression * postCompileExpression(Scope * scope, Expression * exp);
 				Expression * postCompilePass2(Scope * scope, Expression * exp);
+				Expression * postCompileFixValueType(Scope * scope, Expression * exp);
 				Expression * postCompilePass3(Scope * scope, Expression * exp);
 				Expression * postCompileNewVM(Scope * scope, Expression * exp);
 
@@ -2184,7 +2220,7 @@ namespace ObjectScript
 				bool findLocalVar(LocalVarDesc&, Scope * scope, const String& name, int active_locals, bool all_scopes, bool decl = false);
 
 				void debugPrintSourceLine(Buffer& out, TokenData*);
-				static const OS_CHAR * getExpName(ExpressionType);
+				static const OS_CHAR * getExpName(ExpressionType, ECompiledValueType = CVT_UNKNOWN);
 
 				int cacheString(Table * strings_table, Vector<String>& strings, const String& str);
 				int cacheString(const String& str);
@@ -2299,7 +2335,7 @@ namespace ObjectScript
 				Program * retain();
 				void release();
 
-				static OpcodeType getOpcodeType(Compiler::ExpressionType);
+				static OpcodeType getOpcodeType(Compiler::ExpressionType, Compiler::ECompiledValueType = Compiler::CVT_UNKNOWN);
 
 				bool loadFromStream(StreamReader * reader);
 				DebugInfoItem * getDebugInfo(int opcode_pos);
@@ -2732,6 +2768,7 @@ namespace ObjectScript
 			GCCFunctionValue * newCFunctionValue(OS_CFunction func, int closure_values, void * user_param);
 			GCUserdataValue * newUserdataValue(int crc, int data_size, OS_UserdataDtor dtor, void * user_param);
 			GCUserdataValue * newUserPointerValue(int crc, void * data, OS_UserdataDtor dtor, void * user_param);
+			GCUserdataValue * findUserPointerValue(void * data);
 			GCObjectValue * newObjectValue();
 			GCObjectValue * newObjectValue(GCValue * prototype);
 			GCArrayValue * newArrayValue(int initial_capacity = 0);
@@ -2772,6 +2809,7 @@ namespace ObjectScript
 			GCObjectValue * pushObjectValue(GCValue * prototype);
 			GCArrayValue * pushArrayValue(int initial_capacity = 0);
 
+			String getTypeStr(const Value& val);
 			void pushTypeOf(const Value& val);
 			bool pushNumberOf(const Value& val);
 			bool pushStringOf(const Value& val);
@@ -2847,6 +2885,11 @@ namespace ObjectScript
 			void clearTable(Table*);
 			void deleteTable(Table*);
 			void addTableProperty(Table * table, Property * prop);
+			
+#ifdef OS_DEBUG
+			static int checkSavedType(int type, const Value& value);
+#endif
+
 			Property * removeTableProperty(Table * table, const Value& index);
 			void changePropertyIndex(Table * table, Property * prop, const Value& new_index);
 			bool deleteTableProperty(Table * table, const Value& index);
@@ -3080,6 +3123,7 @@ namespace ObjectScript
 		void * pushUserdata(int data_size, OS_UserdataDtor dtor = NULL, void * user_param = NULL);
 		void * pushUserPointer(int crc, void * data, OS_UserdataDtor dtor = NULL, void * user_param = NULL);
 		void * pushUserPointer(void * data, OS_UserdataDtor dtor = NULL, void * user_param = NULL);
+		int findUserPointerValueId(void * data);
 		void newObject();
 		void newArray(int initial_capacity = 0);
 
