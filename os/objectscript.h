@@ -2960,6 +2960,7 @@ namespace ObjectScript
 #ifdef OS_DEBUG
 		int native_stack_start_mark;
 		int native_stack_max_usage;
+		bool native_stack_in_process;
 
 		void checkNativeStackUsage(const OS_CHAR * func_name);
 #endif

@@ -12946,6 +12946,7 @@ OS::OS()
 	int mark = 0;
 	native_stack_start_mark = (int)&mark;
 	native_stack_max_usage = 0;
+	native_stack_in_process = false;
 #endif
 }
 
@@ -12958,14 +12959,19 @@ OS::~OS()
 #ifdef OS_DEBUG
 void OS::checkNativeStackUsage(const OS_CHAR * func_name)
 {
+	if(native_stack_in_process){
+		return;
+	}
 	int mark = 0;
 	int cur_native_stack_usage = (int)&mark - native_stack_start_mark;
 	if(cur_native_stack_usage < 0){
 		cur_native_stack_usage = -cur_native_stack_usage;
 	}
 	if(native_stack_max_usage < cur_native_stack_usage){
-		if(cur_native_stack_usage > 1024*10 && cur_native_stack_usage > native_stack_max_usage * 5 / 4){
+		if(cur_native_stack_usage > 1024*100 && cur_native_stack_usage > native_stack_max_usage * 5 / 4){
+			native_stack_in_process = true;
 			printf(OS_TEXT("native stack usage: %.1f Kb (%s)\n"), (float)cur_native_stack_usage/1024.0f, func_name);
+			native_stack_in_process = false;
 		}
 		native_stack_max_usage = cur_native_stack_usage;
 	}
