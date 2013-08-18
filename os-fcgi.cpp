@@ -1,6 +1,3 @@
-// os-insight.cpp: определяет точку входа для консольного приложения.
-//
-
 #ifdef _MSC_VER
 #include "win32/stdafx.h"
 #include <Windows.h>
@@ -169,7 +166,7 @@ public:
 		appendBuffer(buf, size);
 	}
 
-	String md5(const String& buf)
+	OS_CHAR * md5(OS_CHAR * r, const String& buf)
 	{
 		MD5Context context;
 		unsigned char digest[16];
@@ -177,26 +174,40 @@ public:
 		MD5Update(&context, (md5byte*)buf.toChar(), buf.getDataSize());
 		MD5Final(&context, digest);
 		
-		char r[34];
 		for(int i = 0; i < 16; i++){
 			r[i*2+0] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 4) & 0xf];
 			r[i*2+1] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 0) & 0xf];
 		}
 		r[32] = 0;
-		return String(this, r, 32);
+		return r;
+	}
+
+	String md5(const String& buf)
+	{
+		OS_CHAR r[34];
+		return String(this, md5(r, buf), 32);
 	}
 
 	String getCompiledFilename(const String& resolved_filename)
 	{
+#if 1
+		String ext = getFilenameExt(resolved_filename);
+		if(ext == OS_EXT_COMPILED){
+			return resolved_filename;
+		}
+#else
 		String path = getFilenamePath(resolved_filename);
 		if(path == *cache_path){
 			return resolved_filename;
 		}
-		
+#endif	
+		OS_CHAR temp[34];
 		Core::Buffer buf(this);
 		buf.append(*cache_path);
-		buf.append("/");
-		buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));
+		buf.append(OS_TEXT("/"), 1);
+		buf.append(md5(temp, resolved_filename), 32);
+		buf.append(OS_EXT_COMPILED);
+		// buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));
 		return buf.toStringOS(); 
 	}
 
