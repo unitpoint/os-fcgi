@@ -154,7 +154,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_CALL_STACK_MAX_SIZE 200
 
-#define OS_VERSION OS_TEXT("1.7-dev")
+#define OS_VERSION OS_TEXT("1.7.1-dev")
 #define OS_COMPILED_HEADER OS_TEXT("OBJECTSCRIPT")
 #define OS_EXT_SOURCECODE OS_TEXT(".os")
 #define OS_EXT_TEMPLATE OS_TEXT(".osh")
@@ -3109,6 +3109,7 @@ namespace ObjectScript
 
 		int getValueId(int offs = -1);
 		String getValueName(int offs = -1);
+		String getValueClassname(int offs = -1);
 
 		void pushNull();
 		template<class T> void pushNumber(const T& val){ core->pushNumber(val); }
