@@ -15642,6 +15642,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushNumber((OS_NUMBER)0.0);
 					}
+					// no break
 				}
 			}
 			return Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, left_value, right_value);
@@ -15662,6 +15663,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(true);
 					}
+					// no break
 				}
 			}
 			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, left_value, right_value);
@@ -15681,6 +15683,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(true);
 					}
+					// no break
 				}
 			}
 			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, left_value, right_value);
@@ -15700,6 +15703,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(false);
 					}
+					// no break
 				}
 			}
 			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, left_value, right_value);

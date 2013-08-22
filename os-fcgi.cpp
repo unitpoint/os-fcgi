@@ -35,6 +35,10 @@
 #include "os/ext-odbo/os-odbo.h"
 #endif
 
+#ifndef OS_DATETIME_DISABLED
+// #include "os/ext-datetime/os-datetime.h"
+#endif
+
 #define PID_FILE "/var/run/os-fcgi.pid"
 
 using namespace ObjectScript;
@@ -71,6 +75,10 @@ protected:
 
 #ifndef OS_REGEXP_DISABLED
 			initRegexpLibrary(this);
+#endif
+
+#ifndef OS_DATETIME_DISABLED
+			// initDateTimeLibrary(this);
 #endif
 
 #ifndef OS_ODBO_DISABLED

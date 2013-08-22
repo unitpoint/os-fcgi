@@ -64,7 +64,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../soci/include;../mysql/include;../soci/include/mysql;..\fcgi-2.4.1\include;..\libcurl-7.19.3-win32-ssl-msvc\include;..\pcrelib;$(IncludePath)</IncludePath>
+    <IncludePath>../soci/include;../mysql/include;../soci/include/mysql;..\fcgi-2.4.1\include;..\libcurl-7.19.3-win32-ssl-msvc\include;..\pcrelib;../;$(IncludePath)</IncludePath>
     <LibraryPath>..\mysql\lib;..\soci\lib\Debug;..\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -175,6 +175,7 @@
     <ClInclude Include="..\MPFDParser-1.0\Field.h" />
     <ClInclude Include="..\MPFDParser-1.0\Parser.h" />
     <ClInclude Include="..\os\ext-curl\os-curl.h" />
+    <ClInclude Include="..\os\ext-datetime\os-datetime.h" />
     <ClInclude Include="..\os\ext-odbo\os-odbo.h" />
     <ClInclude Include="..\os\ext-regexp\os-regexp.h" />
     <ClInclude Include="..\os\ext-sqlite3\os-sqlite3.h" />
@@ -194,6 +195,10 @@
     <ClCompile Include="..\MPFDParser-1.0\Parser.cpp" />
     <ClCompile Include="..\os-fcgi.cpp" />
     <ClCompile Include="..\os\ext-curl\os-curl.cpp" />
+    <ClCompile Include="..\os\ext-datetime\os-datetime.cpp">
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\os\ext-odbo\os-odbo.cpp" />
     <ClCompile Include="..\os\ext-regexp\os-regexp.cpp" />
     <ClCompile Include="..\os\ext-sqlite3\os-sqlite3.cpp" />

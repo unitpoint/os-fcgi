@@ -129,7 +129,7 @@ public:
 		static bool isValidOption(const char * s, int len)
 		{
 			for(int i = 0; i < len; i++){
-				if(!s[i] || s[i] <= ' '){
+				if(!s[i] || s[i] <= ' ' || s[i] == '='){
 					return false;
 				}
 			}
@@ -280,7 +280,7 @@ public:
 			os->setProperty(-2, name.c_str(), false);
 		}
 
-		void addColumn(const std::string& name, std::tm date)
+		void addColumn(const std::string& name, const std::tm& date)
 		{
 			OS_ASSERT(owner);
 			OS * os = owner->os;
