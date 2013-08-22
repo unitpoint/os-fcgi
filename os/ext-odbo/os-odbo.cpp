@@ -754,7 +754,11 @@ int ODBO_OS::ODBO::getLastInsertId(OS * os, int params, int, int, void * user_pa
 		}
 		static bool is(const char * str, const char * what)
 		{
+#ifdef _MSC_VER
 			return strnicmp(str, what, strlen(what)) == 0;
+#else
+			return strncasecmp(str, what, strlen(what)) == 0;
+#endif
 		}
 
 		static std::string getTableName(ODBO * self)
@@ -832,10 +836,10 @@ void ODBO_OS::initLibrary(OS* os)
 			{OS_TEXT("query"), ODBO::query},
 			{OS_TEXT("__get@lastInsertId"), ODBO::getLastInsertId},
 			{OS_TEXT("getLastInsertId"), ODBO::getLastInsertId},
-			def(OS_TEXT("__get@type"), ODBO::getType),
-			def(OS_TEXT("begin"), ODBO::begin),
-			def(OS_TEXT("commit"), ODBO::commit),
-			def(OS_TEXT("rollback"), ODBO::rollback),
+			def(OS_TEXT("__get@type"), &ODBO::getType),
+			def(OS_TEXT("begin"), &ODBO::begin),
+			def(OS_TEXT("commit"), &ODBO::commit),
+			def(OS_TEXT("rollback"), &ODBO::rollback),
 			{}
 		};
 		registerUserClass<ODBO>(os, funcs);
