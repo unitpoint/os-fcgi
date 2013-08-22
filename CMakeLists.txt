@@ -10,11 +10,19 @@ list(APPEND SOURCES fcgi-2.4.1/libfcgi/fcgiapp.c)
 list(APPEND SOURCES MPFDParser-1.0/Parser.cpp)
 list(APPEND SOURCES MPFDParser-1.0/Field.cpp)
 list(APPEND SOURCES MPFDParser-1.0/Exception.cpp)
+list(APPEND SOURCES md5/md5.cpp)
+list(APPEND SOURCES os/ext-odbo/os-odbo.cpp)
+
 
 include_directories(os)
 include_directories(fcgi-2.4.1)
 include_directories(fcgi-2.4.1/include)
 include_directories(MPFDParser-1.0)
+include_directories(md5)
+include_directories(soci/include)
+include_directories(soci/include/mysql)
+
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/soci/lib)
 
 find_package(Threads QUIET)
 if(NOT Threads_FOUND)
@@ -30,6 +38,13 @@ if(PCRE_FOUND)
 else()
 	message(STATUS "[ WARNING ]: Could not find PCRE library")
 	add_definitions( -DOS_REGEXP_DISABLED )
+endif()
+
+find_package(MySQL QUIET)
+if(MYSQL_FOUND)
+    include_directories(${MYSQL_INCLUDE_DIR})
+else()
+    message(FATAL_ERROR "[ERROR]: Couldn't find MySQL include files and/or library.")
 endif()
 
 find_package(CURL QUIET)
@@ -60,8 +75,10 @@ if(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
       ${CMAKE_CURRENT_BINARY_DIR}/${target})
 endif()
 
+message(STATUS "MYSQL_LIBRARIES = ${MYSQL_LIBRARIES}")
+
 add_executable(${target} ${SOURCES} ${HEADERS})
-target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT} ${CURL_LIBRARIES} ${PCRE_LIBRARIES})
+target_link_libraries(${target} ${CMAKE_THREAD_LIBS_INIT} ${CURL_LIBRARIES} ${PCRE_LIBRARIES} ${MYSQL_LIBRARIES} soci_core soci_mysql dl)
 
 install(TARGETS ${target} RUNTIME DESTINATION usr/sbin)
 install(FILES conf/etc/init.d/${target} DESTINATION etc/init.d
