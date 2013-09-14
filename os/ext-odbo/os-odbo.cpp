@@ -755,7 +755,7 @@ int ODBO_OS::ODBO::getLastInsertId(OS * os, int params, int, int, void * user_pa
 		static bool is(const char * str, const char * what)
 		{
 #ifdef _MSC_VER
-			return strnicmp(str, what, strlen(what)) == 0;
+			return _strnicmp(str, what, strlen(what)) == 0;
 #else
 			return strncasecmp(str, what, strlen(what)) == 0;
 #endif
