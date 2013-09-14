@@ -23,7 +23,7 @@
 #ifndef MD5_H
 #define MD5_H
 
-#include "../os/objectscript.h"
+#include "../../os/objectscript.h"
 // #include <qglobal.h>
 // #include <qbytearray.h>
 // #include <qstring.h>

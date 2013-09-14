@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC  -m32 -Wall -Wno-unused-parameter -fno-implicit-templates -fno-exceptions -fno-rtti  -m32 -ldl -L/lib32 -shared -Wl,-soname,ha_federated.so -o ha_federated.so CMakeFiles/federated.dir/ha_federated.cc.o CMakeFiles/federated.dir/__/__/mysys/string.c.o -L/lib32 -lpthread ../../libservices/libmysqlservices.a -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

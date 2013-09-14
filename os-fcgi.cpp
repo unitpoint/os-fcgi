@@ -1,19 +1,19 @@
 #ifdef _MSC_VER
-#include "win32/stdafx.h"
+#include "win/stdafx.h"
 #include <Windows.h>
 #pragma comment (lib, "Ws2_32.lib")
 #endif
 
 #include "os/objectscript.h"
-#include "fcgi-2.4.1/include/fcgi_stdio.h"
-#include "MPFDParser-1.0/Parser.h"
+#include "3rdparty/fcgi-2.4.1/include/fcgi_stdio.h"
+#include "3rdparty/MPFDParser-1.0/Parser.h"
 #include <stdlib.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
 
-#include "md5/md5.h"
+#include "3rdparty/md5/md5.h"
 
 #ifndef _MSC_VER
 #include <pthread.h>

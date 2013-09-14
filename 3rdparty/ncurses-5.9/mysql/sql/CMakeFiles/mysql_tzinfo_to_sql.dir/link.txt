@@ -1,0 +1,1 @@
+/usr/bin/c++    -m32 -Wall -Wno-unused-parameter -fno-implicit-templates -fno-exceptions -fno-rtti   -m32 -ldl -L/lib32 CMakeFiles/mysql_tzinfo_to_sql.dir/tztime.cc.o  -o mysql_tzinfo_to_sql  -L/lib32 -lpthread ../mysys/libmysys.a ../dbug/libdbug.a ../mysys/libmysys.a ../dbug/libdbug.a ../strings/libstrings.a ../zlib/libzlib.a -lm -lrt -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

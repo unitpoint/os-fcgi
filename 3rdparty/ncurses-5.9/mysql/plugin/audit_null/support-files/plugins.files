@@ -1,0 +1,4 @@
+%attr(755, root, root) %{_prefix}/lib/plugin/adt_null.so
+%attr(755, root, root) %{_prefix}/lib/plugin/debug/adt_null.so
+%attr(755, root, root) %{_prefix}/lib/plugin/adt_null.so
+%attr(755, root, root) %{_prefix}/lib/plugin/debug/adt_null.so

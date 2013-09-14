@@ -1,0 +1,1 @@
+/usr/bin/gcc  -fPIC  -m32 -Wall  -m32 -ldl -L/lib32 -shared -Wl,-soname,auth_socket.so -o auth_socket.so CMakeFiles/auth_socket.dir/auth_socket.c.o -L/lib32 -lpthread ../../libservices/libmysqlservices.a -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

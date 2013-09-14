@@ -1,8 +1,9 @@
-win32/Release/
-win32/Debug/
-win32/ipch/
-win32/x64/Release/
-win32/x64/Debug/
+win/Release/
+win/Debug/
+win/ipch/
+win/x64/Release/
+win/x64/Debug/
+win/cache-osc/
 *.opensdf
 *.sdf
 *.suo

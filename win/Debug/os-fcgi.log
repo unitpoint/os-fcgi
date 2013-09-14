@@ -1,11 +1,55 @@
 ﻿  os-fcgi.cpp
 c:\sources\os-fcgi\os-fcgi.cpp(585): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
           c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(234): см. объявление "fopen"
-  os-fcgi.vcxproj -> C:\Sources\os-fcgi\win32\Debug\os-fcgi.exe
-  ..\libcurl-7.19.3-win32-ssl-msvc\curllib.dll
-  ..\libcurl-7.19.3-win32-ssl-msvc\libeay32.dll
-  ..\libcurl-7.19.3-win32-ssl-msvc\libsasl.dll
-  ..\libcurl-7.19.3-win32-ssl-msvc\openldap.dll
-  ..\libcurl-7.19.3-win32-ssl-msvc\ssleay32.dll
+     Создается библиотека C:\Sources\os-fcgi\win\Debug\os-fcgi.lib и объект C:\Sources\os-fcgi\win\Debug\os-fcgi.exp
+LINK : warning LNK4098: библиотека по умолчанию "MSVCRT" противоречит использованию других библиотек; используйте параметр /NODEFAULTLIB:library
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Finish_r импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Accept_r импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_InitRequest импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_PutStr импортирован в функцию "public: void __thiscall FCGX_OS::appendBuffer(void const *,int)" (?appendBuffer@FCGX_OS@@QAEXPBXH@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_FFlush импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_PutS импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_GetStr импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_FPrintF импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_OpenSocket импортирован в функцию _wmain
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Init импортирован в функцию _wmain
+os-regexp.obj : warning LNK4049: импортирован локально определенный символ _pcre_free
+pcreposix.obj : warning LNK4049: импортирован локально определенный символ _pcre_free
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_study импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_compile импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_fullinfo импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_get_substring_list импортирован в функцию "public: bool __thiscall ObjectScript::RegexpOS::Regexp::match(class ObjectScript::OS::String const &,int,int,int,int)" (?match@Regexp@RegexpOS@ObjectScript@@QAE_NABVString@OS@3@HHHH@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_exec импортирован в функцию "public: bool __thiscall ObjectScript::RegexpOS::Regexp::match(class ObjectScript::OS::String const &,int,int,int,int)" (?match@Regexp@RegexpOS@ObjectScript@@QAE_NABVString@OS@3@HHHH@Z)
+pcreposix.obj : warning LNK4049: импортирован локально определенный символ _pcre_exec
+pcreposix.obj : warning LNK4217: локально определенный символ _pcre_info импортирован в функцию _regcomp
+pcreposix.obj : warning LNK4217: локально определенный символ _pcre_compile2 импортирован в функцию _regcomp
+     Создается библиотека C:\Sources\os-fcgi\win\Debug\os-fcgi.lib и объект C:\Sources\os-fcgi\win\Debug\os-fcgi.exp
+LINK : warning LNK4098: библиотека по умолчанию "MSVCRT" противоречит использованию других библиотек; используйте параметр /NODEFAULTLIB:library
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Finish_r импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Accept_r импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_InitRequest импортирован в функцию "void * __cdecl doit(void *)" (?doit@@YAPAXPAX@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_PutStr импортирован в функцию "public: void __thiscall FCGX_OS::appendBuffer(void const *,int)" (?appendBuffer@FCGX_OS@@QAEXPBXH@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_FFlush импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_PutS импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_GetStr импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_FPrintF импортирован в функцию "public: void __thiscall FCGX_OS::processRequest(struct FCGX_Request *)" (?processRequest@FCGX_OS@@QAEXPAUFCGX_Request@@@Z)
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_OpenSocket импортирован в функцию _wmain
+os-fcgi.obj : warning LNK4217: локально определенный символ _FCGX_Init импортирован в функцию _wmain
+os-regexp.obj : warning LNK4049: импортирован локально определенный символ _pcre_free
+pcreposix.obj : warning LNK4049: импортирован локально определенный символ _pcre_free
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_study импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_compile импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_fullinfo импортирован в функцию "public: static struct ObjectScript::RegexpOS::RegexpCache * __cdecl ObjectScript::RegexpOS::Regexp::getRegexpCache(class ObjectScript::OS *,class ObjectScript::OS::Core::String const &)" (?getRegexpCache@Regexp@RegexpOS@ObjectScript@@SAPAURegexpCache@23@PAVOS@3@ABVString@Core@53@@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_get_substring_list импортирован в функцию "public: bool __thiscall ObjectScript::RegexpOS::Regexp::match(class ObjectScript::OS::String const &,int,int,int,int)" (?match@Regexp@RegexpOS@ObjectScript@@QAE_NABVString@OS@3@HHHH@Z)
+os-regexp.obj : warning LNK4217: локально определенный символ _pcre_exec импортирован в функцию "public: bool __thiscall ObjectScript::RegexpOS::Regexp::match(class ObjectScript::OS::String const &,int,int,int,int)" (?match@Regexp@RegexpOS@ObjectScript@@QAE_NABVString@OS@3@HHHH@Z)
+pcreposix.obj : warning LNK4049: импортирован локально определенный символ _pcre_exec
+pcreposix.obj : warning LNK4217: локально определенный символ _pcre_info импортирован в функцию _regcomp
+pcreposix.obj : warning LNK4217: локально определенный символ _pcre_compile2 импортирован в функцию _regcomp
+  os-fcgi.vcxproj -> C:\Sources\os-fcgi\win\Debug\os-fcgi.exe
+  ..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\curllib.dll
+  ..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\libeay32.dll
+  ..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\libsasl.dll
+  ..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\openldap.dll
+  ..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\ssleay32.dll
   Скопировано файлов:         5.
   Скопировано файлов:         1.

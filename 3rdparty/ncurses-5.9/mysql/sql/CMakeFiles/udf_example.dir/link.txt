@@ -1,0 +1,1 @@
+/usr/bin/gcc  -fPIC  -m32 -Wall  -m32 -ldl -L/lib32 -shared -Wl,-soname,udf_example.so -o udf_example.so CMakeFiles/udf_example.dir/udf_example.c.o -L/lib32 -lpthread -lrt -Wl,-rpath,"\$ORIGIN/lib32" 

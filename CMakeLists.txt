@@ -42,13 +42,13 @@ ENDIF()
 IF (FORCE32)
 include(ExternalProject)
 ExternalProject_Add(ncurses
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ncurses-5.9
-    CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/ncurses-5.9/configure --with-shared --prefix=${INSTALL_DIR} CFLAGS=-m32 CXXFLAGS=-m32
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9
+    CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9/configure --with-shared --prefix=${INSTALL_DIR} CFLAGS=-m32 CXXFLAGS=-m32
     BUILD_COMMAND make -j8
 )
 
 ExternalProject_Add(mysql
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mysql-5.5.32
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mysql-5.5.32
     CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
                -DWITH_LIBEDIT=ON 
@@ -59,7 +59,7 @@ ExternalProject_Add(mysql
 )
 
 ExternalProject_Add(soci
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/soci-3.2.1/src
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/soci-3.2.1/src
     CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
                -DMYSQL_LIBRARIES=${INSTALL_DIR}/lib/libmysqlclient_r.so 
@@ -78,7 +78,7 @@ ExternalProject_Add(soci
 )
 
 ExternalProject_Add(curl
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/curl-7.32.0
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/curl-7.32.0
     CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
                -DCMAKE_USE_OPENSSL=OFF 
@@ -90,7 +90,7 @@ ExternalProject_Add(curl
 )
 
 ExternalProject_Add(pcre
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pcre-8.33 
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/pcre-8.33 
     CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
                -DPCRE_SUPPORT_LIBZ=OFF 

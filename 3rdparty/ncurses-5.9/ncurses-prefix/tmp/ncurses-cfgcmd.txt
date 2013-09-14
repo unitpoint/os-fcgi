@@ -1,0 +1,1 @@
+cmd='/tmp/os-igor/ncurses-5.9/configure;--with-shared;--prefix=/tmp/os-igor/ncurses-5.9/_install;CFLAGS=-m32;CXXFLAGS=-m32;--libdir=/usr/lib32'

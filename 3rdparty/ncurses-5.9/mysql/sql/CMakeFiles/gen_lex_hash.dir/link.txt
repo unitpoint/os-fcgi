@@ -1,0 +1,1 @@
+/usr/bin/c++    -m32 -Wall -Wno-unused-parameter -fno-implicit-templates -fno-exceptions -fno-rtti   -m32 -ldl -L/lib32 CMakeFiles/gen_lex_hash.dir/gen_lex_hash.cc.o  -o gen_lex_hash  -L/lib32 -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

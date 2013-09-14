@@ -1,0 +1,1 @@
+/usr/bin/gcc   -m32 -Wall   -m32 -ldl -L/lib32 CMakeFiles/comp_err.dir/comp_err.c.o  -o comp_err  -L/lib32 -lpthread ../mysys/libmysys.a ../dbug/libdbug.a ../mysys/libmysys.a ../dbug/libdbug.a ../strings/libstrings.a ../zlib/libzlib.a -lm -lrt -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

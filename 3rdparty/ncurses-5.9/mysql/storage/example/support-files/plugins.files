@@ -1,0 +1,4 @@
+%attr(755, root, root) %{_prefix}/lib/plugin/ha_example.so
+%attr(755, root, root) %{_prefix}/lib/plugin/debug/ha_example.so
+%attr(755, root, root) %{_prefix}/lib/plugin/ha_example.so
+%attr(755, root, root) %{_prefix}/lib/plugin/debug/ha_example.so

@@ -1,0 +1,1 @@
+/usr/bin/gcc  -fPIC  -m32 -Wall  -m32 -ldl -L/lib32 -shared -Wl,-soname,adt_null.so -o adt_null.so CMakeFiles/audit_null.dir/audit_null.c.o -L/lib32 -lpthread ../../libservices/libmysqlservices.a -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 

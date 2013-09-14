@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC  -m32 -Wall -Wno-unused-parameter -fno-implicit-templates -fno-exceptions -fno-rtti  -m32 -ldl -L/lib32 -shared -Wl,-soname,ha_example.so -o ha_example.so CMakeFiles/example.dir/ha_example.cc.o -L/lib32 -lpthread ../../libservices/libmysqlservices.a -lpthread -Wl,-rpath,"\$ORIGIN/lib32" 
