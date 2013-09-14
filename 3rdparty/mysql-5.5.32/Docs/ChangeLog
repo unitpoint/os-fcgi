@@ -1,0 +1,408 @@
+------------------------------------------------------------
+revno: 4345
+committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Thu 2013-05-16 17:33:32 +0200
+message:
+  Fix for BUG# 16812255: Removing the --random-password option
+  which is supported only for MYSQL server versions 5.6 and above.
+------------------------------------------------------------
+revno: 4344
+committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Thu 2013-05-16 10:24:26 +0200
+message:
+  Changes to verify the solaris upgrade issue.
+------------------------------------------------------------
+revno: 4343
+committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Wed 2013-05-15 16:29:31 +0200
+message:
+  Fixing the RPM-ULN build issue by ignoring the postinstall_check.sh.
+------------------------------------------------------------
+revno: 4342
+committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Wed 2013-05-15 15:37:20 +0200
+message:
+  Bug 16812255 - 5.5.32 PKG INSTALLATION FAILED DURING MYSQL_INSTALL_DB EXECUTION
+------------------------------------------------------------
+revno: 4341
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Mon 2013-05-13 10:21:09 +0200
+message:
+  Updated copyright year information
+------------------------------------------------------------
+revno: 4340
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Mon 2013-05-13 09:46:44 +0200
+message:
+   Adding fix for Bug#16798868
+------------------------------------------------------------
+revno: 4339
+committer: Jon Olav Hauglid <jon.hauglid@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Wed 2013-05-08 12:08:20 +0200
+message:
+  Bug#16779374: NEW ERROR MESSAGE ADDED TO 5.5 AFTER 5.6 GA - REUSING
+                NUMBER ALREADY USED BY 5.6
+  
+  The problem was that the patch for Bug#13004581 added a new error
+  message to 5.5. This causes it to use an error number already used
+  in 5.6 by ER_CANNOT_LOAD_FROM_TABLE_V2. Which means that error
+  message number stability between GA releases is broken.
+  
+  This patch fixes the problem by removing the error message and
+  using ER_UNKNOWN_ERROR instead.
+------------------------------------------------------------
+revno: 4338
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Tue 2013-05-07 14:36:46 +0200
+message:
+  ULN-RPMs bug fix for BR16298542
+------------------------------------------------------------
+revno: 4337
+committer: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Mon 2013-05-06 20:31:26 +0530
+message:
+  Bug #16722314 FOREIGN KEY ID MODIFIED DURING EXPORT
+  Bug #16754901 PARS_INFO_FREE NOT CALLED IN DICT_CREATE_ADD_FOREIGN_TO_DICTIONARY
+  
+  Merging the fix from mysql-5.5 to mysql-5.5.32-release.
+------------------------------------------------------------
+revno: 4336
+committer: Jon Olav Hauglid <jon.hauglid@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Mon 2013-05-06 16:06:32 +0200
+message:
+  Bug#16757869: INNODB: POSSIBLE REGRESSION IN 5.5.31, BUG#16004999
+  
+  The problem was that if UPDATE with subselect caused a
+  deadlock inside InnoDB, this deadlock was not properly
+  handled by the SQL layer. This meant that the SQL layer
+  would try to unlock the row after InnoDB had rolled
+  back the transaction. This caused an assertion inside
+  InnoDB.
+  
+  This patch fixes the problem by checking for errors
+  reported by SQL_SELECT::skip_record() and not calling
+  unlock_row() if any errors have been reported.
+    
+  This bug is similar to Bug#13586591, but for UPDATE
+  rather than DELETE. Similar issues in filesort/opt_range/
+  sql_select will be investigated and handled in the scope
+  of Bug#16767929
+------------------------------------------------------------
+revno: 4335
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.5.32-release
+timestamp: Mon 2013-05-06 15:19:37 +0200
+message:
+  Updated spec file for Bug16488773
+------------------------------------------------------------
+revno: 4334
+tags: clone-5.5.32-build
+committer: Marko M?kel? <marko.makela@oracle.com>
+branch nick: mysql-5.5
+timestamp: Fri 2013-05-03 16:39:17 +0300
+message:
+  Attempt to fix a test failure on Windows
+  by not accessing a file while the server is running.
+------------------------------------------------------------
+revno: 4333 [merge]
+committer: michael.izioumtchenko@oracle.com
+branch nick: mysql_src_c553
+timestamp: Tue 2013-04-30 20:40:38 +0200
+message:
+  merge from mysql-5.1
+    ------------------------------------------------------------
+    revno: 2661.844.26
+    tags: clone-5.1.70-build
+    committer: michael.izioumtchenko@oracle.com
+    branch nick: mysql_src_c2s3
+    timestamp: Tue 2013-04-30 20:39:12 +0200
+    message:
+      Bug#16405422 - RECOVERY FAILURE, ASSERT !RECV_NO_LOG_WRITE
+      
+      eliminate a race condition over recv_sys->n_addrs which might result in a database corruption
+      in recovery, without reporting a recovery error.
+      
+      recv_recover_page_func(): move the code segment that decrements recv_sys->n_addrs
+        to the end of the function, after the call to mtr_commit()
+      
+      rb://2282 approved by Inaam
+------------------------------------------------------------
+revno: 4332 [merge]
+committer: Neeraj Bisht <neeraj.x.bisht@oracle.com>
+branch nick: 5.5
+timestamp: Tue 2013-04-30 22:46:37 +0530
+message:
+  BUG#16222245 - CRASH WITH EXPLAIN FOR A QUERY WITH LOOSE SCAN FOR 
+  GROUP BY, MYISAM 
+  
+  Merge fix for Bug#16222245 from mysql-5.1 to mysql-5.5
+    ------------------------------------------------------------
+    revno: 2661.844.25
+    committer: Neeraj Bisht <neeraj.x.bisht@oracle.com>
+    branch nick: 5.1
+    timestamp: Tue 2013-04-30 22:38:34 +0530
+    message:
+      BUG#16222245 - CRASH WITH EXPLAIN FOR A QUERY WITH LOOSE SCAN FOR 
+      GROUP BY, MYISAM 
+      
+      Problem:-
+      In a query, where we are using loose index scan optimization and 
+      we have MIN() causes segmentation fault(where table row length 
+      is less then key_length).
+      
+      Analysis:
+      
+      While using loose index scan for MIN(), we call key_copy(), to copy 
+      the key data from record.
+      This function is using temporary record buffer to store key data 
+      from the record buffer.But in case where the key length is greater 
+      then the buffer length, this will cause a segmentation fault.
+      
+      
+      Solution:
+      Give a proper buffer to store a key record.
+------------------------------------------------------------
+revno: 4331
+committer: Marko M?kel? <marko.makela@oracle.com>
+branch nick: mysql-5.5
+timestamp: Tue 2013-04-30 13:39:50 +0300
+message:
+  Bug#16720368 INNODB IGNORES *.IBD FILE BREAKAGE AT STARTUP
+  
+  After a clean shutdown, InnoDB will not check the *.ibd file headers,
+  for maximum performance. This is unchanged before and after this
+  patch.
+  
+  What this fix addresses is the case when crash recovery is
+  needed. Previously, InnoDB could load a corrupted tablespace file.
+  
+  buf_page_is_corrupted(): Add the parameter check_lsn.
+  
+  fil_check_first_page(): New function, to perform a consistency check
+  on the first page of a file. This can be overridden by setting
+  innodb_force_recovery.
+  
+  fil_read_first_page(), fil_open_single_table_tablespace(),
+  fil_load_single_table_tablespace(): Invoke fil_check_first_page().
+  
+  open_or_create_data_files(): Check the status of
+  fil_open_single_table_tablespace().
+  
+  rb#2352 approved by Jimmy Yang
+------------------------------------------------------------
+revno: 4330
+committer: Bill Qu <bill.qu@Oracle.com>
+branch nick: mysql-5.5
+timestamp: Sat 2013-04-27 16:04:54 +0800
+message:
+  Bug #13004581 	BLACKHOLE BINARY LOG WITH ROW IGNORES UPDATE AND DELETE STATEMENTS
+    
+  When logging to the binary log in row, updates and deletes to a BLACKHOLE
+  engine table are skipped.
+    
+  It is impossible to log binary log in row format for updates and deletes to
+  a BLACKHOLE engine table, as no row events can be generated in these cases.
+  After fix, generate a warning for UPDATE/DELETE statements that modify a
+  BLACKHOLE table, as row events are not logged in row format.
+------------------------------------------------------------
+revno: 4329
+committer: Venkatesh Duggirala<venkatesh.duggirala@oracle.com>
+branch nick: mysql-5.5
+timestamp: Thu 2013-04-25 11:56:26 +0530
+message:
+  BUG#16698172-CANNOT DO POINT-IN-TIME RECOVERY FOR
+  SINGLE DATABASE; MYSQLBINLOG
+        
+  Problem: If last subevent inside a RBR event
+  is skipped while replaying a binary log
+  using mysqlbinlog with --database=... option,
+  generated output is missing end marker('/*!*/;)
+  for that RBR event. Thence causing syntax error
+  while replaying the generated output.
+        
+  Fix: Append end marker ('/*!*/;) if the last 
+  subevent is getting skipped.
+  Append end marker if the last 
+  subevent is getting skipped.
+------------------------------------------------------------
+revno: 4328
+committer: Georgi Kodinov <georgi.kodinov@oracle.com>
+branch nick: B16680313-5.5
+timestamp: Wed 2013-04-24 17:21:42 +0300
+message:
+  Bug #16680313: CLIENT DOESN'T READ PLUGIN-DIR FROM MY.CNF SET BY
+        MYSQL_READ_DEFAULT_FILE
+  Parsing of the plugin-dir config file option was not working due to a typo.
+  Fixed the typo. No test case can be added due to lack of support for 
+  defaults-exitra-file testing in mysql-test-run.pl.
+  Thanks to Sinisa for contributing the fix.
+------------------------------------------------------------
+revno: 4327 [merge]
+committer: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+branch nick: Bug14324766_mysql-5.5
+timestamp: Wed 2013-04-24 13:34:11 +0530
+message:
+  Merge from mysql-5.1 to mysql-5.5
+    ------------------------------------------------------------
+    revno: 2661.844.24
+    committer: Sujatha Sivakumar <sujatha.sivakumar@oracle.com>
+    branch nick: Bug14324766_mysql-5.1
+    timestamp: Wed 2013-04-24 13:31:10 +0530
+    message:
+      Bug#14324766:PARTIALLY WRITTEN INSERT STATEMENT IN BINLOG
+      NO ERRORS REPORTED
+            
+      Fixing a post push test script failure.
+------------------------------------------------------------
+revno: 4326 [merge]
+committer: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+branch nick: mysql-5.5
+timestamp: Wed 2013-04-24 08:48:34 +0200
+message:
+  Null merge from mysql-5.1 to mysql-5.5
+    ------------------------------------------------------------
+    revno: 2661.844.23
+    committer: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+    branch nick: mysql-5.1
+    timestamp: Wed 2013-04-24 08:47:30 +0200
+    message:
+      Bug #15973904 INNODB PARTITION CODE HOLDS LOCK_OPEN AND SLEEPS WHILE 
+      OPENING MISSING PARTITION
+      
+      In the ha_innobase::open() call, for normal tables, there is no retry logic.
+      But for partitioned tables, there is a retry logic introduced as fix for:
+      
+      http://bugs.mysql.com/bug.php?id=33349  
+      https://support.mysql.com/view.php?id=21080
+      
+      The Bug#33349, does not provide sufficient information to analyze the original
+      problem.  The original problem reported by bug#33349 is also minor (just an
+      annoyance and no loss of functionality).  Most importantly, the retry logic
+      has been introduced without any associated test case.
+      
+      So we are removing the retry logic for partitioned tables.  When the original
+      problem occurs, a different solution will be explored.
+------------------------------------------------------------
+revno: 4325
+committer: Annamalai Gurusami <annamalai.gurusami@oracle.com>
+branch nick: mysql-5.5
+timestamp: Wed 2013-04-24 08:42:59 +0200
+message:
+  Merge from mysql-5.1 to mysql-5.5
+------------------------------------------------------------
+revno: 4324 [merge]
+committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+branch nick: mysql-5.5
+timestamp: Mon 2013-04-22 14:30:47 +0200
+message:
+  Upmerge of the 5.1.69 build
+    ------------------------------------------------------------
+    revno: 2661.844.22
+    author: murthy.narkedimilli@oracle.com
+    committer: Murthy Narkedimilli <murthy.narkedimilli@oracle.com>
+    branch nick: mysql-5.1
+    timestamp: Mon 2013-04-22 14:01:07 +0200
+    message:
+      Merge from mysql-5.1.69-release
+------------------------------------------------------------
+revno: 4323 [merge]
+committer: Neeraj Bisht <neeraj.x.bisht@oracle.com>
+branch nick: 5.5
+timestamp: Sat 2013-04-20 12:36:11 +0530
+message:
+  Bug#16073689 : CRASH IN ITEM_FUNC_MATCH::INIT_SEARCH 
+  
+  Problem:
+  In query like
+  select 1 from .. order by match .. against ...;
+  causes a debug assert failue.
+  
+  Analysis:
+  In union type query like
+  
+  (select * from order by a) order by b;
+  or
+  (select * from order by a) union (select * from order by b);
+  
+  We skip resolving of order by a for 1st query and order by of a and b in 
+  2nd query.
+  
+  
+  This means that, in case when our order by have Item_func_match class, 
+  we skip resolving it.
+  But we maintain a ft_func_list and at the time of optimization, when we 
+  Perform FULLTEXT search before all regular searches on the bases of the 
+  list we call Item_func_match::init_search() which will cause debug assert 
+  as the item is not resolved.
+  
+  
+  Solution:
+  We will skip execution if the item is not fixed and we will not 
+  fix index(Item_func_match::fix_index()) for which 
+  Item_func_match::fix_field() is not called so that on later changes 
+  we can check the dependency on fix field.
+  bz
+    ------------------------------------------------------------
+    revno: 2661.844.21
+    tags: mysql-5.1.69
+    committer: Neeraj Bisht <neeraj.x.bisht@oracle.com>
+    branch nick: 5.1
+    timestamp: Sat 2013-04-20 12:28:22 +0530
+    message:
+      Bug#16073689 : CRASH IN ITEM_FUNC_MATCH::INIT_SEARCH 
+      
+      Problem:
+      In query like
+      select 1 from .. order by match .. against ...;
+      causes a debug assert failue.
+      
+      Analysis:
+      In union type query like
+      
+      (select * from order by a) order by b;
+      or
+      (select * from order by a) union (select * from order by b);
+      
+      We skip resolving of order by a for 1st query and order by of a and b in 
+      2nd query.
+      
+      
+      This means that, in case when our order by have Item_func_match class, 
+      we skip resolving it.
+      But we maintain a ft_func_list and at the time of optimization, when we 
+      Perform FULLTEXT search before all regular searches on the bases of the 
+      list we call Item_func_match::init_search() which will cause debug assert 
+      as the item is not resolved.
+      
+      
+      Solution:
+      We will skip execution if the item is not fixed and we will not 
+      fix index(Item_func_match::fix_index()) for which 
+      Item_func_match::fix_field() is not called so that on later changes 
+      we can check the dependency on fix field.
+------------------------------------------------------------
+revno: 4322 [merge]
+author: balasubramanian.kandasamy@oracle.com
+committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+branch nick: mysql-5.5
+timestamp: Thu 2013-04-18 12:52:59 +0200
+message:
+  Merge from mysql-5.5.31-release
+    ------------------------------------------------------------
+    revno: 4243.1.6
+    tags: mysql-5.5.31
+    committer: Balasubramanian Kandasamy <balasubramanian.kandasamy@oracle.com>
+    branch nick: mysql-5.5.31-release
+    timestamp: Fri 2013-04-12 12:11:38 +0200
+    message:
+      Updated mysql.spec.sh for rpm-uln

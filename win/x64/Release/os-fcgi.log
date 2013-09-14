@@ -1,0 +1,22 @@
+﻿  os-curl.cpp
+  libcurl was compiled without SSL support
+  os-regexp.cpp
+..\os\ext-regexp\os-regexp.cpp(364): warning C4244: аргумент: преобразование "__int64" в "int", возможна потеря данных
+..\os\ext-regexp\os-regexp.cpp(902): warning C4244: аргумент: преобразование "__int64" в "int", возможна потеря данных
+..\os\ext-regexp\os-regexp.cpp(1131): warning C4244: аргумент: преобразование "__int64" в "int", возможна потеря данных
+..\os\ext-regexp\os-regexp.cpp(1134): warning C4244: аргумент: преобразование "__int64" в "int", возможна потеря данных
+..\os\ext-regexp\os-regexp.cpp(1214): warning C4244: =: преобразование "__int64" в "int", возможна потеря данных
+..\os\ext-regexp\os-regexp.cpp(1223): warning C4244: аргумент: преобразование "__int64" в "int", возможна потеря данных
+     Создается библиотека C:\Sources\os-fcgi\win32\x64\Release\os-fcgi.lib и объект C:\Sources\os-fcgi\win32\x64\Release\os-fcgi.exp
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_slist_append"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_setopt"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_perform"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_cleanup"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_duphandle"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_getinfo"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_formfree"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_version_info"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_slist_free_all"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_init"
+os-curl.obj : error LNK2001: неразрешенный внешний символ "__imp_curl_easy_reset"
+C:\Sources\os-fcgi\win32\x64\Release\os-fcgi.exe : fatal error LNK1120: 11 неразрешенных внешних элементов

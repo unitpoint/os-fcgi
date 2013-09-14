@@ -1,0 +1,11 @@
+﻿  os-fcgi.cpp
+c:\sources\os-fcgi\os-fcgi.cpp(585): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(234): см. объявление "fopen"
+  os-fcgi.vcxproj -> C:\Sources\os-fcgi\win32\Debug\os-fcgi.exe
+  ..\libcurl-7.19.3-win32-ssl-msvc\curllib.dll
+  ..\libcurl-7.19.3-win32-ssl-msvc\libeay32.dll
+  ..\libcurl-7.19.3-win32-ssl-msvc\libsasl.dll
+  ..\libcurl-7.19.3-win32-ssl-msvc\openldap.dll
+  ..\libcurl-7.19.3-win32-ssl-msvc\ssleay32.dll
+  Скопировано файлов:         5.
+  Скопировано файлов:         1.

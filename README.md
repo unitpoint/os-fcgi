@@ -8,11 +8,27 @@ Compile and Install
 
 Run following commands in a *root* shell
 
+# native build
 	mkdir build && cd build
 	cmake -DCMAKE_INSTALL_PREFIX=/ ..
 	make
 	make install
 	service os-fcgi restart
+
+# force build 32 bit version on 64 bin
+        mkdir build && cd build
+        cmake -DFORCE32=ON -DCMAKE_INSTALL_PREFIX=/ ..
+        make
+        make install
+        service os-fcgi restart
+
+Dependencies to force32 build
+=============================
+	libstdc++
+	gcc-multilib
+	g++-multilib
+	bison
+        ia32-libs
 	
 Information
 ===========

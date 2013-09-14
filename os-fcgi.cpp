@@ -63,7 +63,13 @@ protected:
 		if(OS::init(mem)){
 			core->gc_start_used_bytes = 32*1024*1024;
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
-			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, "cache-osc");
+			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
+#ifdef _MSC_VER
+				"cache-osc"
+#else
+				"/tmp"
+#endif
+				);
 
 #ifndef OS_CURL_DISABLED
 			initCurlLibrary(this);
