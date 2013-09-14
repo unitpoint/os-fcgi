@@ -46,7 +46,11 @@ public:
 			handle = NULL;
 			list = NULL;
 			
-			os->getGlobal("ODBODateTime");
+			/* os->getGlobal("ODBODateTime");
+			dateTimeId[0] = os->getValueId();
+			os->pop(); */
+			
+			os->getGlobal("DateTime");
 			dateTimeId = os->getValueId();
 			os->pop();
 		}
@@ -436,14 +440,6 @@ public:
 		static int fetch(OS * os, int params, int, int, void * user_param);
 	};
 
-	struct ODBODateTime
-	{
-		static int make(OS * os, int params, int, int, void * user_param)
-		{
-			return 0;
-		}
-	};
-
 	static void initLibrary(OS* os);
 
 };
@@ -602,10 +598,14 @@ void ODBO_OS::ODBOStatement::bindParams()
 		case OS_VALUE_TYPE_USERDATA:
 		case OS_VALUE_TYPE_USERPTR:
 			if(1){
-				os->pushStackValue(-1);
 				os->pushValueById(owner->dateTimeId);
-				bool is_date =  os->is();
-				os->pop(2);
+				bool is_date =  os->is(-2, -1);
+				os->pop(1);
+				/* if(!is_date){
+					os->pushValueById(owner->dateTimeId[1]);
+					is_date =  os->is(-2, -1);
+					os->pop(1);
+				} */
 				if(is_date){
 					std::tm tm;
 					os->getProperty(-1, "year");	tm.tm_year = os->popInt()-1900;
@@ -859,22 +859,6 @@ void ODBO_OS::initLibrary(OS* os)
 	os->eval(OS_AUTO_TEXT(
 		ODBOException = extends Exception {
 		}
-		ODBODateTime = {
-			__construct = function(year, month, day, hour, minute, second){
-				@year = year || 0
-				@month = month || 0
-				@day = day || 0
-				@hour = hour || 0
-				@minute = minute || 0
-				@second = second || 0
-			},
-
-			valueOf = function(){
-				return sprintf("%04d %02d %02d %02d %02d %02d", @year, @month, @day, @hour, @minute, @second)
-			},
-
-			make = function(){},
-		}
 		function ODBO.execute(sql, params){
 			return @query(sql, params).execute()
 		}
@@ -882,16 +866,6 @@ void ODBO_OS::initLibrary(OS* os)
 			return @query(sql, params).fetch()
 		}
 	));
-
-	{
-		os->getGlobal("ODBODateTime");
-		OS::FuncDef funcs[] = {
-			{OS_TEXT("make"), ODBODateTime::make},
-			{}
-		};
-		os->setFuncs(funcs);
-		os->pop();
-	}
 }
 
 void initODBOLibrary(OS* os)

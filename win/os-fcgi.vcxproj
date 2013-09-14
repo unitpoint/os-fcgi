@@ -198,7 +198,6 @@
     <ClCompile Include="..\os\ext-datetime\mx\mxDateTime.cpp" />
     <ClCompile Include="..\os\ext-datetime\os-datetime.cpp">
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\os\ext-odbo\os-odbo.cpp" />
     <ClCompile Include="..\os\ext-regexp\os-regexp.cpp" />

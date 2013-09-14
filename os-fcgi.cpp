@@ -1,4 +1,5 @@
 #ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
 #include "win/stdafx.h"
 #include <Windows.h>
 #pragma comment (lib, "Ws2_32.lib")
@@ -31,12 +32,12 @@
 #include "os/ext-regexp/os-regexp.h"
 #endif
 
-#ifndef OS_ODBO_DISABLED
-#include "os/ext-odbo/os-odbo.h"
+#ifndef OS_DATETIME_DISABLED
+#include "os/ext-datetime/os-datetime.h"
 #endif
 
-#ifndef OS_DATETIME_DISABLED
-// #include "os/ext-datetime/os-datetime.h"
+#ifndef OS_ODBO_DISABLED
+#include "os/ext-odbo/os-odbo.h"
 #endif
 
 #define PID_FILE "/var/run/os-fcgi.pid"
@@ -84,7 +85,7 @@ protected:
 #endif
 
 #ifndef OS_DATETIME_DISABLED
-			// initDateTimeLibrary(this);
+			initDateTimeLibrary(this);
 #endif
 
 #ifndef OS_ODBO_DISABLED

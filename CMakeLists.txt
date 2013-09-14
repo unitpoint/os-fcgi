@@ -40,67 +40,67 @@ IF(FORCE32)
 ENDIF()
 
 IF (FORCE32)
-include(ExternalProject)
-ExternalProject_Add(ncurses
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9
-    CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9/configure --with-shared --prefix=${INSTALL_DIR} CFLAGS=-m32 CXXFLAGS=-m32
-    BUILD_COMMAND make -j8
-)
+	include(ExternalProject)
+	ExternalProject_Add(ncurses
+		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9
+		CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ncurses-5.9/configure --with-shared --prefix=${INSTALL_DIR} CFLAGS=-m32 CXXFLAGS=-m32
+		BUILD_COMMAND make -j8
+	)
 
-ExternalProject_Add(mysql
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mysql-5.5.32
-    CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
-               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
-               -DWITH_LIBEDIT=ON 
-               -DCURSES_LIBRARY=${INSTALL_DIR}/lib/libncurses.so 
-               -DCURSES_INCLUDE_PATH=${INSTALL_DIR}/include 
-               -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
-    BUILD_COMMAND make -j8
-)
+	ExternalProject_Add(mysql
+		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/mysql-5.5.32
+		CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
+				   -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
+				   -DWITH_LIBEDIT=ON 
+				   -DCURSES_LIBRARY=${INSTALL_DIR}/lib/libncurses.so 
+				   -DCURSES_INCLUDE_PATH=${INSTALL_DIR}/include 
+				   -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
+		BUILD_COMMAND make -j8
+	)
 
-ExternalProject_Add(soci
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/soci-3.2.1/src
-    CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
-               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
-               -DMYSQL_LIBRARIES=${INSTALL_DIR}/lib/libmysqlclient_r.so 
-               -DMYSQL_INCLUDE_DIR=${INSTALL_DIR}/include 
-               -DWITH_BOOST=OFF 
-               -DWITH_MYSQL=ON 
-               -DSOCI_STATIC=OFF 
-               -DWITH_ODBC=OFF 
-               -DWITHSQLITE3=OFF 
-               -DWITHORACLE=OFF 
-               -DWITHDB2=OFF
-               -DWITH_FIREBIRD=OFF 
-               -DWITH_POSTGRESQL=OFF 
-               -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
-    BUILD_COMMAND make -j8 lib
-)
+	ExternalProject_Add(soci
+		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/soci-3.2.1/src
+		CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
+				   -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
+				   -DMYSQL_LIBRARIES=${INSTALL_DIR}/lib/libmysqlclient_r.so 
+				   -DMYSQL_INCLUDE_DIR=${INSTALL_DIR}/include 
+				   -DWITH_BOOST=OFF 
+				   -DWITH_MYSQL=ON 
+				   -DSOCI_STATIC=OFF 
+				   -DWITH_ODBC=OFF 
+				   -DWITHSQLITE3=OFF 
+				   -DWITHORACLE=OFF 
+				   -DWITHDB2=OFF
+				   -DWITH_FIREBIRD=OFF 
+				   -DWITH_POSTGRESQL=OFF 
+				   -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
+		BUILD_COMMAND make -j8 lib
+	)
 
-ExternalProject_Add(curl
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/curl-7.32.0
-    CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
-               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
-               -DCMAKE_USE_OPENSSL=OFF 
-               -DBUILD_CURL_EXE=OFF 
-               -DBUILD_CURL_TESTS=OFF 
-               -DCURL_ZLIB=OFF 
-               -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
-    BUILD_COMMAND make -j8
-)
+	ExternalProject_Add(curl
+		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/curl-7.32.0
+		CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
+				   -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
+				   -DCMAKE_USE_OPENSSL=OFF 
+				   -DBUILD_CURL_EXE=OFF 
+				   -DBUILD_CURL_TESTS=OFF 
+				   -DCURL_ZLIB=OFF 
+				   -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
+		BUILD_COMMAND make -j8
+	)
 
-ExternalProject_Add(pcre
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/pcre-8.33 
-    CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
-               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
-               -DPCRE_SUPPORT_LIBZ=OFF 
-               -DPCRE_SUPPORT_LIBREADLINE=OFF 
-               -DBUILD_SHARED_LIBS=ON 
-               -DPCRE_SUPPORT_UTF=ON 
-               -DPCRE_SUPPORT_UNICODE_PROPERTIES=ON 
-               -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
-    BUILD_COMMAND make -j8
-)
+	ExternalProject_Add(pcre
+		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/pcre-8.33 
+		CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS} -m32 
+				   -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -m32 
+				   -DPCRE_SUPPORT_LIBZ=OFF 
+				   -DPCRE_SUPPORT_LIBREADLINE=OFF 
+				   -DBUILD_SHARED_LIBS=ON 
+				   -DPCRE_SUPPORT_UTF=ON 
+				   -DPCRE_SUPPORT_UNICODE_PROPERTIES=ON 
+				   -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}
+		BUILD_COMMAND make -j8
+	)
 ENDIF()
 
 list(APPEND SOURCES os-fcgi.cpp)
@@ -129,12 +129,12 @@ IF (NOT FORCE32)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
     find_package(PCRE QUIET)
     if(PCRE_FOUND)
-	include_directories(${PCRE_INCLUDE_DIR})
-	list(APPEND SOURCES os/ext-regexp/os-regexp.cpp)
-	list(APPEND HEADERS os/ext-regexp/os-regexp.h)
+		include_directories(${PCRE_INCLUDE_DIR})
+		list(APPEND SOURCES os/ext-regexp/os-regexp.cpp)
+		list(APPEND HEADERS os/ext-regexp/os-regexp.h)
     else()
-	message(STATUS "[ WARNING ]: Could not find PCRE library")
-	add_definitions( -DOS_REGEXP_DISABLED )
+		message(STATUS "[ WARNING ]: Could not find PCRE library")
+		add_definitions( -DOS_REGEXP_DISABLED )
     endif()
 ELSE()
     list(APPEND SOURCES os/ext-regexp/os-regexp.cpp)

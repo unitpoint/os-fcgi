@@ -1,3 +1,7 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "objectscript.h"
 #include "os-binder.h"
 #include <time.h>
@@ -13118,6 +13122,7 @@ void OS::handleException()
 		pushStackValue(-3); // exception
 		call(1, 0);
 		pop();
+		resetException();
 	}
 }
 
@@ -15333,7 +15338,11 @@ bool OS::Core::pushValueOf(Value val)
 
 	bool prototype_enabled = true;
 	Value func;
-	if(getPropertyValue(func, OS_VALUE_VARIANT(val).value, strings->func_valueOf, prototype_enabled)
+	GCValue * proto = OS_VALUE_VARIANT(val).value;
+	if(!OS_VALUE_VARIANT(val).value->is_object_instance){
+		proto = prototypes[PROTOTYPE_OBJECT];
+	}
+	if(getPropertyValue(func, proto, strings->func_valueOf, prototype_enabled)
 		&& func.isFunction())
 	{
 		pushValue(func);
@@ -20141,7 +20150,7 @@ void OS::initObjectClass()
 					// Core::Buffer buf(os);
 					buf += OS_TEXT("[");
 					Core::Value temp;
-					for(int i = 0; i < arr->values.count; i++){
+					for(int i = 0; i < arr->values.count && !os->isExceptionSet(); i++){
 						if(i > 0){
 							buf += OS_TEXT(",");
 						}
@@ -20161,7 +20170,9 @@ void OS::initObjectClass()
 							buf += value_str;
 						}
 					}
-					buf += OS_TEXT("]");
+					if(!os->isExceptionSet()){
+						buf += OS_TEXT("]");
+					}
 					os->pushString(buf);
 					return 1;
 				}
@@ -20205,7 +20216,7 @@ dump_object:
 					int need_index = 0;
 					Core::Property * prop = self->table->first;
 					Core::Value temp;
-					for(int i = 0; prop; prop = prop->next, i++){
+					for(int i = 0; prop && !os->isExceptionSet(); prop = prop->next, i++){
 						if(i > 0){
 							buf += OS_TEXT(",");
 						}
@@ -20249,7 +20260,10 @@ dump_object:
 							buf += value_str;
 						}
 					}
-					os->pushString(buf += OS_TEXT("}"));
+					if(!os->isExceptionSet()){
+						buf += OS_TEXT("}");
+					}
+					os->pushString(buf);
 					return 1;
 				}
 			}
@@ -23539,6 +23553,13 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 				stack_values.buf[start_pos + 0] = ctor;
 				stack_values.buf[start_pos + 1] = func;
 				call(start_pos, call_params, ret_values);
+
+				if(ret_values > 0){
+					GCValue * gc_value = stack_values[start_pos].getGCValue();
+					if(gc_value){
+						gc_value->is_object_instance = true;
+					}
+				}
 				return;
 			}
 			break;
