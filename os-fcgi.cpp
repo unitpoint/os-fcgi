@@ -218,7 +218,7 @@ public:
 		OS_CHAR temp[34];
 		Core::Buffer buf(this);
 		buf.append(*cache_path);
-		buf.append(OS_TEXT("/"), 1);
+		buf.append(OS_TEXT("/os-fcgi-cache-"));
 		buf.append(md5(temp, resolved_filename), 32);
 		buf.append(OS_EXT_COMPILED);
 		// buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));
