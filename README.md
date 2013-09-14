@@ -15,20 +15,19 @@ Run following commands in a *root* shell
 	make install
 	service os-fcgi restart
 
-# force build 32 bit version on 64 bin
-        mkdir build && cd build
-        cmake -DFORCE32=ON -DCMAKE_INSTALL_PREFIX=/ ..
-        make
-        make install
-        service os-fcgi restart
+# build 32 bit version on 64 bit server (32 bit version is faster than 64 bit)
+	mkdir build && cd build
+	cmake -DFORCE32=ON -DCMAKE_INSTALL_PREFIX=/ ..
+	make
+	make install
+	service os-fcgi restart
 
-Dependencies to force32 build
-=============================
+# dependencies to build the 32 bit version
 	libstdc++
 	gcc-multilib
 	g++-multilib
 	bison
-        ia32-libs
+	ia32-libs
 	
 Information
 ===========
