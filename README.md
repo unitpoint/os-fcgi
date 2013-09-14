@@ -17,7 +17,7 @@ Run following commands in a *root* shell
 
 # build 32 bit version on 64 bit server
 
-The 32 bit version is faster than 64 bit
+The 32 bit version is faster than 64 bit!
 
 	mkdir build && cd build
 	cmake -DFORCE32=ON -DCMAKE_INSTALL_PREFIX=/ ..
@@ -25,7 +25,8 @@ The 32 bit version is faster than 64 bit
 	make install
 	service os-fcgi restart
 
-# dependencies to build the 32 bit version
+Dependencies to build the 32 bit version:
+
 	libstdc++
 	gcc-multilib
 	g++-multilib
