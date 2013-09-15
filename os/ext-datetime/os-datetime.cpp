@@ -1432,12 +1432,12 @@ public:
 			DateTime * self = this;
 			double second = fixSecondDisplay(self->second);
 			if(self->year >= 0)
-				sprintf(buffer,"%04li-%02i-%02i %02i:%02i:%05.3f",
+				sprintf(buffer,"%04li-%02i-%02i %02i:%02i:%06.3f",
 					(long)self->year,(int)self->month,(int)self->day,
 					(int)self->hour,(int)self->minute,
 					(float)second);
 			else
-				sprintf(buffer,"-%04li-%02i-%02i %02i:%02i:%05.3f",
+				sprintf(buffer,"-%04li-%02i-%02i %02i:%02i:%06.3f",
 					(long)-self->year,(int)self->month,(int)self->day,
 					(int)self->hour,(int)self->minute,
 					(float)second);
@@ -1464,7 +1464,7 @@ public:
 			char buffer[50];
 			DateTime * self = this;
 			double second = fixSecondDisplay(self->second);
-			sprintf(buffer,"%02i:%02i:%05.3f",
+			sprintf(buffer,"%02i:%02i:%06.3f",
 				(int)self->hour,(int)self->minute,(float)second);
 			return OS::String(os, buffer);
 		}
