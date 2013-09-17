@@ -15004,7 +15004,7 @@ OS::Core::GCCFunctionValue * OS::Core::newCFunctionValue(OS_CFunction func, int 
 	return res;
 }
 
-OS::Core::GCUserdataValue * OS::Core::newUserdataValue(int crc, int data_size, OS_UserdataDtor dtor, void * user_param)
+OS::Core::GCUserdataValue * OS::Core::newUserdataValue(int crc, int data_size, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
 	GCUserdataValue * res = new (malloc(sizeof(GCUserdataValue) + data_size OS_DBG_FILEPOS)) GCUserdataValue();
 	res->prototype = prototypes[PROTOTYPE_USERDATA];
@@ -15012,6 +15012,7 @@ OS::Core::GCUserdataValue * OS::Core::newUserdataValue(int crc, int data_size, O
 	res->crc = crc;
 	res->dtor = dtor;
 	res->user_param = user_param;
+	res->is_object_instance = is_object_instance;
 	res->ptr = data_size ? res + 1 : NULL;
 	res->type = OS_VALUE_TYPE_USERDATA;
 	registerValue(res);
@@ -15055,7 +15056,7 @@ OS::Core::GCUserdataValue * OS::Core::findUserPointerValue(void * ptr)
 	return NULL;
 }
 
-OS::Core::GCUserdataValue * OS::Core::newUserPointerValue(int crc, void * ptr, OS_UserdataDtor dtor, void * user_param)
+OS::Core::GCUserdataValue * OS::Core::newUserPointerValue(int crc, void * ptr, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
 	int hash = OS_PTR_HASH(ptr);
 	if(userptr_refs.count > 0){
@@ -15101,6 +15102,7 @@ OS::Core::GCUserdataValue * OS::Core::newUserPointerValue(int crc, void * ptr, O
 	res->crc = crc;
 	res->dtor = dtor;
 	res->user_param = user_param;
+	res->is_object_instance = is_object_instance;
 	res->ptr = ptr;
 	res->type = OS_VALUE_TYPE_USERPTR;
 	registerValue(res);
@@ -15215,14 +15217,14 @@ OS::Core::GCCFunctionValue * OS::Core::pushCFunctionValue(OS_CFunction func, int
 	return pushValue(newCFunctionValue(func, closure_values, user_param));
 }
 
-OS::Core::GCUserdataValue * OS::Core::pushUserdataValue(int crc, int data_size, OS_UserdataDtor dtor, void * user_param)
+OS::Core::GCUserdataValue * OS::Core::pushUserdataValue(int crc, int data_size, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	return pushValue(newUserdataValue(crc, data_size, dtor, user_param));
+	return pushValue(newUserdataValue(crc, data_size, dtor, user_param, is_object_instance));
 }
 
-OS::Core::GCUserdataValue * OS::Core::pushUserPointerValue(int crc, void * data, OS_UserdataDtor dtor, void * user_param)
+OS::Core::GCUserdataValue * OS::Core::pushUserPointerValue(int crc, void * data, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	return pushValue(newUserPointerValue(crc, data, dtor, user_param));
+	return pushValue(newUserPointerValue(crc, data, dtor, user_param, is_object_instance));
 }
 
 OS::Core::GCObjectValue * OS::Core::pushObjectValue()
@@ -15993,26 +15995,26 @@ void OS::pushCFunction(OS_CFunction func, int closure_values, void * user_param)
 	core->pushCFunctionValue(func, closure_values, user_param);
 }
 
-void * OS::pushUserdata(int crc, int data_size, OS_UserdataDtor dtor, void * user_param)
+void * OS::pushUserdata(int crc, int data_size, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	Core::GCUserdataValue * userdata = core->pushUserdataValue(crc, data_size, dtor, user_param);
+	Core::GCUserdataValue * userdata = core->pushUserdataValue(crc, data_size, dtor, user_param, is_object_instance);
 	return userdata ? userdata->ptr : NULL;
 }
 
-void * OS::pushUserdata(int data_size, OS_UserdataDtor dtor, void * user_param)
+void * OS::pushUserdata(int data_size, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	return pushUserdata(0, data_size, dtor, user_param);
+	return pushUserdata(0, data_size, dtor, user_param, is_object_instance);
 }
 
-void * OS::pushUserPointer(int crc, void * data, OS_UserdataDtor dtor, void * user_param)
+void * OS::pushUserPointer(int crc, void * data, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	Core::GCUserdataValue * userdata = core->pushUserPointerValue(crc, data, dtor, user_param);
+	Core::GCUserdataValue * userdata = core->pushUserPointerValue(crc, data, dtor, user_param, is_object_instance);
 	return userdata ? userdata->ptr : NULL;
 }
 
-void * OS::pushUserPointer(void * data, OS_UserdataDtor dtor, void * user_param)
+void * OS::pushUserPointer(void * data, OS_UserdataDtor dtor, void * user_param, bool is_object_instance)
 {
-	return pushUserPointer(0, data, dtor, user_param);
+	return pushUserPointer(0, data, dtor, user_param, is_object_instance);
 }
 
 void OS::newObject()
@@ -21717,9 +21719,6 @@ void OS::initStringClass()
 
 		static int lengthUtf8(OS * os, int params, int, int, void*)
 		{
-			if(params < 1){
-				return 0;
-			}
 			int len = 0;
 			OS::String str = os->toString(-params-1);
 			const OS_BYTE * string = (OS_BYTE*)str.toChar();

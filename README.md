@@ -8,9 +8,17 @@ Compile and Install
 
 Run following commands in a *root* shell
 
-# build 32 bit version on 64 bit server
+# Build native bit version
 
-The 32 bit version is faster than 64 bit!
+	mkdir build && cd build
+	cmake -DCMAKE_INSTALL_PREFIX=/ ..
+	make
+	make install
+	service os-fcgi restart
+
+# Build 32 bit version on 64 bit server
+
+The 32 bit version is faster than 64 bit
 
 	mkdir build && cd build
 	cmake -DFORCE32=ON -DCMAKE_INSTALL_PREFIX=/ ..
@@ -26,14 +34,6 @@ Dependencies to build the 32 bit version:
 	bison
 	ia32-libs
 	
-# build native bit version
-
-	mkdir build && cd build
-	cmake -DCMAKE_INSTALL_PREFIX=/ ..
-	make
-	make install
-	service os-fcgi restart
-
 Information
 ===========
 

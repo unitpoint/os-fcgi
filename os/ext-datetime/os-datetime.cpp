@@ -377,6 +377,95 @@ public:
 		return value == SECONDS_PER_DAY;
 	}
 
+	/* This global is set to
+	-1 if mktime() auto-corrects the value of the DST flag to whatever the
+	value should be for the given point in time (which is bad)
+	0 if the global has not yet been initialized
+	1 if mktime() does not correct the value and returns proper values
+	*/
+	static int initMktimeWorks(OS * os)
+	{
+		struct tm tm;
+		time_t a,b;
+
+		/* Does mktime() in general and specifically DST = -1 work ? */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 5;
+		tm.tm_year = 98;
+		tm.tm_isdst = -1;
+		a = mktime(&tm);
+		if(a == (time_t)-1){
+			triggerError(os, "mktime() returned an error (June)");
+			return -1;
+		}
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 0;
+		tm.tm_year = 98;
+		tm.tm_isdst = -1;
+		a = mktime(&tm);
+		if(a == (time_t)-1){
+			triggerError(os, "mktime() returned an error (January)");
+			return -1;
+		}
+
+		/* Some mktime() implementations return (time_t)-1 when setting
+		DST to anything other than -1. Others adjust DST without
+		looking at the given setting. */
+
+		/* a = (Summer, DST = 0) */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 5;
+		tm.tm_year = 98;
+		tm.tm_isdst = 0;
+		a = mktime(&tm);
+		if(a == (time_t)-1){
+			mktime_works = -1;
+			return 0;
+		}
+
+		/* b = (Summer, DST = 1) */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 5;
+		tm.tm_year = 98;
+		tm.tm_isdst = 1;
+		b = mktime(&tm);
+		if(a == (time_t)-1 || a == b){
+			mktime_works = -1;
+			return 0;
+		}
+
+		/* a = (Winter, DST = 0) */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 0;
+		tm.tm_year = 98;
+		tm.tm_isdst = 0;
+		a = mktime(&tm);
+		if(a == (time_t)-1){
+			mktime_works = -1;
+			return 0;
+		}
+
+		/* b = (Winter, DST = 1) */
+		memset(&tm, 0, sizeof(tm));
+		tm.tm_mday = 1;
+		tm.tm_mon = 0;
+		tm.tm_year = 98;
+		tm.tm_isdst = 1;
+		b = mktime(&tm);
+		if(a == (time_t)-1 || a == b){
+			mktime_works = -1;
+			return 0;
+		}
+
+		mktime_works = 1;
+		return 0;
+	}
+
 	struct DateTime
 	{
 		OS * os;
@@ -1007,96 +1096,6 @@ public:
 			return tm;
 		}
 
-		/* This global is set to
-		-1 if mktime() auto-corrects the value of the DST flag to whatever the
-		value should be for the given point in time (which is bad)
-		0 if the global has not yet been initialized
-		1 if mktime() does not correct the value and returns proper values
-		*/
-
-		static int initMktimeWorks(OS * os)
-		{
-			struct tm tm;
-			time_t a,b;
-
-			/* Does mktime() in general and specifically DST = -1 work ? */
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 5;
-			tm.tm_year = 98;
-			tm.tm_isdst = -1;
-			a = mktime(&tm);
-			if(a == (time_t)-1){
-				triggerError(os, "mktime() returned an error (June)");
-				return -1;
-			}
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 0;
-			tm.tm_year = 98;
-			tm.tm_isdst = -1;
-			a = mktime(&tm);
-			if(a == (time_t)-1){
-				triggerError(os, "mktime() returned an error (January)");
-				return -1;
-			}
-
-			/* Some mktime() implementations return (time_t)-1 when setting
-			DST to anything other than -1. Others adjust DST without
-			looking at the given setting. */
-
-			/* a = (Summer, DST = 0) */
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 5;
-			tm.tm_year = 98;
-			tm.tm_isdst = 0;
-			a = mktime(&tm);
-			if(a == (time_t)-1){
-				mktime_works = -1;
-				return 0;
-			}
-
-			/* b = (Summer, DST = 1) */
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 5;
-			tm.tm_year = 98;
-			tm.tm_isdst = 1;
-			b = mktime(&tm);
-			if(a == (time_t)-1 || a == b){
-				mktime_works = -1;
-				return 0;
-			}
-
-			/* a = (Winter, DST = 0) */
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 0;
-			tm.tm_year = 98;
-			tm.tm_isdst = 0;
-			a = mktime(&tm);
-			if(a == (time_t)-1){
-				mktime_works = -1;
-				return 0;
-			}
-
-			/* b = (Winter, DST = 1) */
-			memset(&tm, 0, sizeof(tm));
-			tm.tm_mday = 1;
-			tm.tm_mon = 0;
-			tm.tm_year = 98;
-			tm.tm_isdst = 1;
-			b = mktime(&tm);
-			if(a == (time_t)-1 || a == b){
-				mktime_works = -1;
-				return 0;
-			}
-
-			mktime_works = 1;
-			return 0;
-		}
-
 		/* Returns the ticks value for datetime assuming it stores a datetime
 		value in local time. 
 
@@ -1569,7 +1568,22 @@ template <> struct UserDataDestructor<DateTimeOS::DateTime>
 DateTimeOS::DateTime::DateTime(OS * p_os)
 {
 	os = p_os;
+#if 1
+	year = 0;
+	month = 0;
+	day = 0;
+	hour = 0;
+	minute = 0;
+	second = 0;
+	absdate = 0;
+	abstime = 0;
+	comdate = 0;
+	day_of_week = 0;
+	day_of_year = 0;
+	calendar = CALENDAR_GREGORIAN;
+#else
 	setAbsDateTime(0, 0, CALENDAR_GREGORIAN);
+#endif
 }
 
 DateTimeOS::DateTime::DateTime(OS * p_os, const Now&)
@@ -1648,6 +1662,25 @@ int DateTimeOS::DateTime::__construct(OS * os, int params, int, int, void * user
 		pushCtypeValue(os, dt);
 		return 1;
 	}
+	if(os->isObject(-params+0)){
+		int offs = os->getAbsoluteOffs(-params+0);
+		
+		DateTime * dt = new (os->malloc(sizeof(DateTime) OS_DBG_FILEPOS)) DateTime(os);
+		pushCtypeValue(os, dt);
+		int res_offs = os->getAbsoluteOffs(-1);
+
+		os->pushStackValue(offs);
+		while(os->nextIteratorStep()){
+			int key_offs = os->getAbsoluteOffs(-2);
+			os->pushStackValue(res_offs);
+			os->pushStackValue(key_offs + 0);
+			os->pushStackValue(key_offs + 1);
+			os->setProperty();
+			os->pop(2);
+		}
+		os->pop();
+		return 1;
+	}
 	/* os->getGlobal("ODBODateTime");
 	bool isODBODateTime = os->is(-params+0-1, -1);
 	os->pop();
@@ -1682,7 +1715,11 @@ void DateTimeOS::initLibrary(OS * os)
 	if(!isInitialized){
 		isPOSIXConform = checkPOSIX();
 		isDoubleStackProblem = checkDoubleStackProblem(SECONDS_PER_DAY - (double)7.27e-12);
+
 		isInitialized = true;
+		// if(initMktimeWorks(os) < 0){
+		//	return;
+		// }
 	}
 	{
 		OS::FuncDef funcs[] = {
