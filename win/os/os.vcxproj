@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{0517F1F5-B6EA-4F04-9C90-F77A0E16532F}</ProjectGuid>
+    <ProjectGuid>{B189B112-94F4-45DE-89BA-1A4D590E2FB2}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>osfcgi</RootNamespace>
   </PropertyGroup>
@@ -64,23 +64,25 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../3rdparty/soci/include;../3rdparty/mysql/include;../3rdparty/soci/include/mysql;..\3rdparty\fcgi-2.4.1\include;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\3rdparty\pcrelib;../;$(IncludePath)</IncludePath>
-    <LibraryPath>..\3rdparty\mysql\lib;..\3rdparty\soci\lib\Debug;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
+    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;../;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Debug;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\3rdparty\fcgi-2.4.1\include;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
-    <LibraryPath>..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
+    <IncludePath>..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\3rdparty\soci\include;..\3rdparty\mysql\include;..\3rdparty\soci\include\mysql;..\3rdparty\fcgi-2.4.1\include;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
-    <LibraryPath>..\3rdparty\mysql\lib;..\3rdparty\soci\lib\Release;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
+    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Release;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\3rdparty\fcgi-2.4.1\include;..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
-    <LibraryPath>..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
+    <IncludePath>..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -159,71 +161,49 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fastcgi.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgiapp.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgimisc.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgio.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgios.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgi_config.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgi_config_x86.h" />
-    <ClInclude Include="..\3rdparty\fcgi-2.4.1\include\fcgi_stdio.h" />
-    <ClInclude Include="..\3rdparty\md5\md5.h" />
-    <ClInclude Include="..\3rdparty\MPFDParser-1.0\Exception.h" />
-    <ClInclude Include="..\3rdparty\MPFDParser-1.0\Field.h" />
-    <ClInclude Include="..\3rdparty\MPFDParser-1.0\Parser.h" />
-    <ClInclude Include="..\os\ext-curl\os-curl.h" />
-    <ClInclude Include="..\os\ext-datetime\os-datetime.h" />
-    <ClInclude Include="..\os\ext-odbo\os-odbo.h" />
-    <ClInclude Include="..\os\ext-regexp\os-regexp.h" />
-    <ClInclude Include="..\os\ext-sqlite3\os-sqlite3.h" />
-    <ClInclude Include="..\os\ext-sqlite3\sqlite3.h" />
-    <ClInclude Include="..\3rdparty\pcrelib\config.h" />
-    <ClInclude Include="..\3rdparty\pcrelib\pcre.h" />
+    <ClInclude Include="..\..\3rdparty\md5\md5.h" />
+    <ClInclude Include="..\..\os\ext-curl\os-curl.h" />
+    <ClInclude Include="..\..\os\ext-datetime\os-datetime.h" />
+    <ClInclude Include="..\..\os\ext-odbo\os-odbo.h" />
+    <ClInclude Include="..\..\os\ext-regexp\os-regexp.h" />
+    <ClInclude Include="..\..\os\ext-sqlite3\os-sqlite3.h" />
+    <ClInclude Include="..\..\os\ext-sqlite3\sqlite3.h" />
+    <ClInclude Include="..\..\3rdparty\pcrelib\pcre.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\3rdparty\fcgi-2.4.1\libfcgi\fcgiapp.c" />
-    <ClCompile Include="..\3rdparty\fcgi-2.4.1\libfcgi\fcgi_stdio.c" />
-    <ClCompile Include="..\3rdparty\fcgi-2.4.1\libfcgi\os_win32.c" />
-    <ClCompile Include="..\3rdparty\md5\md5.cpp" />
-    <ClCompile Include="..\3rdparty\MPFDParser-1.0\Exception.cpp" />
-    <ClCompile Include="..\3rdparty\MPFDParser-1.0\Field.cpp" />
-    <ClCompile Include="..\3rdparty\MPFDParser-1.0\Parser.cpp" />
-    <ClCompile Include="..\os-fcgi.cpp" />
-    <ClCompile Include="..\os\ext-curl\os-curl.cpp" />
-    <ClCompile Include="..\os\ext-datetime\mx\mxDateTime.cpp" />
-    <ClCompile Include="..\os\ext-datetime\os-datetime.cpp">
+    <ClCompile Include="..\..\3rdparty\md5\md5.cpp" />
+    <ClCompile Include="..\..\os.cpp" />
+    <ClCompile Include="..\..\os\ext-curl\os-curl.cpp" />
+    <ClCompile Include="..\..\os\ext-datetime\os-datetime.cpp">
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
     </ClCompile>
-    <ClCompile Include="..\os\ext-odbo\os-odbo.cpp" />
-    <ClCompile Include="..\os\ext-regexp\os-regexp.cpp" />
-    <ClCompile Include="..\os\ext-sqlite3\os-sqlite3.cpp" />
-    <ClCompile Include="..\os\ext-sqlite3\sqlite3.c" />
-    <ClCompile Include="..\os\objectscript.cpp" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcreposix.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_chartables.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_compile.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_config.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_exec.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_fullinfo.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_get.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_globals.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_info.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_maketables.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_newline.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_ord2utf8.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_refcount.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_study.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_tables.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_try_flipped.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_ucd.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_valid_utf8.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_version.c" />
-    <ClCompile Include="..\3rdparty\pcrelib\pcre_xclass.c" />
+    <ClCompile Include="..\..\os\ext-odbo\os-odbo.cpp" />
+    <ClCompile Include="..\..\os\ext-regexp\os-regexp.cpp" />
+    <ClCompile Include="..\..\os\ext-sqlite3\os-sqlite3.cpp" />
+    <ClCompile Include="..\..\os\ext-sqlite3\sqlite3.c" />
+    <ClCompile Include="..\..\os\objectscript.cpp" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcreposix.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_chartables.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_compile.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_config.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_exec.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_fullinfo.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_get.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_globals.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_info.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_maketables.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_newline.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_ord2utf8.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_refcount.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_study.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_tables.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_try_flipped.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_ucd.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_valid_utf8.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_version.c" />
+    <ClCompile Include="..\..\3rdparty\pcrelib\pcre_xclass.c" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

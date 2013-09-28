@@ -1,6 +1,6 @@
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
-#include "win/stdafx.h"
+#include "win/os-fcgi/stdafx.h"
 #include <Windows.h>
 #pragma comment (lib, "Ws2_32.lib")
 #endif

@@ -719,7 +719,7 @@ public:
 			int hour,minute;
 			double second;
 
-			// DPRINTF("mxDateTime_SetFromAbsTime(datetime=%x,abstime=%.20f)\n", (long)datetime,abstime);
+			// DPRINTF("SetFromAbsTime(datetime=%x,abstime=%.20f)\n", (long)datetime,abstime);
 
 			inttime = (int)abstime;
 			if(inttime == 86400){
@@ -749,7 +749,7 @@ public:
 
 		/* Set the instance's value using the given date and time. calendar
 		may be set to the flags: CALENDAR_GREGORIAN,
-		MXDATETIME_JULIAN_CALENDAR to indicate the calendar to be used. */
+		JULIAN_CALENDAR to indicate the calendar to be used. */
 		int setDateAndTime(
 			long year,
 			int month,
@@ -781,7 +781,7 @@ public:
 			}
 
 			/*
-			DPRINTF("mxDateTime_SetFromDateAndTime("
+			DPRINTF("SetFromDateAndTime("
 				"datetime=%x year=%ld month=%i day=%i "
 				"hour=%i minute=%i second=%f calendar=%i)\n",
 				datetime,year,month,day,hour,minute,second,calendar);
@@ -798,7 +798,7 @@ public:
 					return -1;
 				}
 				/*
-				DPRINTF("mxDateTime_SetFromDateAndTime: "
+				DPRINTF("SetFromDateAndTime: "
 					"yearoffset=%ld absdate=%ld "
 					"year=%ld month=%i day=%i (normalized)\n",
 					yearoffset,absdate,
@@ -858,10 +858,10 @@ public:
 		{
 			DateTime * datetime = this;
 			/*
-			DPRINTF("mxDateTime_SetFromAbsDateTime(datetime=%x,"
+			DPRINTF("SetFromAbsDateTime(datetime=%x,"
 				"absdate=%ld,abstime=%.20f,calendar=%i)\n",
 				datetime,absdate,abstime,calendar);
-			DPRINTF("mxDateTime_SetFromAbsDateTime: "
+			DPRINTF("SetFromAbsDateTime: "
 				"abstime is %.20f, diff %.20f, as int %i\n", 
 				abstime,
 				abstime - SECONDS_PER_DAY,
@@ -926,7 +926,7 @@ public:
 				abstime = -abstime;
 			absdate += 693594;
 
-			// DPRINTF("mxDateTime_SetFromCOMDate: absdate=%ld abstime=%f\n", absdate, abstime);
+			// DPRINTF("SetFromCOMDate: absdate=%ld abstime=%f\n", absdate, abstime);
 
 			datetime->absdate = absdate;
 			datetime->abstime = abstime;
@@ -988,7 +988,7 @@ public:
 				absdate += days;
 			}
 			if(isDoubleStackProblem && abstime >= (double)8.63999999999999854481e+04){
-				/* DPRINTF("mxDateTime_FromDateTimeAndOffset: "
+				/* DPRINTF("FromDateTimeAndOffset: "
 					"triggered double work-around: "
 					"abstime is %.20f, diff %.20e, as int %i\n", 
 					abstime,
@@ -1191,7 +1191,7 @@ public:
 				time_t tticks;
 
 				Py_Assert((long)((int)datetime->year) == datetime->year,
-					mxDateTime_RangeError,
+					RangeError,
 					"year out of range for ticks conversion");
 
 				/* Use timegm() if not POSIX conform: the time package knows about
@@ -1209,7 +1209,7 @@ public:
 				/* timegm uses UTC ! */
 				tticks = timegm(&tm);
 				Py_Assert(tticks != (time_t)-1,
-					mxDateTime_Error,
+					Error,
 					"cannot convert value to a time value");
 				/* Add fraction and turn into a double */
 				return ((double)tticks
@@ -1339,14 +1339,8 @@ public:
 			switch (datetime->calendar){
 			case CALENDAR_GREGORIAN:
 				return OS::String(os, "GREGORIAN");
-	
-			case CALENDAR_JULIAN:
-				return OS::String(os, "JULIAN");
-	
-			default:
-				triggerError(os, "Internal error in mxDateTime: wrong calendar value");
 			}
-			return OS::String(os, "???");
+			return OS::String(os, "JULIAN");
 		}
 
 		bool isLeapyear()
@@ -1469,7 +1463,7 @@ public:
 		}
 
 		#ifdef HAVE_STRFTIME
-		Py_C_Function( mxDateTime_strftime,
+		Py_C_Function( strftime,
 			"strftime(formatstr)")
 		{
 			PyObject *v;
@@ -1485,7 +1479,7 @@ public:
 				fmt = "%c";
 
 			Py_Assert((long)((int)datetime->year) == datetime->year,
-				mxDateTime_RangeError,
+				RangeError,
 				"year out of range for strftime() formatting");
 
 			/* Init tm struct */
@@ -1502,7 +1496,7 @@ public:
 		#endif
 			tm.tm_wday = ((int)datetime->day_of_week + 1) % 7;
 			tm.tm_yday = (int)datetime->day_of_year - 1;
-			tm.tm_isdst = mxDateTime_DST(datetime);
+			tm.tm_isdst = DST(datetime);
 
 			output = new(char,size_output);
 
@@ -1617,7 +1611,7 @@ int DateTimeOS::DateTime::getISOWeekTuple(OS * os, int params, int, int, void * 
 	if(week >= 0)
 		week = week / 7 + 1;
 	day = datetime->day_of_week + 1;
-	// DPRINTF("mxDateTime_ISOWeekTuple: estimated year, week, day = %ld, %i, %i\n",year,week,day);
+	// DPRINTF("ISOWeekTuple: estimated year, week, day = %ld, %i, %i\n",year,week,day);
 
 	/* Verify */
 	if(week < 0){
@@ -1636,7 +1630,7 @@ int DateTimeOS::DateTime::getISOWeekTuple(OS * os, int params, int, int, void * 
 			year++;
 		}
 	}
-	// DPRINTF("mxDateTime_ISOWeekTuple: corrected year, week, day = %ld, %i, %i\n",year,week,day);
+	// DPRINTF("ISOWeekTuple: corrected year, week, day = %ld, %i, %i\n",year,week,day);
 	os->pushNumber(year);
 	os->pushNumber(week);
 	os->pushNumber(day);
@@ -1754,8 +1748,7 @@ void DateTimeOS::initLibrary(OS * os)
 
 			def(OS_TEXT("__get@absdate"), DateTime::getAbsDate),
 			def(OS_TEXT("__set@absdate"), DateTime::setAbsDate),
-			def(OS_TEXT("setAbsDate"), DateTime::setAbsDate),
-
+			
 			def(OS_TEXT("__get@ticks"), DateTime::getTicks),
 			def(OS_TEXT("__set@ticks"), DateTime::setTicks),
 

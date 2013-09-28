@@ -23660,6 +23660,7 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 bool OS::compile(const String& str, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
 {
 	if(str.getDataSize() == 0){
+		pushNull();
 		return false;
 	}
 	Core::Tokenizer tokenizer(this);
@@ -23679,12 +23680,12 @@ void OS::call(int params, int ret_values)
 	core->call(params, ret_values);
 }
 
-void OS::eval(const OS_CHAR * str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
+void OS::eval(const OS_CHAR * str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom, bool handle_exception)
 {
-	eval(String(this, str), params, ret_values, source_code_type, check_utf8_bom);
+	eval(String(this, str), params, ret_values, source_code_type, check_utf8_bom, handle_exception);
 }
 
-void OS::eval(const String& str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
+void OS::eval(const String& str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom, bool handle_exception)
 {
 	resetException();
 	
@@ -23693,10 +23694,12 @@ void OS::eval(const String& str, int params, int ret_values, OS_ESourceCodeType 
 	move(-2, 2, -2-params);
 	core->call(params, ret_values);
 
-	handleException();
+	if(handle_exception){
+		handleException();
+	}
 }
 
-void OS::evalProtected(const OS_CHAR * str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
+void OS::evalProtected(const OS_CHAR * str, int params, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom, bool handle_exception)
 {
 	resetException();
 	
@@ -23712,15 +23715,17 @@ void OS::evalProtected(const OS_CHAR * str, int params, int ret_values, OS_ESour
 	}
 	os->release();
 
-	handleException();
+	if(handle_exception){
+		handleException();
+	}
 }
 
-void OS::require(const OS_CHAR * filename, bool required, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
+void OS::require(const OS_CHAR * filename, bool required, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom, bool handle_exception)
 {
-	require(String(this, filename), required, ret_values, source_code_type, check_utf8_bom);
+	require(String(this, filename), required, ret_values, source_code_type, check_utf8_bom, handle_exception);
 }
 
-void OS::require(const String& filename, bool required, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom)
+void OS::require(const String& filename, bool required, int ret_values, OS_ESourceCodeType source_code_type, bool check_utf8_bom, bool handle_exception)
 {
 	resetException();
 	
@@ -23732,7 +23737,9 @@ void OS::require(const String& filename, bool required, int ret_values, OS_ESour
 	pushBool(check_utf8_bom);
 	call(4, ret_values);
 
-	handleException();
+	if(handle_exception){
+		handleException();
+	}
 }
 
 int OS::getSetting(OS_ESettings setting)
