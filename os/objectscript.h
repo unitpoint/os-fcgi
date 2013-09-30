@@ -51,11 +51,11 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("7")
-#define OS_VERSION_RELEASE	OS_TEXT("3-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("4-dev")
 
 #define OS_VERSION		OS_TEXT("OS ") OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR
-#define OS_RELEASE		OS_VERSION OS_TEXT(".") OS_VERSION_RELEASE
-#define OS_COPYRIGHT	OS_RELEASE OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
+#define OS_VERSION_EX	OS_VERSION OS_TEXT(".") OS_VERSION_RELEASE
+#define OS_COPYRIGHT	OS_VERSION_EX OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 
 #if defined _DEBUG && !defined OS_RELEASE && !defined OS_DEBUG
 #define OS_DEBUG

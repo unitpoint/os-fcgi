@@ -40,12 +40,12 @@ static int days_in_month[2][12] = {
 static int mktime_works = 0;
 
 /* Flag telling us whether the module was initialized or not. */
-static bool isInitialized = false;
+static bool is_initialized = false;
 
-static bool isPOSIXConform = false;		/* Does the system use POSIX
+static bool is_posix_conform = false;		/* Does the system use POSIX
 											time_t values ? */
 
-static bool isDoubleStackProblem = false;	/* Does the system
+static bool is_double_stack_problem = false;	/* Does the system
 												have a problem
 												passing doubles on
 												the stack ? */
@@ -988,7 +988,7 @@ public:
 				abstime -= days * SECONDS_PER_DAY;
 				absdate += days;
 			}
-			if(isDoubleStackProblem && abstime >= (double)8.63999999999999854481e+04){
+			if(is_double_stack_problem && abstime >= (double)8.63999999999999854481e+04){
 				/* DPRINTF("FromDateTimeAndOffset: "
 					"triggered double work-around: "
 					"abstime is %.20f, diff %.20e, as int %i\n", 
@@ -1179,7 +1179,7 @@ public:
 			}
 
 			/* For POSIX style calculations there's nothing much to do... */
-			if(isPOSIXConform){
+			if(is_posix_conform){
 				return ((datetime->absdate - 719163) * SECONDS_PER_DAY 
 					+ datetime->abstime
 					- offset);
@@ -1707,11 +1707,11 @@ int DateTimeOS::DateTime::__construct(OS * os, int params, int, int, void * user
 
 void DateTimeOS::initLibrary(OS * os)
 {
-	if(!isInitialized){
-		isPOSIXConform = checkPOSIX();
-		isDoubleStackProblem = checkDoubleStackProblem(SECONDS_PER_DAY - (double)7.27e-12);
+	if(!is_initialized){
+		is_posix_conform = checkPOSIX();
+		is_double_stack_problem = checkDoubleStackProblem(SECONDS_PER_DAY - (double)7.27e-12);
 
-		isInitialized = true;
+		is_initialized = true;
 		// if(initMktimeWorks(os) < 0){
 		//	return;
 		// }

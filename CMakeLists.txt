@@ -201,6 +201,27 @@ list(APPEND SOURCES os/ext-datetime/os-datetime.cpp)
 list(APPEND HEADERS os/ext-datetime/os-datetime.h)
 # end datetime
 
+# begin zlib
+list(APPEND SOURCES os/ext-zlib/os-zlib.cpp)
+list(APPEND HEADERS os/ext-zlib/os-zlib.h)
+
+list(APPEND SOURCES os/ext-zlib/zlib/adler32.c)
+list(APPEND SOURCES os/ext-zlib/zlib/compress.c)
+list(APPEND SOURCES os/ext-zlib/zlib/crc32.c)
+list(APPEND SOURCES os/ext-zlib/zlib/deflate.c)
+list(APPEND SOURCES os/ext-zlib/zlib/gzclose.c)
+list(APPEND SOURCES os/ext-zlib/zlib/gzlib.c)
+list(APPEND SOURCES os/ext-zlib/zlib/gzread.c)
+list(APPEND SOURCES os/ext-zlib/zlib/gzwrite.c)
+list(APPEND SOURCES os/ext-zlib/zlib/infback.c)
+list(APPEND SOURCES os/ext-zlib/zlib/inffast.c)
+list(APPEND SOURCES os/ext-zlib/zlib/inflate.c)
+list(APPEND SOURCES os/ext-zlib/zlib/inftrees.c)
+list(APPEND SOURCES os/ext-zlib/zlib/trees.c)
+list(APPEND SOURCES os/ext-zlib/zlib/uncompr.c)
+list(APPEND SOURCES os/ext-zlib/zlib/zutil.c)
+# end zlib
+
 SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
 SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}" )
 

@@ -10,8 +10,10 @@ win/os-fcgi/x64/bin-Debug/
 win/os-fcgi/cache-osc/
 win/os/Release/
 win/os/Debug/
+win/os/DebugPrice/
 win/os/bin-Release/
 win/os/bin-Debug/
+win/os/bin-DebugPrice/
 win/os/ipch/
 win/os/x64/Release/
 win/os/x64/Debug/

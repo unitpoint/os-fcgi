@@ -16799,6 +16799,7 @@ bool OS::Core::getPropertyValue(Value& result, GCValue * table_value, const Valu
 		default: \
 		case OS_VALUE_TYPE_NULL: \
 			/* TODO: throw exception? */ \
+			table_value = NULL; /* prevent compiler error */ \
 			local_result_bool = false; \
 			finished = true; \
 			break; \
@@ -20112,8 +20113,8 @@ void OS::initObjectClass()
 				}
 				if(*str < OS_TEXT(' ')){
 					buf += OS_TEXT("0x");
-					buf.append((OS_CHAR)'A' + (((int)*str >> 4) & 0xF));
-					buf.append((OS_CHAR)'A' + (((int)*str >> 0) & 0xF));
+					buf.append(UPPER_DIGITS[((int)*str >> 4) & 0xF]);
+					buf.append(UPPER_DIGITS[((int)*str >> 0) & 0xF]);
 					continue;
 				}
 				buf.append(*str);
@@ -20702,6 +20703,7 @@ dump_object:
 		{OS_TEXT("pop"), Object::pop},
 		{OS_TEXT("hasOwnProperty"), Object::hasOwnProperty},
 		{OS_TEXT("hasProperty"), Object::hasProperty},
+		{OS_TEXT("sub"), Object::sub},
 		{OS_TEXT("merge"), Object::merge},
 		{OS_TEXT("join"), Object::join},
 		{OS_TEXT("clear"), Object::clear},

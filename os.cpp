@@ -38,6 +38,10 @@
 #include "os/ext-odbo/os-odbo.h"
 #endif
 
+#ifndef OS_ZLIB_DISABLED
+#include "os/ext-zlib/os-zlib.h"
+#endif
+
 using namespace ObjectScript;
 
 /* check that argument has no extra characters at the end */
@@ -105,6 +109,10 @@ protected:
 
 #ifndef OS_ODBO_DISABLED
 			initODBOLibrary(this);
+#endif
+
+#ifndef OS_ZLIB_DISABLED
+			initZLibrary(this);
 #endif
 			return true;
 		}

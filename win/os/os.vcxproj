@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugPrice|Win32">
+      <Configuration>DebugPrice</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -29,7 +33,17 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
@@ -52,7 +66,13 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -68,7 +88,18 @@
     <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Debug;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;../;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Debug;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;</LibraryPath>
@@ -101,7 +132,41 @@
       <Command>copydll.cmd $(OutDir)</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;SUPPORT_UTF;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libmysql.lib;mysqlclient.lib;libsoci_core_3_2.lib;libsoci_mysql_3_2.lib;libcurl_imp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>copydll.cmd $(OutDir)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>libcurl_imp.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>copydll.cmd $(OutDir)</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugPrice|x64'">
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
@@ -169,6 +234,7 @@
     <ClInclude Include="..\..\os\ext-sqlite3\os-sqlite3.h" />
     <ClInclude Include="..\..\os\ext-sqlite3\sqlite3.h" />
     <ClInclude Include="..\..\3rdparty\pcrelib\pcre.h" />
+    <ClInclude Include="..\..\os\ext-zlib\os-zlib.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -178,11 +244,28 @@
     <ClCompile Include="..\..\os\ext-curl\os-curl.cpp" />
     <ClCompile Include="..\..\os\ext-datetime\os-datetime.cpp">
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">true</ShowIncludes>
     </ClCompile>
     <ClCompile Include="..\..\os\ext-odbo\os-odbo.cpp" />
     <ClCompile Include="..\..\os\ext-regexp\os-regexp.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\os-sqlite3.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\sqlite3.c" />
+    <ClCompile Include="..\..\os\ext-zlib\os-zlib.cpp" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\adler32.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\compress.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\crc32.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\deflate.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\gzclose.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\gzlib.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\gzread.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\gzwrite.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\infback.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\inffast.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\inflate.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\inftrees.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\trees.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\uncompr.c" />
+    <ClCompile Include="..\..\os\ext-zlib\zlib\zutil.c" />
     <ClCompile Include="..\..\os\objectscript.cpp" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcreposix.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_chartables.c" />
