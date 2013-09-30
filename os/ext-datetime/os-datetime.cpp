@@ -5,6 +5,7 @@
 #include "os-datetime.h"
 #include "../objectscript.h"
 #include "../os-binder.h"
+#include <limits.h>
 
 # if defined(HAVE_SYS_TIME_H) && defined(TIME_WITH_SYS_TIME)
 #  include <sys/time.h>
@@ -1719,62 +1720,62 @@ void DateTimeOS::initLibrary(OS * os)
 		OS::FuncDef funcs[] = {
 			{OS_TEXT("__construct"), DateTime::__construct},
 			{OS_TEXT("now"), DateTime::now},
-			def(OS_TEXT("clone"), DateTime::clone),
-			def(OS_TEXT("valueOf"), DateTime::toString),
+			def(OS_TEXT("clone"), &DateTime::clone),
+			def(OS_TEXT("valueOf"), &DateTime::toString),
 
-			def(OS_TEXT("__get@absdays"), DateTime::getAbsDays),
-			def(OS_TEXT("__set@absdays"), DateTime::setAbsDays),
+			def(OS_TEXT("__get@absdays"), &DateTime::getAbsDays),
+			def(OS_TEXT("__set@absdays"), &DateTime::setAbsDays),
 
-			def(OS_TEXT("__get@GMTOffset"), DateTime::getGMTOffset),
+			def(OS_TEXT("__get@GMTOffset"), &DateTime::getGMTOffset),
 
-			def(OS_TEXT("__get@GMTicks"), DateTime::getGMTicks),
-			def(OS_TEXT("__set@GMTicks"), DateTime::setGMTicks),
-			def(OS_TEXT("getGMTicksWithOffset"), DateTime::getGMTicksWithOffset),
+			def(OS_TEXT("__get@GMTicks"), &DateTime::getGMTicks),
+			def(OS_TEXT("__set@GMTicks"), &DateTime::setGMTicks),
+			def(OS_TEXT("getGMTicksWithOffset"), &DateTime::getGMTicksWithOffset),
 
-			def(OS_TEXT("__get@ticks"), DateTime::getTicks),
-			def(OS_TEXT("__set@ticks"), DateTime::setTicks),
-			def(OS_TEXT("getTicksWithOffset"), DateTime::getTicksWithOffset), // DST is incorrect
+			def(OS_TEXT("__get@ticks"), &DateTime::getTicks),
+			def(OS_TEXT("__set@ticks"), &DateTime::setTicks),
+			def(OS_TEXT("getTicksWithOffset"), &DateTime::getTicksWithOffset), // DST is incorrect
 
-			def(OS_TEXT("addAbsDateTimeOffset"), DateTime::addAbsDateTimeOffset),
+			def(OS_TEXT("addAbsDateTimeOffset"), &DateTime::addAbsDateTimeOffset),
 
-			def(OS_TEXT("__get@comdate"), DateTime::getCOMDate),
-			def(OS_TEXT("__set@comdate"), DateTime::setCOMDate),
+			def(OS_TEXT("__get@comdate"), &DateTime::getCOMDate),
+			def(OS_TEXT("__set@comdate"), &DateTime::setCOMDate),
 
-			def(OS_TEXT("setAbsDateTime"), DateTime::setAbsDateTime),
-			def(OS_TEXT("setDateAndTime"), DateTime::setDateAndTime),
+			def(OS_TEXT("setAbsDateTime"), &DateTime::setAbsDateTime),
+			def(OS_TEXT("setDateAndTime"), &DateTime::setDateAndTime),
 
-			def(OS_TEXT("__get@abstime"), DateTime::getAbsTime),
-			def(OS_TEXT("__set@abstime"), DateTime::setAbsTime),
+			def(OS_TEXT("__get@abstime"), &DateTime::getAbsTime),
+			def(OS_TEXT("__set@abstime"), &DateTime::setAbsTime),
 
-			def(OS_TEXT("__get@absdate"), DateTime::getAbsDate),
-			def(OS_TEXT("__set@absdate"), DateTime::setAbsDate),
+			def(OS_TEXT("__get@absdate"), &DateTime::getAbsDate),
+			def(OS_TEXT("__set@absdate"), &DateTime::setAbsDate),
 			
-			def(OS_TEXT("__get@ticks"), DateTime::getTicks),
-			def(OS_TEXT("__set@ticks"), DateTime::setTicks),
+			def(OS_TEXT("__get@ticks"), &DateTime::getTicks),
+			def(OS_TEXT("__set@ticks"), &DateTime::setTicks),
 
-			def(OS_TEXT("__get@isLeapyear"), DateTime::isLeapyear),
+			def(OS_TEXT("__get@isLeapyear"), &DateTime::isLeapyear),
 
-			def(OS_TEXT("__get@year"), DateTime::getYear),
-			def(OS_TEXT("__set@year"), DateTime::setYear),
+			def(OS_TEXT("__get@year"), &DateTime::getYear),
+			def(OS_TEXT("__set@year"), &DateTime::setYear),
 			
-			def(OS_TEXT("__get@month"), DateTime::getMonth),
-			def(OS_TEXT("__set@month"), DateTime::setMonth),
+			def(OS_TEXT("__get@month"), &DateTime::getMonth),
+			def(OS_TEXT("__set@month"), &DateTime::setMonth),
 			
-			def(OS_TEXT("__get@day"), DateTime::getDay),
-			def(OS_TEXT("__set@day"), DateTime::setDay),
+			def(OS_TEXT("__get@day"), &DateTime::getDay),
+			def(OS_TEXT("__set@day"), &DateTime::setDay),
 			
-			def(OS_TEXT("__get@hour"), DateTime::getHour),
-			def(OS_TEXT("__set@hour"), DateTime::setHour),
+			def(OS_TEXT("__get@hour"), &DateTime::getHour),
+			def(OS_TEXT("__set@hour"), &DateTime::setHour),
 			
-			def(OS_TEXT("__get@minute"), DateTime::getMinute),
-			def(OS_TEXT("__set@minute"), DateTime::setMinute),
+			def(OS_TEXT("__get@minute"), &DateTime::getMinute),
+			def(OS_TEXT("__set@minute"), &DateTime::setMinute),
 			
-			def(OS_TEXT("__get@second"), DateTime::getSecond),
-			def(OS_TEXT("__set@second"), DateTime::setSecond),
+			def(OS_TEXT("__get@second"), &DateTime::getSecond),
+			def(OS_TEXT("__set@second"), &DateTime::setSecond),
 			
-			def(OS_TEXT("__get@dayOfWeek"), DateTime::getDayOfWeek),
-			def(OS_TEXT("__get@dayOfYear"), DateTime::getDayOfYear),
-			def(OS_TEXT("__get@calendar"), DateTime::getCalendar),
+			def(OS_TEXT("__get@dayOfWeek"), &DateTime::getDayOfWeek),
+			def(OS_TEXT("__get@dayOfYear"), &DateTime::getDayOfYear),
+			def(OS_TEXT("__get@calendar"), &DateTime::getCalendar),
 			{}
 		};
 		registerUserClass<DateTime>(os, funcs);
