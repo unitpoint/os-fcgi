@@ -542,14 +542,18 @@ public:
 		if(!readLine(buf, getPrompt(firstline))){
 			return false;  /* no input */
 		}
+		int len = OS_STRLEN(buf);
+		for(; len > 0 && OS_IS_SPACE(buf[len-1]); len--){
+			buf[len-1] = '\0';
+		}
 		if(firstline && buf[0] == '='){  /* first line starts with `=' ? */
-			OS::String str = OS::String(this, buf+1).trim(false, true);
+			OS::String str = OS::String(this, buf+1);
 			if(str.isEmpty()){
 				return false;
 			}
 			pushString(OS::String(this, "return ") + str);  /* change it to `return' */
 		}else{
-			OS::String str = OS::String(this, buf).trim(false, true);
+			OS::String str = OS::String(this, buf);
 			if(str.isEmpty()){
 				return false;
 			}
