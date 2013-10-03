@@ -454,6 +454,7 @@ public:
 				os->deleteProperty(false);
 				os->pop(2);
 			}
+			os->pop();
 
 			/* Store the compiled pattern and extra info in the cache. */
 			cache = new (os->malloc(sizeof(*cache) OS_DBG_FILEPOS)) RegexpCache(os); 

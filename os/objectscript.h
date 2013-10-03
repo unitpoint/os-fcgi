@@ -56,6 +56,7 @@ inline void operator delete(void *, void *){}
 #define OS_VERSION		OS_TEXT("OS ") OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR
 #define OS_VERSION_EX	OS_VERSION OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_VERSION_EX OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
+#define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/objectscript")
 
 #if defined _DEBUG && !defined OS_RELEASE && !defined OS_DEBUG
 #define OS_DEBUG
@@ -1291,8 +1292,11 @@ namespace ObjectScript
 
 			enum EGCColor
 			{
+				GC_UNKNOWN,
 				GC_WHITE,
+				// GC_WHITE_2,
 				GC_GREY,
+				GC_GREY_WAIT,
 				GC_BLACK
 			};
 
@@ -1390,8 +1394,8 @@ namespace ObjectScript
 				OS_BYTE * toBytes() const { return (OS_BYTE*)(this + 1); }
 				void * toMemory() const { return (void*)(this + 1); }
 
-				static GCStringValue * alloc(OS*, const void *, int data_size OS_DBG_FILEPOS_DECL);
-				static GCStringValue * alloc(OS*, const void * buf1, int len1, const void * buf2, int len2 OS_DBG_FILEPOS_DECL);
+				static GCStringValue * alloc(OS*, int hash, const void *, int data_size OS_DBG_FILEPOS_DECL);
+				static GCStringValue * alloc(OS*, int hash, const void * buf1, int len1, const void * buf2, int len2 OS_DBG_FILEPOS_DECL);
 				static GCStringValue * alloc(OS*, GCStringValue * a, GCStringValue * b OS_DBG_FILEPOS_DECL);
 
 				bool isNumber(OS_NUMBER*) const;
@@ -1518,7 +1522,7 @@ namespace ObjectScript
 // #define OS_SET_VALUE_OBJECT(a, v)	(OS_VALUE_VARIANT(a) = (v))
 #define OS_SET_VALUE_TYPE(a, t)		(OS_VALUE_TAGGED_TYPE(a) = OS_MAKE_VALUE_TAGGED_TYPE(t))
 #define OS_SET_VALUE_NULL(a) (OS_VALUE_VARIANT(a).value = NULL, OS_SET_VALUE_TYPE((a), OS_VALUE_TYPE_NULL))
-#define OS_SET_NULL_VALUES(a, c) do{ Value * v = a; for(int count = c; count > 0; --count, ++v) OS_SET_VALUE_NULL(*v); }while(false)
+#define OS_SET_NULL_VALUES(a, c) do{ Value * v = (a); for(int count = c; count > 0; --count, ++v) OS_SET_VALUE_NULL(*v); }while(false)
 
 #if OS_NUMBER_IEEEENDIAN == 0
 				union {
@@ -2609,6 +2613,7 @@ namespace ObjectScript
 			GCObjectValue * check_recursion;
 			Value global_vars;
 			Value user_pool;
+			Value retain_pool;
 			Value check_get_recursion;
 			
 			enum {
@@ -2664,7 +2669,6 @@ namespace ObjectScript
 			bool gc_continuous;
 			int gc_time;
 			bool gc_in_process;
-			int gc_grey_added_count;
 			
 			float gc_start_values_mult;
 			float gc_step_size_mult;
@@ -2718,6 +2722,8 @@ namespace ObjectScript
 			void gcResetGreyList();
 			void gcAddToGreyList(GCValue*);
 			void gcAddToGreyList(const Value&);
+			void gcAddToGreyList_r(GCValue*);
+			void gcAddToGreyList_r(const Value&);
 			void gcRemoveFromGreyList(GCValue*);
 			void gcMarkProgram(Program * prog);
 			void gcMarkTable(Table * table);
@@ -2739,6 +2745,7 @@ namespace ObjectScript
 
 #ifdef OS_DEBUG
 			bool isValueUsed(GCValue*);
+			bool isValueExist(GCValue*);
 #endif
 
 			GCFunctionValue * newFunctionValue(StackFunction*, Program*, FunctionDecl*, Value env);

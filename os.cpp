@@ -82,7 +82,7 @@ protected:
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
-			core->gc_start_used_bytes = 32*1024*1024;
+			core->gc_start_used_bytes = 4*1024*1024;
 			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
 #ifdef _MSC_VER
 				"cache-osc"
@@ -382,6 +382,7 @@ public:
 	void printVersion()
 	{
 		printf("%s\n", OS_COPYRIGHT);
+		printf("%s\n", OS_OPENSOURCE);
 	}
 
 	OS::String parseQString(int& i, int argc, char **argv)

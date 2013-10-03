@@ -16,6 +16,13 @@
 #include <sys/types.h>
 #endif // _MSC_VER
 
+#ifdef OS_DEBUG
+#include <vector>
+#include <map>
+#include <string>
+static std::map<void*, bool> free_ptrs;
+#endif
+
 using namespace ObjectScript;
 
 #define HASH_GROW_SHIFT 0
@@ -890,8 +897,8 @@ OS::Core::String::~String()
 	if(string){ // can be cleared by OS::~String
 		OS_ASSERT(string->external_ref_count > 0);
 		string->external_ref_count--;
-		if(string->gc_color == GC_WHITE){
-			string->gc_color = GC_BLACK;
+		if(string->gc_color != GC_GREY){
+			string->gc_color = GC_GREY_WAIT;
 		}
 	}
 }
@@ -935,8 +942,8 @@ OS::Core::String& OS::Core::String::operator=(const String& b)
 	if(string != b.string){
 		OS_ASSERT(string->external_ref_count > 0);
 		string->external_ref_count--;
-		if(string->gc_color == GC_WHITE){
-			string->gc_color = GC_BLACK;
+		if(string->gc_color != GC_GREY){
+			string->gc_color = GC_GREY_WAIT;
 		}
 		string = b.string;
 		string->external_ref_count++;
@@ -1204,8 +1211,8 @@ OS::String::~String()
 {
 	OS_ASSERT(string->external_ref_count > 0);
 	string->external_ref_count--;
-	if(string->gc_color == Core::GC_WHITE){
-		string->gc_color = Core::GC_BLACK;
+	if(string->gc_color != Core::GC_GREY){
+		string->gc_color = Core::GC_GREY_WAIT;
 	}
 	string = NULL;
 	allocator->release();
@@ -1216,8 +1223,8 @@ OS::String& OS::String::operator=(const Core::String& str)
 	if(string != str.string){
 		OS_ASSERT(string->external_ref_count > 0);
 		string->external_ref_count--;
-		if(string->gc_color == Core::GC_WHITE){
-			string->gc_color = Core::GC_BLACK;
+		if(string->gc_color != Core::GC_GREY){
+			string->gc_color = Core::GC_GREY_WAIT;
 		}
 		string = str.string;
 		string->external_ref_count++;
@@ -1234,8 +1241,8 @@ OS::String& OS::String::operator=(const String& str)
 	if(string != str.string){
 		OS_ASSERT(string->external_ref_count > 0);
 		string->external_ref_count--;
-		if(string->gc_color == Core::GC_WHITE){
-			string->gc_color = Core::GC_BLACK;
+		if(string->gc_color != Core::GC_GREY){
+			string->gc_color = Core::GC_GREY_WAIT;
 		}
 		string = str.string;
 		string->external_ref_count++;
@@ -9294,8 +9301,8 @@ OS::Core::Program::~Program()
 		GCStringValue * string = OS_VALUE_VARIANT(const_values[j]).string;
 		OS_ASSERT(string->external_ref_count > 0);
 		string->external_ref_count--;
-		if(string->gc_color == GC_WHITE){
-			string->gc_color = GC_BLACK;
+		if(string->gc_color != GC_GREY){
+			string->gc_color = GC_GREY_WAIT;
 		}
 	}
 
@@ -10602,6 +10609,15 @@ void OS::Core::addTableProperty(Table * table, Property * prop)
 	OS_ASSERT(prop->next == NULL);
 	OS_ASSERT(!table->get(prop->index));
 
+#ifdef OS_DEBUG
+	if(prop->index.getGCValue() && free_ptrs.find(prop->index.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+	if(prop->value.getGCValue() && free_ptrs.find(prop->value.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+#endif
+
 	if((table->count>>HASH_GROW_SHIFT) >= table->head_mask){
 		int new_size = table->heads ? (table->head_mask+1) * 2 : 4;
 		int alloc_size = sizeof(Property*)*new_size;
@@ -11433,8 +11449,8 @@ void OS::Core::ValueRetained::release()
 	case OS_VALUE_TYPE_USERPTR:
 		OS_ASSERT(OS_VALUE_VARIANT(*this).value && OS_VALUE_VARIANT(*this).value->external_ref_count > 0);
 		OS_VALUE_VARIANT(*this).value->external_ref_count--;
-		if(OS_VALUE_VARIANT(*this).value->gc_color == GC_WHITE){
-			OS_VALUE_VARIANT(*this).value->gc_color = GC_BLACK;
+		if(OS_VALUE_VARIANT(*this).value->gc_color != GC_GREY){
+			OS_VALUE_VARIANT(*this).value->gc_color = GC_GREY_WAIT;
 		}
 		break;
 	}
@@ -11454,10 +11470,16 @@ OS::Core::GCValue::GCValue()
 #ifdef OS_DEBUG
 	gc_time = -1;
 #endif
-	gc_color = GC_WHITE;
+	gc_color = GC_GREY_WAIT;
 	type = OS_VALUE_TYPE_NULL;
 	is_object_instance = false;
 	is_destructor_called = false;
+
+#ifdef OS_DEBUG
+	if(free_ptrs.find(this) != free_ptrs.end()){
+		free_ptrs.erase(this);
+	}
+#endif
 }
 
 OS::Core::GCValue::~GCValue()
@@ -11478,7 +11500,7 @@ OS::Core::GCStringValue::GCStringValue(int p_data_size)
 	data_size = p_data_size;
 }
 
-OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const void * buf, int data_size OS_DBG_FILEPOS_DECL)
+OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, int p_hash, const void * buf, int data_size OS_DBG_FILEPOS_DECL)
 {
 	OS_ASSERT(data_size >= 0);
 	int alloc_size = data_size + sizeof(GCStringValue) + sizeof(wchar_t) + sizeof(wchar_t)/2;
@@ -11489,7 +11511,12 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const v
 	OS_BYTE * data_buf = string->toBytes();
 	OS_MEMCPY(data_buf, buf, data_size);
 	OS_MEMSET(data_buf + data_size, 0, sizeof(wchar_t) + sizeof(wchar_t)/2);
-	string->calcHash();
+	if(p_hash){
+		OS_ASSERT(p_hash == Utils::keyToHash(string->toBytes(), string->data_size));
+		string->hash = p_hash;
+	}else{
+		string->calcHash();
+	}
 	allocator->core->registerValue(string);
 #ifdef OS_DEBUG
 	string->str = string->toChar();
@@ -11497,7 +11524,7 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const v
 	return string;
 }
 
-OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const void * buf1, int len1, const void * buf2, int len2 OS_DBG_FILEPOS_DECL)
+OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, int p_hash, const void * buf1, int len1, const void * buf2, int len2 OS_DBG_FILEPOS_DECL)
 {
 	OS_ASSERT(len1 >= 0 && len2 >= 0);
 	int alloc_size = len1 + len2 + sizeof(GCStringValue) + sizeof(wchar_t) + sizeof(wchar_t)/2;
@@ -11509,7 +11536,12 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const v
 	OS_MEMCPY(data_buf, buf1, len1); data_buf += len1;
 	if(len2){ OS_MEMCPY(data_buf, buf2, len2); data_buf += len2; }
 	OS_MEMSET(data_buf, 0, sizeof(wchar_t) + sizeof(wchar_t)/2);
-	string->calcHash();
+	if(p_hash){
+		OS_ASSERT(p_hash == Utils::keyToHash(string->toBytes(), string->data_size));
+		string->hash = p_hash;
+	}else{
+		string->calcHash();
+	}
 	allocator->core->registerValue(string);
 #ifdef OS_DEBUG
 	string->str = string->toChar();
@@ -11519,7 +11551,7 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, const v
 
 OS::Core::GCStringValue * OS::Core::GCStringValue::alloc(OS * allocator, GCStringValue * a, GCStringValue * b OS_DBG_FILEPOS_DECL)
 {
-	return alloc(allocator, a->toMemory(), a->data_size, b->toMemory(), b->data_size OS_DBG_FILEPOS_PARAM);
+	return alloc(allocator, 0, a->toMemory(), a->data_size, b->toMemory(), b->data_size OS_DBG_FILEPOS_PARAM);
 }
 
 bool OS::Core::GCStringValue::isNumber(OS_NUMBER* p_val) const
@@ -12188,7 +12220,8 @@ void OS::Core::registerValue(GCValue * value)
 
 	num_created_values++;
 
-	gcAddToGreyList(value);
+	OS_ASSERT(value->gc_color == GC_GREY_WAIT);
+	// gcAddToGreyList(value);
 
 	gcStepIfNeeded();
 }
@@ -13161,7 +13194,7 @@ OS::Core::Core(OS * p_allocator)
 
 OS::Core::~Core()
 {
-	OS_ASSERT(!strings && global_vars.isNull() && user_pool.isNull() && !check_recursion);
+	OS_ASSERT(!strings && global_vars.isNull() && user_pool.isNull() && retain_pool.isNull() && !check_recursion);
 	for(int i = 0; i < PROTOTYPE_COUNT; i++){
 		OS_ASSERT(!prototypes[i]);
 	}
@@ -13250,6 +13283,7 @@ bool OS::Core::init()
 	check_recursion = newObjectValue();
 	global_vars = newObjectValue();
 	user_pool = newObjectValue();
+	retain_pool = newObjectValue();
 	check_get_recursion = newObjectValue();
 
 	prototypes[PROTOTYPE_BOOL]->prototype = prototypes[PROTOTYPE_OBJECT];
@@ -13359,6 +13393,7 @@ void OS::Core::shutdown()
 	check_recursion = NULL;
 	global_vars = (GCValue*)NULL;
 	user_pool = (GCValue*)NULL;
+	retain_pool = (GCValue*)NULL;
 	check_get_recursion = (GCValue*)NULL;
 
 	for(i = 0; i < PROTOTYPE_COUNT; i++){
@@ -13612,7 +13647,6 @@ void OS::Core::gcInitGreyList()
 	gc_values_head_index = -1;
 	gc_time = 0;
 	gc_in_process = false;
-	gc_grey_added_count = 0;
 	gc_start_used_bytes = 1024 * 1024 * 2; // 2 Mb used to enable gc
 	gc_start_values_mult = 1.5f;
 	gc_step_size_mult = 0.005f;
@@ -13718,14 +13752,171 @@ void OS::Core::gcAddToGreyList(const Value& val)
 
 void OS::Core::gcAddToGreyList(GCValue * value)
 {
-	if(value->gc_color != GC_WHITE){
-		return;
+	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
+#ifdef OS_DEBUG
+	if(free_ptrs.find(value) != free_ptrs.end()){
+		int i = 0;
 	}
-	OS_ASSERT(!value->gc_grey_next);
-	value->gc_grey_next = gc_grey_list_first;
-	gc_grey_list_first = value;
-	value->gc_color = GC_GREY;
-	gc_grey_added_count++;
+	if(value->value_id == 13480){
+		int i = 0;
+	}
+#endif
+	// if(value->gc_color == GC_WHITE || value->gc_color == GC_WHITE_2 || value->gc_color == GC_GREY_WAIT){
+	if(value->gc_color != GC_GREY && value->gc_color != GC_BLACK){
+		OS_ASSERT(!value->gc_grey_next);
+		value->gc_grey_next = gc_grey_list_first;
+		gc_grey_list_first = value;
+		value->gc_color = GC_GREY;
+	}
+}
+
+void OS::Core::gcAddToGreyList_r(const Value& val)
+{
+	switch(OS_VALUE_TYPE(val)){
+	case OS_VALUE_TYPE_STRING:
+	case OS_VALUE_TYPE_ARRAY:
+	case OS_VALUE_TYPE_OBJECT:
+	case OS_VALUE_TYPE_USERDATA:
+	case OS_VALUE_TYPE_USERPTR:
+	case OS_VALUE_TYPE_FUNCTION:
+	case OS_VALUE_TYPE_CFUNCTION:
+		gcAddToGreyList_r(OS_VALUE_VARIANT(val).value);
+		break;
+	}
+}
+
+void OS::Core::gcAddToGreyList_r(GCValue * value)
+{
+	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
+#ifdef OS_DEBUG
+	if(free_ptrs.find(value) != free_ptrs.end()){
+		int i = 0;
+	}
+#endif
+	if(value->gc_color != GC_GREY && value->gc_color != GC_BLACK){
+		OS_ASSERT(!value->gc_grey_next);
+		value->gc_grey_next = gc_grey_list_first;
+		gc_grey_list_first = value;
+		value->gc_color = GC_GREY;
+
+		struct Lib {
+			Core * core;
+			GCValue * val;
+
+			void add(Locals * locals)
+			{
+				int i;
+				for(i = 0; i < locals->func_decl->num_locals; i++){
+					core->gcAddToGreyList_r(locals->values[i]);
+				}
+				for(i = 0; i < locals->num_parents; i++){
+					add(locals->getParent(i));
+				}
+			}
+
+			void add(StackFunction * stack_func)
+			{
+				OS_ASSERT(stack_func->func);
+				core->gcAddToGreyList_r(stack_func->func);
+				if(stack_func->self_for_proto){
+					core->gcAddToGreyList_r(stack_func->self_for_proto);
+				}
+				if(stack_func->arguments){
+					core->gcAddToGreyList_r(stack_func->arguments);
+				}
+				if(stack_func->rest_arguments){
+					core->gcAddToGreyList_r(stack_func->rest_arguments);
+				}
+				add(stack_func->locals);
+			}
+
+			void add(Table * table)
+			{
+				OS_ASSERT(table);
+				OS_ASSERT((OS_U32)(intptr_t)table != 0xdededede);
+				Property * prop = table->first;
+				for(; prop; prop = prop->next){
+					core->gcAddToGreyList_r(prop->index);
+					core->gcAddToGreyList_r(prop->value);
+				}
+			}
+
+			void add(GCValue * cur)
+			{
+				OS_ASSERT((OS_U32)(intptr_t)cur != 0xdededede);
+				if(cur->prototype){
+					core->gcAddToGreyList_r(cur->prototype);
+				}
+				if(cur->name){
+					core->gcAddToGreyList_r(cur->name);
+				}
+				if(cur->table){
+					add(cur->table);
+				}
+				switch(cur->type){
+				case OS_VALUE_TYPE_STRING:
+					{
+						OS_ASSERT(dynamic_cast<GCStringValue*>(cur));
+						GCStringValue * string = (GCStringValue*)cur;
+						OS_ASSERT(!string->table);
+						break;
+					}
+
+				case OS_VALUE_TYPE_ARRAY:
+					{
+						OS_ASSERT(dynamic_cast<GCArrayValue*>(cur));
+						GCArrayValue * arr = (GCArrayValue*)cur;
+						for(int i = 0; i < arr->values.count; i++){
+							core->gcAddToGreyList_r(arr->values[i]);
+						}
+						break;
+					}
+
+				case OS_VALUE_TYPE_OBJECT:
+					OS_ASSERT(dynamic_cast<GCObjectValue*>(cur));
+					break;
+
+				case OS_VALUE_TYPE_USERDATA:
+				case OS_VALUE_TYPE_USERPTR:
+					OS_ASSERT(dynamic_cast<GCUserdataValue*>(cur));
+					break;
+
+				case OS_VALUE_TYPE_FUNCTION:
+					{
+						OS_ASSERT(dynamic_cast<GCFunctionValue*>(cur));
+						GCFunctionValue * func_value = (GCFunctionValue*)cur;
+						core->gcAddToGreyList_r(func_value->env);
+						if(func_value->locals){
+							add(func_value->locals);
+						}
+						for(int i = 0; i < func_value->prog->num_strings + func_value->prog->num_numbers + CONST_STD_VALUES; i++){
+							core->gcAddToGreyList_r(func_value->prog->const_values[i]);
+						}
+						break;
+					}
+
+				case OS_VALUE_TYPE_CFUNCTION:
+					{
+						OS_ASSERT(dynamic_cast<GCCFunctionValue*>(cur));
+						GCCFunctionValue * func_value = (GCCFunctionValue*)cur;
+						Value * closure_values = (Value*)(func_value + 1);
+						for(int i = 0; i < func_value->num_closure_values; i++){
+							core->gcAddToGreyList_r(closure_values[i]);
+						}
+						break;
+					}
+
+				case OS_VALUE_TYPE_WEAKREF:
+					break;
+
+				default:
+					OS_ASSERT(false);
+				}
+			}
+
+		} lib = {this, value};
+		lib.add(value);
+	}
 }
 
 void OS::Core::gcRemoveFromGreyList(GCValue * value)
@@ -13739,6 +13930,11 @@ void OS::Core::gcRemoveFromGreyList(GCValue * value)
 
 void OS::Core::gcMarkValue(GCValue * value)
 {
+#ifdef OS_DEBUG
+	if(value->value_id == 13480){
+		int i = 0;
+	}
+#endif
 	gcRemoveFromGreyList(value);
 	if(value->prototype){
 		gcAddToGreyList(value->prototype);
@@ -13839,14 +14035,29 @@ int OS::Core::gcStep()
 		OS_ASSERT(gc_values_head_index <= values.head_mask);
 		int i = gc_values_head_index;
 		step_size += 2; // step_size/16;
+		step_size = values.count * 2;
 		Value func;
 		GCValue * destroy_list = NULL;
+#if defined OS_DEBUG && 1
+		int save_step_size = step_size;
+		for(; i <= values.head_mask && step_size > 0; i++){
+			GCValue * value = values.heads[i];
+			for(; value; value = value->hash_next, step_size--){
+				if(value->gc_color == GC_WHITE && !value->external_ref_count){
+					OS_ASSERT(!value->gc_grey_next);
+					OS_ASSERT(!isValueUsed(value));
+				}
+			}
+		}
+		i = gc_values_head_index;
+		step_size = save_step_size;
+#endif
 		for(; i <= values.head_mask && step_size > 0; i++){
 			GCValue * value = values.heads[i], * prev = NULL, * next;
 			for(; value; value = next, step_size--){
 				next = value->hash_next;
 				if(value->gc_color == GC_WHITE && !value->external_ref_count){
-					OS_ASSERT(!isValueUsed(value));
+					// OS_ASSERT(!isValueUsed(value));
 					triggerValueDestructor(value);
 					if(prev){
 						prev->hash_next = next;
@@ -13864,7 +14075,11 @@ int OS::Core::gcStep()
 					continue;
 				}
 				if(value->gc_color == GC_BLACK){
+					OS_ASSERT(!value->gc_grey_next);
 					value->gc_color = GC_WHITE;
+				}else if(value->gc_color == GC_WHITE){
+					OS_ASSERT(!value->gc_grey_next);
+					// value->gc_color = GC_WHITE_2;
 				}
 				prev = value;
 			}
@@ -13922,6 +14137,7 @@ int OS::Core::gcStep()
 		gcAddToGreyList(check_recursion);
 		gcAddToGreyList(global_vars);
 		gcAddToGreyList(user_pool);
+		gcAddToGreyList(retain_pool);
 		gcAddToGreyList(check_get_recursion);
 		int i;
 		for(i = 0; i < PROTOTYPE_COUNT; i++){
@@ -13941,10 +14157,10 @@ int OS::Core::gcStep()
 	if(!gc_grey_list_first){
 		gc_grey_root_initialized = false;
 		gc_values_head_index = 0;
-		gc_step_size_auto_mult *= 0.25f;
+		/* gc_step_size_auto_mult *= 0.25f;
 		if(gc_step_size_auto_mult < 1.0f){
 			gc_step_size_auto_mult = 1.0f;
-		}
+		} */
 		return OS_GC_PHASE_SWEEP;
 	}
 	gc_step_size_auto_mult *= 1.01f;
@@ -14138,7 +14354,7 @@ bool OS::Core::isValueUsed(GCValue * val)
 		Core * core;
 		GCValue * val;
 
-		bool findAt(Value cur)
+		bool findAt(const Value& cur)
 		{
 			GCValue * value = cur.getGCValue();
 			return value && findAt(value);
@@ -14181,6 +14397,7 @@ bool OS::Core::isValueUsed(GCValue * val)
 		bool findAt(Table * table)
 		{
 			OS_ASSERT(table);
+			OS_ASSERT((OS_U32)(intptr_t)table != 0xdededede);
 			Property * prop = table->first;
 			for(; prop; prop = prop->next){
 				if(findAt(prop->index)){
@@ -14195,7 +14412,7 @@ bool OS::Core::isValueUsed(GCValue * val)
 
 		bool findAt(GCValue * cur)
 		{
-			OS_ASSERT(cur != (GCValue*)0xdededede);
+			OS_ASSERT((OS_U32)(intptr_t)cur != 0xdededede);
 			if(cur->gc_time == core->gc_time){
 				return false;
 			}
@@ -14295,6 +14512,9 @@ bool OS::Core::isValueUsed(GCValue * val)
 	if(lib.findAt(user_pool)){
 		return true;
 	}
+	if(lib.findAt(retain_pool)){
+		return true;
+	}
 	int i;
 	for(i = 0; i < PROTOTYPE_COUNT; i++){
 		if(lib.findAt(prototypes[i])){
@@ -14311,6 +14531,172 @@ bool OS::Core::isValueUsed(GCValue * val)
 			return true;
 		}
 	}
+	for(GCValue * value = gc_grey_list_first; value; value = value->gc_grey_next){
+		if(lib.findAt(value)){
+			return true;
+		}
+	}
+	return false;
+}
+
+bool OS::Core::isValueExist(GCValue * p_val)
+{
+	struct Lib {
+		Core * core;
+		GCValue * val;
+
+		bool findAt(const Value& cur)
+		{
+			GCValue * value = cur.getGCValue();
+			return value && findAt(value);
+		}
+
+		bool findAt(Locals * locals)
+		{
+			int i;
+			for(i = 0; i < locals->func_decl->num_locals; i++){
+				if(findAt(locals->values[i])){
+					return true;
+				}
+			}
+			for(i = 0; i < locals->num_parents; i++){
+				if(findAt(locals->getParent(i))){
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool findAt(StackFunction * stack_func)
+		{
+			OS_ASSERT(stack_func->func);
+			if(findAt(stack_func->func)){
+				return true;
+			}
+			if(stack_func->self_for_proto && findAt(stack_func->self_for_proto)){
+				return true;
+			}
+			if(stack_func->arguments && findAt(stack_func->arguments)){
+				return true;
+			}
+			if(stack_func->rest_arguments && findAt(stack_func->rest_arguments)){
+				return true;
+			}
+			return findAt(stack_func->locals);
+		}
+
+		bool findAt(Table * table)
+		{
+			OS_ASSERT(table);
+			OS_ASSERT((OS_U32)(intptr_t)table != 0xdededede);
+			Property * prop = table->first;
+			for(; prop; prop = prop->next){
+				if(prop->index.getGCValue() == val){
+					return true;
+				}
+				if(prop->value.getGCValue() == val){
+					return true;
+				}
+			}
+			return false;
+		}
+
+		bool findAt(GCValue * cur)
+		{
+			OS_ASSERT((OS_U32)(intptr_t)cur != 0xdededede);
+			if(cur == val){
+				return true;
+			}
+			/* prototype & name can be destroyed!!!
+			if(cur->prototype && findAt(cur->prototype)){
+				return true;
+			}
+			if(cur->name && findAt(cur->name)){
+				return true;
+			} */
+			if(cur->table && findAt(cur->table)){
+				return true;
+			}
+			switch(cur->type){
+			case OS_VALUE_TYPE_STRING:
+				{
+					OS_ASSERT(dynamic_cast<GCStringValue*>(cur));
+					GCStringValue * string = (GCStringValue*)cur;
+					OS_ASSERT(!string->table);
+					break;
+				}
+
+			case OS_VALUE_TYPE_ARRAY:
+				{
+					OS_ASSERT(dynamic_cast<GCArrayValue*>(cur));
+					GCArrayValue * arr = (GCArrayValue*)cur;
+					for(int i = 0; i < arr->values.count; i++){
+						if(arr->values[i].getGCValue() == val){
+							return true;
+						}
+					}
+					break;
+				}
+
+			case OS_VALUE_TYPE_OBJECT:
+				OS_ASSERT(dynamic_cast<GCObjectValue*>(cur));
+				break;
+
+			case OS_VALUE_TYPE_USERDATA:
+			case OS_VALUE_TYPE_USERPTR:
+				OS_ASSERT(dynamic_cast<GCUserdataValue*>(cur));
+				break;
+
+			case OS_VALUE_TYPE_FUNCTION:
+				{
+					OS_ASSERT(dynamic_cast<GCFunctionValue*>(cur));
+					GCFunctionValue * func_value = (GCFunctionValue*)cur;
+					if(findAt(func_value->env)){
+						return true;
+					}
+					if(func_value->locals && findAt(func_value->locals)){
+						return true;
+					}
+					for(int i = 0; i < func_value->prog->num_strings + func_value->prog->num_numbers + CONST_STD_VALUES; i++){
+						if(findAt(func_value->prog->const_values[i])){
+							return true;
+						}
+					}
+					break;
+				}
+
+			case OS_VALUE_TYPE_CFUNCTION:
+				{
+					OS_ASSERT(dynamic_cast<GCCFunctionValue*>(cur));
+					GCCFunctionValue * func_value = (GCCFunctionValue*)cur;
+					Value * closure_values = (Value*)(func_value + 1);
+					for(int i = 0; i < func_value->num_closure_values; i++){
+						if(findAt(closure_values[i])){
+							return true;
+						}
+					}
+					break;
+				}
+
+			case OS_VALUE_TYPE_WEAKREF:
+				break;
+
+			default:
+				OS_ASSERT(false);
+			}
+			return false;
+		}
+
+	} lib = {this, p_val};
+
+	for(int i = 0; i <= values.head_mask; i++){
+		GCValue * value = values.heads[i];
+		for(; value; value = value->hash_next){
+			if(lib.findAt(value)){
+				return true;
+			}
+		}
+	}
 	return false;
 }
 #endif
@@ -14320,7 +14706,8 @@ void OS::Core::deleteValue(GCValue * val)
 	OS_ASSERT(val);
 	OS_ASSERT(val->value_id);
 	OS_ASSERT(!val->hash_next);
-	// OS_ASSERT(!isValueUsed(val));
+	OS_ASSERT(!isValueUsed(val));
+	// OS_ASSERT(!isValueExist(val));
 	OS_ASSERT(val->gc_color != GC_GREY);
 	/* if(val->value_id){
 		triggerValueDestructor(val);
@@ -14332,6 +14719,10 @@ void OS::Core::deleteValue(GCValue * val)
 	val->~GCValue();
 	free(val);
 	num_destroyed_values++;
+
+#ifdef OS_DEBUG
+	free_ptrs[val] = 1;
+#endif
 }
 
 OS::Core::Property * OS::Core::setTableValue(Table * table, const Value& index, const Value& value)
@@ -14491,6 +14882,14 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 
 void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Value value, bool setter_enabled)
 {
+#ifdef OS_DEBUG
+	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+	if(_index.getGCValue() && free_ptrs.find(_index.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+#endif
 #if 1 // performance optimization
 	OS_SETTER_VALUE_PTR(table_value, _index, value, setter_enabled);
 #else
@@ -14669,6 +15068,14 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 
 void OS::Core::setPropertyValue(const Value& table_value, const Value& index, const Value& value, bool setter_enabled)
 {
+#ifdef OS_DEBUG
+	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+	if(index.getGCValue() && free_ptrs.find(index.getGCValue()) != free_ptrs.end()){
+		int i = 0;
+	}
+#endif
 #if 1 // performance optimization
 	OS_SETTER_VALUE(table_value, index, value, setter_enabled);
 #else
@@ -14792,6 +15199,7 @@ OS::Core::GCStringValue * OS::Core::newStringValue(const OS_CHAR * str, int len,
 
 OS::Core::GCStringValue * OS::Core::newStringValue(const String& p_str, bool trim_left, bool trim_right)
 {
+	OS_ASSERT((OS_U32)(intptr_t)p_str.string != 0xdededede);
 	const OS_CHAR * str = p_str.toChar();
 	int len = p_str.getLen();
 	bool changed = false;
@@ -14816,6 +15224,7 @@ OS::Core::GCStringValue * OS::Core::newStringValue(const String& p_str, bool tri
 
 OS::Core::GCStringValue * OS::Core::newStringValue(const String& str)
 {
+	OS_ASSERT((OS_U32)(intptr_t)str.string != 0xdededede);
 	return str.string;
 }
 
@@ -14826,9 +15235,10 @@ OS::Core::GCStringValue * OS::Core::newStringValue(const void * buf, int size)
 
 OS::Core::GCStringValue * OS::Core::newStringValue(const void * buf1, int size1, const void * buf2, int size2)
 {
+	int hash = 0;
 	if(string_refs.count > 0){
 		OS_ASSERT(string_refs.heads && string_refs.head_mask);
-		int hash = Utils::keyToHash(buf1, size1, buf2, size2);
+		hash = Utils::keyToHash(buf1, size1, buf2, size2);
 		int slot = hash & string_refs.head_mask;
 		StringRef * str_ref = string_refs.heads[slot];
 		for(StringRef * prev = NULL, * next; str_ref; str_ref = next){
@@ -14847,12 +15257,16 @@ OS::Core::GCStringValue * OS::Core::newStringValue(const void * buf1, int size1,
 			OS_ASSERT(string_value->type == OS_VALUE_TYPE_STRING);
 			OS_ASSERT(dynamic_cast<GCStringValue*>(string_value));
 			if(string_value->isEqual(hash, buf1, size1, buf2, size2)){
+				if(string_value->gc_color != GC_GREY){
+					string_value->gc_color = GC_GREY_WAIT;
+					// gcAddToGreyList(string_value);
+				}
 				return string_value;
 			}
 			prev = str_ref;
 		}
 	}
-	GCStringValue * string_value = GCStringValue::alloc(allocator, buf1, size1, buf2, size2 OS_DBG_FILEPOS);
+	GCStringValue * string_value = GCStringValue::alloc(allocator, hash, buf1, size1, buf2, size2 OS_DBG_FILEPOS);
 	StringRef * str_ref = (StringRef*)malloc(sizeof(StringRef) OS_DBG_FILEPOS);
 	str_ref->string_hash = string_value->hash;
 	str_ref->string_value_id = string_value->value_id;
@@ -15146,13 +15560,27 @@ OS::Core::GCArrayValue * OS::Core::newArrayValue(int initial_capacity)
 
 void OS::Core::pushValue(const Value& p_val)
 {
+	OS_ASSERT((OS_U32)(intptr_t)p_val.getGCValue() != 0xdededede);
+#if 1
+#else
+	GCValue * value = p_val.getGCValue();
+	if(value && value->gc_color != GC_GREY){
+		if(value->value_id == 13480){
+			int i = 0;
+		}
+		value->gc_color = GC_GREY_WAIT;
+		// gcAddToGreyList_r(value);
+	}
+#endif
 	StackValues& stack_values = this->stack_values;
 	if(stack_values.capacity < stack_values.count+1){
 		Value val = p_val;
 		reserveStackValues(stack_values.count+1);
 		stack_values.buf[stack_values.count++] = val;
+		gcAddToGreyList_r(val);
 	}else{
 		stack_values.buf[stack_values.count++] = p_val;
+		gcAddToGreyList_r(p_val);
 	}
 }
 
@@ -15332,8 +15760,8 @@ bool OS::Core::pushValueOf(Value val)
 			if(--core->check_recursion->external_ref_count == 0 && core->check_recursion->table){
 				core->clearTable(core->check_recursion->table);
 			}
-			if(core->check_recursion->gc_color == GC_WHITE){
-				core->check_recursion->gc_color = GC_BLACK;
+			if(core->check_recursion->gc_color != GC_GREY){
+				core->check_recursion->gc_color = GC_GREY_WAIT;
 			}
 		}
 	} finalizer = {this}; (void)finalizer;
@@ -16051,7 +16479,10 @@ void OS::retainValueById(int id)
 {
 	Core::GCValue * value = core->values.get(id);
 	if(value){
-		value->external_ref_count++;
+		OS_ASSERT(value->external_ref_count >= 0);
+		if(++value->external_ref_count == 1){
+			core->setPropertyValue(core->retain_pool, value, 1, false);
+		}
 	}
 }
 
@@ -16060,8 +16491,16 @@ void OS::releaseValueById(int id)
 	Core::GCValue * value = core->values.get(id);
 	if(value){
 		OS_ASSERT(value->external_ref_count > 0);
-		if(!--value->external_ref_count && value->gc_color == Core::GC_WHITE){
-			value->gc_color = Core::GC_BLACK;
+		if(!--value->external_ref_count){
+			core->deleteValueProperty(core->retain_pool, value, false, false);
+			if(value->gc_color != Core::GC_GREY){
+				value->gc_color = Core::GC_GREY_WAIT;
+#ifdef OS_DEBUG
+				if(value->value_id == 13480){
+					int i = 0;
+				}
+#endif
+			}
 		}
 	}
 }
