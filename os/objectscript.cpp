@@ -16,7 +16,7 @@
 #include <sys/types.h>
 #endif // _MSC_VER
 
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 #include <vector>
 #include <map>
 #include <string>
@@ -10609,7 +10609,7 @@ void OS::Core::addTableProperty(Table * table, Property * prop)
 	OS_ASSERT(prop->next == NULL);
 	OS_ASSERT(!table->get(prop->index));
 
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(prop->index.getGCValue() && free_ptrs.find(prop->index.getGCValue()) != free_ptrs.end()){
 		int i = 0;
 	}
@@ -11252,17 +11252,11 @@ OS::Core::Value::Value(const String& str)
 	OS_SET_VALUE_TYPE(*this, OS_VALUE_TYPE_STRING);
 }
 
-OS::Core::Value::Value(int val, const WeakRef&)
-{
-	OS_VALUE_VARIANT(*this).value_id = val;
-	OS_SET_VALUE_TYPE(*this, OS_VALUE_TYPE_WEAKREF);
-}
-
 OS::Core::Value::Value(GCValue * val)
 {
 	if(val){
 		OS_VALUE_VARIANT(*this).value = val;
-		OS_SET_VALUE_TYPE(*this, val->type);
+		OS_SET_VALUE_TYPE_GC(*this, val->type);
 	}else{
 		OS_SET_VALUE_NULL(*this);
 	}
@@ -11272,7 +11266,7 @@ OS::Core::Value& OS::Core::Value::operator=(GCValue * val)
 {
 	if(val){
 		OS_VALUE_VARIANT(*this).value = val;
-		OS_SET_VALUE_TYPE(*this, val->type);
+		OS_SET_VALUE_TYPE_GC(*this, val->type);
 	}else{
 		OS_SET_VALUE_NULL(*this);
 	}
@@ -11323,6 +11317,12 @@ void OS::Core::Value::clear()
 
 OS::Core::GCValue * OS::Core::Value::getGCValue() const
 {
+#if 11 && 1
+	if(OS_IS_VALUE_GC(*this)){
+		OS_ASSERT(OS_VALUE_VARIANT(*this).value);
+		return OS_VALUE_VARIANT(*this).value;
+	}
+#else
 	switch(OS_VALUE_TYPE(*this)){
 	case OS_VALUE_TYPE_STRING:
 	case OS_VALUE_TYPE_ARRAY:
@@ -11334,6 +11334,7 @@ OS::Core::GCValue * OS::Core::Value::getGCValue() const
 		OS_ASSERT(OS_VALUE_VARIANT(*this).value);
 		return OS_VALUE_VARIANT(*this).value;
 	}
+#endif
 	return NULL;
 }
 
@@ -11368,35 +11369,7 @@ OS::Core::ValueRetained::ValueRetained(): super()
 {
 }
 
-OS::Core::ValueRetained::ValueRetained(bool val): super(val)
-{
-	// retain();
-}
-
-OS::Core::ValueRetained::ValueRetained(OS_FLOAT val): super(val)
-{
-	// retain();
-}
-
-OS::Core::ValueRetained::ValueRetained(int val): super(val)
-{
-	// retain();
-}
-
-OS::Core::ValueRetained::ValueRetained(int val, const WeakRef& wr): super(val, wr)
-{
-	// retain();
-}
-
-OS::Core::ValueRetained::ValueRetained(GCValue * val): super(val)
-{
-	// retain();
-	if(val){
-		val->external_ref_count++;
-	}
-}
-
-OS::Core::ValueRetained::ValueRetained(Value b): super(b)
+OS::Core::ValueRetained::ValueRetained(const Value& b): super(b)
 {
 	retain();
 }
@@ -11406,11 +11379,36 @@ OS::Core::ValueRetained::~ValueRetained()
 	release();
 }
 
-OS::Core::ValueRetained& OS::Core::ValueRetained::operator=(Value b)
+OS::Core::ValueRetained& OS::Core::ValueRetained::operator=(const Value& b)
 {
-	release();
-	super::operator=(b);
-	retain();
+	if(OS_IS_VALUE_GC(*this)){
+		OS_ASSERT(OS_VALUE_VARIANT(*this).value);
+		if(OS_IS_VALUE_GC(b)){
+			OS_ASSERT(OS_VALUE_VARIANT(b).value);
+			if(OS_VALUE_VARIANT(*this).value != OS_VALUE_VARIANT(b).value){
+				// release
+				OS_ASSERT(OS_VALUE_VARIANT(*this).value && OS_VALUE_VARIANT(*this).value->external_ref_count > 0);
+				OS_VALUE_VARIANT(*this).value->external_ref_count--;
+				if(OS_VALUE_VARIANT(*this).value->gc_color != GC_GREY){
+					OS_VALUE_VARIANT(*this).value->gc_color = GC_GREY_WAIT;
+				}
+				super::operator=(b);
+				// retain
+				OS_VALUE_VARIANT(*this).value->external_ref_count++;
+			}
+		}else{
+			// release
+			OS_ASSERT(OS_VALUE_VARIANT(*this).value && OS_VALUE_VARIANT(*this).value->external_ref_count > 0);
+			OS_VALUE_VARIANT(*this).value->external_ref_count--;
+			if(OS_VALUE_VARIANT(*this).value->gc_color != GC_GREY){
+				OS_VALUE_VARIANT(*this).value->gc_color = GC_GREY_WAIT;
+			}
+			super::operator=(b);
+		}
+	}else{
+		super::operator=(b);
+		retain();
+	}
 	return *this;
 }
 
@@ -11423,6 +11421,12 @@ void OS::Core::ValueRetained::clear()
 
 void OS::Core::ValueRetained::retain()
 {
+#if 11 && 1
+	if(OS_IS_VALUE_GC(*this)){
+		OS_ASSERT(OS_VALUE_VARIANT(*this).value);
+		OS_VALUE_VARIANT(*this).value->external_ref_count++;
+	}
+#else
 	switch(OS_VALUE_TYPE(*this)){
 	case OS_VALUE_TYPE_STRING:
 	case OS_VALUE_TYPE_ARRAY:
@@ -11435,10 +11439,20 @@ void OS::Core::ValueRetained::retain()
 		OS_VALUE_VARIANT(*this).value->external_ref_count++;
 		break;
 	}
+#endif
 }
 
 void OS::Core::ValueRetained::release()
 {
+#if 11 && 1
+	if(OS_IS_VALUE_GC(*this)){
+		OS_ASSERT(OS_VALUE_VARIANT(*this).value && OS_VALUE_VARIANT(*this).value->external_ref_count > 0);
+		OS_VALUE_VARIANT(*this).value->external_ref_count--;
+		if(OS_VALUE_VARIANT(*this).value->gc_color != GC_GREY){
+			OS_VALUE_VARIANT(*this).value->gc_color = GC_GREY_WAIT;
+		}
+	}
+#else
 	switch(OS_VALUE_TYPE(*this)){
 	case OS_VALUE_TYPE_STRING:
 	case OS_VALUE_TYPE_ARRAY:
@@ -11454,6 +11468,7 @@ void OS::Core::ValueRetained::release()
 		}
 		break;
 	}
+#endif
 }
 
 // =====================================================================
@@ -11475,7 +11490,7 @@ OS::Core::GCValue::GCValue()
 	is_object_instance = false;
 	is_destructor_called = false;
 
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(free_ptrs.find(this) != free_ptrs.end()){
 		free_ptrs.erase(this);
 	}
@@ -13675,22 +13690,8 @@ void OS::Core::gcMarkList(int step_size)
 
 void OS::Core::gcMarkTable(Table * table)
 {
-	Property * prop = table->first, * prop_next;
-	for(; prop; prop = prop_next){
-		prop_next = prop->next;
-		if(OS_VALUE_TYPE(prop->index) == OS_VALUE_TYPE_WEAKREF){
-			OS_ASSERT(false);
-			if(!values.get(OS_VALUE_VARIANT(prop->index).value_id)){
-				deleteTableProperty(table, prop->index);
-				continue;
-			}
-		}
-		if(OS_VALUE_TYPE(prop->value) == OS_VALUE_TYPE_WEAKREF){
-			if(!values.get(OS_VALUE_VARIANT(prop->value).value_id)){
-				deleteTableProperty(table, prop->index);
-				continue;
-			}
-		}
+	Property * prop = table->first;
+	for(; prop; prop = prop->next){
 		gcAddToGreyList(prop->index);
 		gcAddToGreyList(prop->value);
 	}
@@ -13737,6 +13738,12 @@ void OS::Core::gcMarkStackFunction(StackFunction * stack_func)
 
 void OS::Core::gcAddToGreyList(const Value& val)
 {
+#if 11 && 1
+	if(OS_IS_VALUE_GC(val)){
+		OS_ASSERT(OS_VALUE_VARIANT(val).value);
+		gcAddToGreyList(OS_VALUE_VARIANT(val).value);
+	}
+#else
 	switch(OS_VALUE_TYPE(val)){
 	case OS_VALUE_TYPE_STRING:
 	case OS_VALUE_TYPE_ARRAY:
@@ -13748,12 +13755,13 @@ void OS::Core::gcAddToGreyList(const Value& val)
 		gcAddToGreyList(OS_VALUE_VARIANT(val).value);
 		break;
 	}
+#endif
 }
 
 void OS::Core::gcAddToGreyList(GCValue * value)
 {
 	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(free_ptrs.find(value) != free_ptrs.end()){
 		int i = 0;
 	}
@@ -13772,6 +13780,12 @@ void OS::Core::gcAddToGreyList(GCValue * value)
 
 void OS::Core::gcAddToGreyList_r(const Value& val)
 {
+#if 11 && 1
+	if(OS_IS_VALUE_GC(val)){
+		OS_ASSERT(OS_VALUE_VARIANT(val).value);
+		gcAddToGreyList_r(OS_VALUE_VARIANT(val).value);
+	}
+#else
 	switch(OS_VALUE_TYPE(val)){
 	case OS_VALUE_TYPE_STRING:
 	case OS_VALUE_TYPE_ARRAY:
@@ -13783,12 +13797,13 @@ void OS::Core::gcAddToGreyList_r(const Value& val)
 		gcAddToGreyList_r(OS_VALUE_VARIANT(val).value);
 		break;
 	}
+#endif
 }
 
 void OS::Core::gcAddToGreyList_r(GCValue * value)
 {
 	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(free_ptrs.find(value) != free_ptrs.end()){
 		int i = 0;
 	}
@@ -13906,9 +13921,6 @@ void OS::Core::gcAddToGreyList_r(GCValue * value)
 						break;
 					}
 
-				case OS_VALUE_TYPE_WEAKREF:
-					break;
-
 				default:
 					OS_ASSERT(false);
 				}
@@ -13930,7 +13942,7 @@ void OS::Core::gcRemoveFromGreyList(GCValue * value)
 
 void OS::Core::gcMarkValue(GCValue * value)
 {
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(value->value_id == 13480){
 		int i = 0;
 	}
@@ -14035,7 +14047,7 @@ int OS::Core::gcStep()
 		OS_ASSERT(gc_values_head_index <= values.head_mask);
 		int i = gc_values_head_index;
 		step_size += 2; // step_size/16;
-		step_size = values.count * 2;
+		// step_size = values.count * 2;
 		Value func;
 		GCValue * destroy_list = NULL;
 #if defined OS_DEBUG && 1
@@ -14492,9 +14504,6 @@ bool OS::Core::isValueUsed(GCValue * val)
 					break;
 				}
 
-			case OS_VALUE_TYPE_WEAKREF:
-				break;
-
 			default:
 				OS_ASSERT(false);
 			}
@@ -14678,9 +14687,6 @@ bool OS::Core::isValueExist(GCValue * p_val)
 					break;
 				}
 
-			case OS_VALUE_TYPE_WEAKREF:
-				break;
-
 			default:
 				OS_ASSERT(false);
 			}
@@ -14720,7 +14726,7 @@ void OS::Core::deleteValue(GCValue * val)
 	free(val);
 	num_destroyed_values++;
 
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	free_ptrs[val] = 1;
 #endif
 }
@@ -14788,34 +14794,19 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 		} \
 		\
 		int index_type = OS_VALUE_TYPE(local7_index); \
-		switch(index_type){ \
-		case OS_VALUE_TYPE_STRING: \
-		case OS_VALUE_TYPE_ARRAY: \
-		case OS_VALUE_TYPE_OBJECT: \
-		case OS_VALUE_TYPE_USERDATA: \
-		case OS_VALUE_TYPE_USERPTR: \
-		case OS_VALUE_TYPE_FUNCTION: \
-		case OS_VALUE_TYPE_CFUNCTION: \
+		if(OS_IS_VALUE_GC(local7_index)){ \
 			OS_ASSERT(dynamic_cast<GCValue*>(OS_VALUE_VARIANT(local7_index).value)); \
 			/* TODO: correct ??? */ \
 			gcAddToGreyList(OS_VALUE_VARIANT(local7_index).value); \
 		} \
 		\
-		switch(OS_VALUE_TYPE(local7_value)){ \
-		case OS_VALUE_TYPE_STRING: \
-		case OS_VALUE_TYPE_ARRAY: \
-		case OS_VALUE_TYPE_OBJECT: \
-		case OS_VALUE_TYPE_USERDATA: \
-		case OS_VALUE_TYPE_USERPTR: \
-		case OS_VALUE_TYPE_FUNCTION: \
-		case OS_VALUE_TYPE_CFUNCTION: \
+		if(OS_IS_VALUE_GC(local7_value)){ \
 			OS_ASSERT(dynamic_cast<GCValue*>(OS_VALUE_VARIANT(local7_value).value)); \
 			/* TODO: correct ??? */ \
 			gcAddToGreyList(OS_VALUE_VARIANT(local7_value).value); \
 			if(!OS_VALUE_VARIANT(local7_value).value->name && index_type == OS_VALUE_TYPE_STRING){ \
 				OS_VALUE_VARIANT(local7_value).value->name = OS_VALUE_VARIANT(local7_index).string; \
 			} \
-			break; \
 		} \
 		\
 		Property * prop = NULL; \
@@ -14882,7 +14873,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 
 void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Value value, bool setter_enabled)
 {
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
 		int i = 0;
 	}
@@ -14913,27 +14904,13 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 	}
 
 	int index_type = OS_VALUE_TYPE(_index);
-	switch(index_type){
-	case OS_VALUE_TYPE_STRING:
-	case OS_VALUE_TYPE_ARRAY:
-	case OS_VALUE_TYPE_OBJECT:
-	case OS_VALUE_TYPE_USERDATA:
-	case OS_VALUE_TYPE_USERPTR:
-	case OS_VALUE_TYPE_FUNCTION:
-	case OS_VALUE_TYPE_CFUNCTION:
+	if(OS_IS_VALUE_GC(_index)){
 		OS_ASSERT(dynamic_cast<GCValue*>(OS_VALUE_VARIANT(_index).value));
 		// TODO: correct ???
 		gcAddToGreyList(OS_VALUE_VARIANT(_index).value);
 	}
 
-	switch(OS_VALUE_TYPE(value)){
-	case OS_VALUE_TYPE_STRING:
-	case OS_VALUE_TYPE_ARRAY:
-	case OS_VALUE_TYPE_OBJECT:
-	case OS_VALUE_TYPE_USERDATA:
-	case OS_VALUE_TYPE_USERPTR:
-	case OS_VALUE_TYPE_FUNCTION:
-	case OS_VALUE_TYPE_CFUNCTION:
+	if(OS_IS_VALUE_GC(value)){
 		OS_ASSERT(dynamic_cast<GCValue*>(OS_VALUE_VARIANT(value).value));
 		// TODO: correct ???
 		gcAddToGreyList(OS_VALUE_VARIANT(value).value);
@@ -14942,7 +14919,6 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 			// OS_VALUE_VARIANT(value).value->name->external_ref_count++;
 			// gcAddToGreyList(OS_VALUE_VARIANT(value).value->name);
 		}
-		break;
 	}
 
 	Property * prop = NULL;
@@ -15068,7 +15044,7 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 
 void OS::Core::setPropertyValue(const Value& table_value, const Value& index, const Value& value, bool setter_enabled)
 {
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
 		int i = 0;
 	}
@@ -15577,10 +15553,10 @@ void OS::Core::pushValue(const Value& p_val)
 		Value val = p_val;
 		reserveStackValues(stack_values.count+1);
 		stack_values.buf[stack_values.count++] = val;
-		gcAddToGreyList_r(val);
+		gcAddToGreyList(val);
 	}else{
 		stack_values.buf[stack_values.count++] = p_val;
-		gcAddToGreyList_r(p_val);
+		gcAddToGreyList(p_val);
 	}
 }
 
@@ -16091,14 +16067,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 
 		case OP_LOGIC_EQ:
 			if(is_gc_left_value){
-				switch(OS_VALUE_TYPE(right_value)){
-				case OS_VALUE_TYPE_STRING:
-				case OS_VALUE_TYPE_ARRAY:
-				case OS_VALUE_TYPE_OBJECT:
-				case OS_VALUE_TYPE_USERDATA:
-				case OS_VALUE_TYPE_USERPTR:
-				case OS_VALUE_TYPE_FUNCTION:
-				case OS_VALUE_TYPE_CFUNCTION:
+				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(true);
 					}
@@ -16111,14 +16080,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 
 		case OP_LOGIC_GE:
 			if(is_gc_left_value){
-				switch(OS_VALUE_TYPE(right_value)){
-				case OS_VALUE_TYPE_STRING:
-				case OS_VALUE_TYPE_ARRAY:
-				case OS_VALUE_TYPE_OBJECT:
-				case OS_VALUE_TYPE_USERDATA:
-				case OS_VALUE_TYPE_USERPTR:
-				case OS_VALUE_TYPE_FUNCTION:
-				case OS_VALUE_TYPE_CFUNCTION:
+				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(true);
 					}
@@ -16131,14 +16093,7 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 
 		case OP_LOGIC_GREATER:
 			if(is_gc_left_value){
-				switch(OS_VALUE_TYPE(right_value)){
-				case OS_VALUE_TYPE_STRING:
-				case OS_VALUE_TYPE_ARRAY:
-				case OS_VALUE_TYPE_OBJECT:
-				case OS_VALUE_TYPE_USERDATA:
-				case OS_VALUE_TYPE_USERPTR:
-				case OS_VALUE_TYPE_FUNCTION:
-				case OS_VALUE_TYPE_CFUNCTION:
+				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
 						return pushBool(false);
 					}
@@ -16495,7 +16450,7 @@ void OS::releaseValueById(int id)
 			core->deleteValueProperty(core->retain_pool, value, false, false);
 			if(value->gc_color != Core::GC_GREY){
 				value->gc_color = Core::GC_GREY_WAIT;
-#ifdef OS_DEBUG
+#if defined OS_DEBUG && 123 && 0
 				if(value->value_id == 13480){
 					int i = 0;
 				}
@@ -17079,18 +17034,8 @@ void OS::setPrototype(int userdata_crc)
 int OS::getValueId(int offs)
 {
 	Core::Value val = core->getStackValue(offs);
-	switch(OS_VALUE_TYPE(val)){
-	case OS_VALUE_TYPE_STRING:
-	case OS_VALUE_TYPE_ARRAY:
-	case OS_VALUE_TYPE_OBJECT:
-	case OS_VALUE_TYPE_USERDATA:
-	case OS_VALUE_TYPE_USERPTR:
-	case OS_VALUE_TYPE_FUNCTION:
-	case OS_VALUE_TYPE_CFUNCTION:
+	if(OS_IS_VALUE_GC(val)){
 		return OS_VALUE_VARIANT(val).value->value_id;
-
-	case OS_VALUE_TYPE_WEAKREF:
-		return OS_VALUE_VARIANT(val).value_id;
 	}
 	return 0;
 }
@@ -17098,14 +17043,7 @@ int OS::getValueId(int offs)
 OS::String OS::getValueName(int offs)
 {
 	Core::Value val = core->getStackValue(offs);
-	switch(OS_VALUE_TYPE(val)){
-	case OS_VALUE_TYPE_STRING:
-	case OS_VALUE_TYPE_ARRAY:
-	case OS_VALUE_TYPE_OBJECT:
-	case OS_VALUE_TYPE_USERDATA:
-	case OS_VALUE_TYPE_USERPTR:
-	case OS_VALUE_TYPE_FUNCTION:
-	case OS_VALUE_TYPE_CFUNCTION:
+	if(OS_IS_VALUE_GC(val)){
 		if(OS_VALUE_VARIANT(val).value->name){
 			return OS::String(this, OS_VALUE_VARIANT(val).value->name);
 		}
@@ -17116,22 +17054,19 @@ OS::String OS::getValueName(int offs)
 OS::String OS::getValueClassname(int offs)
 {
 	Core::Value val = core->getStackValue(offs);
-	switch(OS_VALUE_TYPE(val)){
-	case OS_VALUE_TYPE_STRING:
-	case OS_VALUE_TYPE_ARRAY:
-	case OS_VALUE_TYPE_OBJECT:
-	case OS_VALUE_TYPE_USERDATA:
-	case OS_VALUE_TYPE_USERPTR:
-	case OS_VALUE_TYPE_FUNCTION:
-	case OS_VALUE_TYPE_CFUNCTION:
-		{
-			Core::GCValue * value = OS_VALUE_VARIANT(val).value;
-			while(value && value->is_object_instance){
-				value = value->prototype;
-			}
-			if(value && value->name){
-				return OS::String(this, value->name);
-			}
+	if(OS_IS_VALUE_GC(val)){
+		Core::GCValue * value = OS_VALUE_VARIANT(val).value;
+#if 1
+		if(value && value->is_object_instance){
+			value = value->prototype;
+		}
+#else
+		while(value && value->is_object_instance){
+			value = value->prototype;
+		}
+#endif
+		if(value && value->name){
+			return OS::String(this, value->name);
 		}
 	}
 	return OS::String(this);

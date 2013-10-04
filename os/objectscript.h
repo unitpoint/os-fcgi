@@ -51,7 +51,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("7")
-#define OS_VERSION_RELEASE	OS_TEXT("4-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("5-dev")
 
 #define OS_VERSION		OS_TEXT("OS ") OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR
 #define OS_VERSION_EX	OS_VERSION OS_TEXT(".") OS_VERSION_RELEASE
@@ -242,20 +242,17 @@ namespace ObjectScript
 
 	enum OS_EValueType
 	{
+		OS_VALUE_TYPE_UNKNOWN,
 		OS_VALUE_TYPE_NULL,
 		OS_VALUE_TYPE_BOOL,
 		OS_VALUE_TYPE_NUMBER,
-		OS_VALUE_TYPE_STRING,
+		OS_VALUE_TYPE_STRING,	// min GC type, don't change order of value types
 		OS_VALUE_TYPE_ARRAY,
 		OS_VALUE_TYPE_OBJECT,
 		OS_VALUE_TYPE_USERDATA,
 		OS_VALUE_TYPE_USERPTR,
 		OS_VALUE_TYPE_FUNCTION,
-		OS_VALUE_TYPE_CFUNCTION,
-
-		// internal
-		OS_VALUE_TYPE_WEAKREF,
-		OS_VALUE_TYPE_UNKNOWN
+		OS_VALUE_TYPE_CFUNCTION		
 	};
 
 	enum OS_ESourceCodeType
@@ -1428,13 +1425,15 @@ namespace ObjectScript
 
 			struct GCFunctionValue;
 
-			struct WeakRef { WeakRef(){} };
-
 #if defined(_MSC_VER) && defined(_M_IX86) && !defined(OS_NUMBER_TO_INT_ASM_DISABLED)
 #define OS_NUMBER_TO_INT(i, _n) do { OS_FLOAT n = (OS_FLOAT)(_n); __asm { __asm fld n __asm fistp i } }while(false)
 #else
 #define OS_NUMBER_TO_INT(i, n) i = (int)(n)
 #endif
+
+// #define OS_VALUE_MARK_PLAIN		(0<<7)
+#define OS_VALUE_MARK_GC_TYPE	(1<<7)
+#define OS_VALUE_MIN_GC_TYPE	ObjectScript::OS_VALUE_TYPE_STRING
 
 /* Microsoft compiler on a Pentium (32 bit) ? */
 #if defined(_MSC_VER) && defined(_M_IX86)
@@ -1493,13 +1492,15 @@ namespace ObjectScript
 #define OS_VALUE_VARIANT(a)	(a).u.v
 #define OS_VALUE_NUMBER(a)	(a).u.v.number
 #define OS_VALUE_TAGGED_TYPE(a)	(a).u.type
-#define OS_VALUE_TYPE(a)	OS_VALUE_TAGGED_TYPE(a)
+#define OS_VALUE_TYPE(a)	(OS_VALUE_TAGGED_TYPE(a) & ~OS_VALUE_MARK_GC_TYPE)
 
+#define OS_IS_VALUE_GC(a) (OS_VALUE_TAGGED_TYPE(a) & OS_VALUE_MARK_GC_TYPE)
 #define OS_IS_VALUE_NUMBER(a)	(OS_VALUE_TYPE(a) == OS_VALUE_TYPE_NUMBER)
-#define OS_MAKE_VALUE_TAGGED_TYPE(t)	(t)
+#define OS_MAKE_VALUE_TAGGED_TYPE(t)	((t) < OS_VALUE_MIN_GC_TYPE ? (t) : (t) | OS_VALUE_MARK_GC_TYPE)
 
 #define OS_SET_VALUE_NUMBER(a, n)	((OS_VALUE_NUMBER(a) = (OS_NUMBER)(n)), OS_SET_VALUE_TYPE(a, OS_VALUE_TYPE_NUMBER))
 #define OS_SET_VALUE_TYPE(a, t)		(OS_VALUE_TAGGED_TYPE(a) = OS_MAKE_VALUE_TAGGED_TYPE(t))
+#define OS_SET_VALUE_TYPE_GC(a, t)	do{ OS_ASSERT((t) >= OS_VALUE_MIN_GC_TYPE); (OS_VALUE_TAGGED_TYPE(a) = (t) | OS_VALUE_MARK_GC_TYPE); }while(false)
 #define OS_SET_VALUE_NULL(a) (OS_VALUE_VARIANT(a).value = NULL, OS_SET_VALUE_TYPE((a), OS_VALUE_TYPE_NULL))
 #define OS_SET_NULL_VALUES(a, c) do{ Value * v = a; for(int count = c; count > 0; --count, ++v) OS_SET_VALUE_NULL(*v); }while(false)
 
@@ -1513,14 +1514,16 @@ namespace ObjectScript
 #define OS_VALUE_VARIANT(a)	(a).u.i.v
 #define OS_VALUE_NUMBER(a)	(a).u.number
 #define OS_VALUE_TAGGED_TYPE(a)	(a).u.i.type
-#define OS_VALUE_TYPE(a)	(OS_IS_VALUE_NUMBER(a) ? OS_VALUE_TYPE_NUMBER : OS_VALUE_TAGGED_TYPE(a) & 0xff)
+#define OS_VALUE_TYPE(a)	(OS_IS_VALUE_NUMBER(a) ? OS_VALUE_TYPE_NUMBER : OS_VALUE_TAGGED_TYPE(a) & (0xff & ~OS_VALUE_MARK_GC_TYPE))
 
+#define OS_IS_VALUE_GC(a) (OS_IS_VALUE_NUMBER(a) ? false : OS_VALUE_TAGGED_TYPE(a) & OS_VALUE_MARK_GC_TYPE)
 #define OS_IS_VALUE_NUMBER(a)	((OS_VALUE_TAGGED_TYPE(a) & OS_NUMBER_NAN_MASK) != OS_NUMBER_NAN_MARK)
-#define OS_MAKE_VALUE_TAGGED_TYPE(t)	((t) | OS_NUMBER_NAN_MARK)
+#define OS_MAKE_VALUE_TAGGED_TYPE(t)	((t) < OS_VALUE_MIN_GC_TYPE ? (t) | OS_NUMBER_NAN_MARK : (t) | OS_NUMBER_NAN_MARK | OS_VALUE_MARK_GC_TYPE)
 
 #define OS_SET_VALUE_NUMBER(a, n)	(OS_VALUE_NUMBER(a) = (OS_NUMBER)(n))
 // #define OS_SET_VALUE_OBJECT(a, v)	(OS_VALUE_VARIANT(a) = (v))
 #define OS_SET_VALUE_TYPE(a, t)		(OS_VALUE_TAGGED_TYPE(a) = OS_MAKE_VALUE_TAGGED_TYPE(t))
+#define OS_SET_VALUE_TYPE_GC(a, t)	do{ OS_ASSERT((t) >= OS_VALUE_MIN_GC_TYPE); (OS_VALUE_TAGGED_TYPE(a) = (t) | OS_NUMBER_NAN_MARK | OS_VALUE_MARK_GC_TYPE); OS_ASSERT(OS_VALUE_TYPE(a) == (t)); }while(false)
 #define OS_SET_VALUE_NULL(a) (OS_VALUE_VARIANT(a).value = NULL, OS_SET_VALUE_TYPE((a), OS_VALUE_TYPE_NULL))
 #define OS_SET_NULL_VALUES(a, c) do{ Value * v = (a); for(int count = c; count > 0; --count, ++v) OS_SET_VALUE_NULL(*v); }while(false)
 
@@ -1546,7 +1549,6 @@ namespace ObjectScript
 				Value(long double);
 				Value(GCValue*);
 				Value(const String&);
-				Value(int, const WeakRef&);
 
 				Value& operator=(GCValue*);
 				Value& operator=(bool);
@@ -1574,15 +1576,10 @@ namespace ObjectScript
 				typedef Value super;
 
 				ValueRetained();
-				ValueRetained(bool);
-				ValueRetained(OS_FLOAT);
-				ValueRetained(int);
-				ValueRetained(int, const WeakRef&);
-				ValueRetained(GCValue*);
-				ValueRetained(Value);
+				ValueRetained(const Value&);
 				~ValueRetained();
 
-				ValueRetained& operator=(Value);
+				ValueRetained& operator=(const Value&);
 				
 				void clear();
 

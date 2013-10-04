@@ -266,7 +266,9 @@
     <ClCompile Include="..\..\os\ext-zlib\zlib\trees.c" />
     <ClCompile Include="..\..\os\ext-zlib\zlib\uncompr.c" />
     <ClCompile Include="..\..\os\ext-zlib\zlib\zutil.c" />
-    <ClCompile Include="..\..\os\objectscript.cpp" />
+    <ClCompile Include="..\..\os\objectscript.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">All</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="..\..\3rdparty\pcrelib\pcreposix.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_chartables.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_compile.c" />
