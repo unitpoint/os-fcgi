@@ -82,7 +82,7 @@ protected:
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
-			core->gc_start_used_bytes = 32*1024*1024;
+			// core->gc_start_used_bytes = 32*1024*1024;
 			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
 #ifdef _MSC_VER
 				"cache-osc"
@@ -338,7 +338,7 @@ public:
 		
 		// reset shutdown_funcs_id
 		pushValueById(shutdown_funcs_id);
-		getProperty(-1, "clear");
+		getProperty("clear");
 		pushValueById(shutdown_funcs_id);
 		call();
 	}
