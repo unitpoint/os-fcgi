@@ -103,15 +103,20 @@ IF (FORCE32)
 	)
 ENDIF()
 
-list(APPEND SOURCES os-fcgi.cpp)
+# begin objectscript
 list(APPEND SOURCES os/objectscript.cpp)
+list(APPEND SOURCES os/os-heap.cpp)
+list(APPEND HEADERS os/objectscript.cpp)
+list(APPEND HEADERS os/os-heap.cpp)
+# end objectscript
+
+list(APPEND SOURCES os-fcgi.cpp)
 list(APPEND SOURCES 3rdparty/fcgi-2.4.1/libfcgi/os_unix.c)
 list(APPEND SOURCES 3rdparty/fcgi-2.4.1/libfcgi/fcgiapp.c)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Parser.cpp)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Field.cpp)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Exception.cpp)
 list(APPEND SOURCES 3rdparty/md5/md5.cpp)
-list(APPEND SOURCES os/ext-odbo/os-odbo.cpp)
 
 include_directories(os)
 include_directories(3rdparty/fcgi-2.4.1)
@@ -200,6 +205,11 @@ SET(GCC_COVERAGE_LINK_FLAGS    "${GCC_COVERAGE_LINK_FLAGS} -lpthread -ldl")
 list(APPEND SOURCES os/ext-datetime/os-datetime.cpp)
 list(APPEND HEADERS os/ext-datetime/os-datetime.h)
 # end datetime
+
+# begin odbo
+list(APPEND SOURCES os/ext-odbo/os-odbo.cpp)
+list(APPEND HEADERS os/ext-odbo/os-odbo.h)
+# end odbo
 
 # begin zlib
 list(APPEND SOURCES os/ext-zlib/os-zlib.cpp)

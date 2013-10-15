@@ -62,7 +62,7 @@ protected:
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
-			core->gc_start_used_bytes = 32*1024*1024;
+			// core->gc_start_used_bytes = 32*1024*1024;
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
 			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
 #ifdef _MSC_VER
@@ -219,7 +219,7 @@ public:
 		OS_CHAR temp[34];
 		Core::Buffer buf(this);
 		buf.append(*cache_path);
-		buf.append(OS_TEXT("/os-fcgi-cache-"));
+		buf.append(OS_TEXT("/os-cache-"));
 		buf.append(md5(temp, resolved_filename), 32);
 		buf.append(OS_EXT_COMPILED);
 		// buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));

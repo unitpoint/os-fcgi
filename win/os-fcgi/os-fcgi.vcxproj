@@ -291,6 +291,7 @@
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_valid_utf8.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_version.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_xclass.c" />
+    <ClCompile Include="..\..\os\os-heap.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

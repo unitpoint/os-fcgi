@@ -6,6 +6,7 @@
 #endif
 
 #include "os/objectscript.h"
+#include "os/os-heap.h"
 #include <stdlib.h>
 
 #include <sys/types.h>
@@ -790,7 +791,12 @@ int _tmain(int argc, _TCHAR* _argv[])
 int main(int argc, char * argv[])
 {
 #endif
+
+#if 1
 	ConsoleOS * os = OS::create(new ConsoleOS());
+#else
+	ConsoleOS * os = OS::create(new ConsoleOS(), new OSMemoryManagerOld());
+#endif
 	os->processRequest(argc, argv);
     os->release();
 

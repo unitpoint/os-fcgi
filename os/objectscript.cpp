@@ -4,6 +4,7 @@
 
 #include "objectscript.h"
 #include "os-binder.h"
+#include "os-heap.h"
 #include <time.h>
 
 #ifdef _MSC_VER
@@ -16,11 +17,10 @@
 #include <sys/types.h>
 #endif // _MSC_VER
 
-#if defined OS_DEBUG && 123
+#ifdef OS_DEBUG
 #include <vector>
 #include <map>
 #include <string>
-static std::map<void*, bool> free_ptrs;
 #endif
 
 using namespace ObjectScript;
@@ -768,6 +768,7 @@ int OS::Utils::cmp(const void * buf1, int len1, const void * buf2, int len2)
 
 OS::Core::String::String(OS * os)
 {
+	allocator = os;
 	string = os->core->strings->empty.string; // pushStringValue((void*)NULL, 0); 
 	// os->core->stack_values.count--;
 	string->external_ref_count++;
@@ -776,8 +777,9 @@ OS::Core::String::String(OS * os)
 #endif
 }
 
-OS::Core::String::String(GCStringValue * s)
+OS::Core::String::String(OS * os, GCStringValue * s)
 {
+	allocator = os;
 	string = s;
 	string->external_ref_count++;
 #ifdef OS_DEBUG
@@ -787,6 +789,7 @@ OS::Core::String::String(GCStringValue * s)
 
 OS::Core::String::String(const String& s)
 {
+	allocator = s.allocator;
 	string = s.string;
 	string->external_ref_count++;
 #ifdef OS_DEBUG
@@ -796,9 +799,10 @@ OS::Core::String::String(const String& s)
 
 OS::Core::String::String(OS * os, const String& a, const String& b)
 {
+	allocator = os;
 	string = os->core->pushStringValue(a, b);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -806,9 +810,10 @@ OS::Core::String::String(OS * os, const String& a, const String& b)
 
 OS::Core::String::String(OS * os, const OS_CHAR * str)
 {
+	allocator = os;
 	string = os->core->pushStringValue(str);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -816,9 +821,10 @@ OS::Core::String::String(OS * os, const OS_CHAR * str)
 
 OS::Core::String::String(OS * os, const OS_CHAR * str, int len)
 {
+	allocator = os;
 	string = os->core->pushStringValue(str, len);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -826,9 +832,10 @@ OS::Core::String::String(OS * os, const OS_CHAR * str, int len)
 
 OS::Core::String::String(OS * os, const OS_CHAR * str, int len, const OS_CHAR * str2, int len2)
 {
+	allocator = os;
 	string = os->core->pushStringValue(str, len, str2, len2);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -836,9 +843,10 @@ OS::Core::String::String(OS * os, const OS_CHAR * str, int len, const OS_CHAR * 
 
 OS::Core::String::String(OS * os, const OS_CHAR * str, int len, bool trim_left, bool trim_right)
 {
+	allocator = os;
 	string = os->core->pushStringValue(str, len, trim_left, trim_right);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -846,9 +854,10 @@ OS::Core::String::String(OS * os, const OS_CHAR * str, int len, bool trim_left, 
 
 OS::Core::String::String(OS * os, const String& str, bool trim_left, bool trim_right)
 {
+	allocator = os;
 	string = os->core->pushStringValue(str, trim_left, trim_right);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -856,9 +865,10 @@ OS::Core::String::String(OS * os, const String& str, bool trim_left, bool trim_r
 
 OS::Core::String::String(OS * os, const void * buf, int size)
 {
+	allocator = os;
 	string = os->core->pushStringValue(buf, size);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -866,9 +876,10 @@ OS::Core::String::String(OS * os, const void * buf, int size)
 
 OS::Core::String::String(OS * os, const void * buf1, int size1, const void * buf2, int size2)
 {
+	allocator = os;
 	string = os->core->pushStringValue(buf1, size1, buf2, size2);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -876,9 +887,10 @@ OS::Core::String::String(OS * os, const void * buf1, int size1, const void * buf
 
 OS::Core::String::String(OS * os, const void * buf1, int size1, const void * buf2, int size2, const void * buf3, int size3)
 {
+	allocator = os;
 	string = os->core->pushStringValue(buf1, size1, buf2, size2, buf3, size3);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -886,9 +898,10 @@ OS::Core::String::String(OS * os, const void * buf1, int size1, const void * buf
 
 OS::Core::String::String(OS * os, OS_INT value)
 {
+	allocator = os;
 	string = os->core->pushStringValue(value);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -896,9 +909,10 @@ OS::Core::String::String(OS * os, OS_INT value)
 
 OS::Core::String::String(OS * os, OS_FLOAT value)
 {
+	allocator = os;
 	string = os->core->pushStringValue(value);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -906,9 +920,10 @@ OS::Core::String::String(OS * os, OS_FLOAT value)
 
 OS::Core::String::String(OS * os, OS_FLOAT value, int precision)
 {
+	allocator = os;
 	string = os->core->pushStringValue(value, precision);
-	os->core->stack_values.count--;
 	string->external_ref_count++;
+	os->core->stack_values.count--;
 #ifdef OS_DEBUG
 	this->str = string->toChar();
 #endif
@@ -918,7 +933,9 @@ OS::Core::String::~String()
 {
 	if(string){ // can be cleared by OS::~String
 		OS_ASSERT(string->external_ref_count > 0);
-		string->external_ref_count--;
+		if(!--string->external_ref_count && !string->ref_count){
+			allocator->core->saveFreeCandidateValue(string);
+		}
 	}
 }
 
@@ -937,14 +954,14 @@ OS::Core::String OS::Core::String::format(OS * allocator, int temp_buf_len, cons
 	OS_VaListDtor va_dtor(&va);
 	GCStringValue * string = allocator->core->pushStringValueVa(temp_buf_len, fmt, va);
 	Pop pop(allocator); (void)pop;
-	return String(string);
+	return String(allocator, string);
 }
 
 OS::Core::String OS::Core::String::formatVa(OS * allocator, int temp_buf_len, const OS_CHAR * fmt, va_list va)
 {
 	GCStringValue * string = allocator->core->pushStringValueVa(temp_buf_len, fmt, va);
 	Pop pop(allocator); (void)pop;
-	return String(string);
+	return String(allocator, string);
 }
 
 OS::Core::String OS::Core::String::format(OS * allocator, const OS_CHAR * fmt, ...)
@@ -954,21 +971,40 @@ OS::Core::String OS::Core::String::format(OS * allocator, const OS_CHAR * fmt, .
 	OS_VaListDtor va_dtor(&va);
 	GCStringValue * string = allocator->core->pushStringValueVa(OS_DEF_FMT_BUF_LEN, fmt, va);
 	Pop pop(allocator); (void)pop;
-	return String(string);
+	return String(allocator, string);
 }
 
 OS::Core::String OS::Core::String::formatVa(OS * allocator, const OS_CHAR * fmt, va_list va)
 {
 	GCStringValue * string = allocator->core->pushStringValueVa(OS_DEF_FMT_BUF_LEN, fmt, va);
 	Pop pop(allocator); (void)pop;
-	return String(string);
+	return String(allocator, string);
+}
+
+OS::String OS::String::format(OS * allocator, const OS_CHAR * fmt, ...)
+{
+	va_list va;
+	va_start(va, fmt);
+	OS_VaListDtor va_dtor(&va);
+	Core::GCStringValue * string = allocator->core->pushStringValueVa(OS_DEF_FMT_BUF_LEN, fmt, va);
+	Pop pop(allocator); (void)pop;
+	return String(allocator, string);
+}
+
+OS::String OS::String::formatVa(OS * allocator, const OS_CHAR * fmt, va_list va)
+{
+	Core::GCStringValue * string = allocator->core->pushStringValueVa(OS_DEF_FMT_BUF_LEN, fmt, va);
+	Pop pop(allocator); (void)pop;
+	return String(allocator, string);
 }
 
 OS::Core::String& OS::Core::String::operator=(const String& b)
 {
 	if(string != b.string){
 		OS_ASSERT(string->external_ref_count > 0);
-		string->external_ref_count--;
+		if(!--string->external_ref_count && !string->ref_count){
+			allocator->core->saveFreeCandidateValue(string);
+		}
 		string = b.string;
 		string->external_ref_count++;
 #ifdef OS_DEBUG
@@ -1075,12 +1111,14 @@ OS_NUMBER OS::Core::String::toNumber() const
 
 OS::Core::Buffer::Buffer(OS * p_allocator): MemStreamWriter(p_allocator)
 {
-	cacheStr = NULL;
+	allocator = p_allocator;
+	cache_str = NULL;
 }
 
 OS::Core::Buffer::Buffer(const Buffer& buf): MemStreamWriter(buf.allocator)
 {
-	cacheStr = NULL;
+	allocator = buf.allocator;
+	cache_str = NULL;
 	append(buf);
 }
 
@@ -1139,7 +1177,7 @@ OS::Core::Buffer::operator OS::Core::String()
 
 OS::Core::String OS::Core::Buffer::toString()
 {
-	return Core::String(toGCStringValue());
+	return Core::String(allocator, toGCStringValue());
 }
 
 OS::String OS::Core::Buffer::toStringOS()
@@ -1149,93 +1187,97 @@ OS::String OS::Core::Buffer::toStringOS()
 
 void OS::Core::Buffer::freeCacheStr()
 {
-	if(cacheStr){
-		cacheStr->external_ref_count--;
-		cacheStr = NULL;
+	if(cache_str){
+		if(!--cache_str->external_ref_count && !cache_str->ref_count){
+			allocator->core->saveFreeCandidateValue(cache_str);
+		}
+		cache_str = NULL;
 	}
 }
 
 OS::Core::GCStringValue * OS::Core::Buffer::toGCStringValue()
 {
-	if(!cacheStr){
-		cacheStr = allocator->core->pushStringValue((void*)buffer.buf, buffer.count);
-		cacheStr->external_ref_count++;
+	if(!cache_str){
+		cache_str = allocator->core->pushStringValue((void*)buffer.buf, buffer.count);
+		cache_str->external_ref_count++;
 		allocator->pop();
 	}
-	return cacheStr;
+	return cache_str;
 }
 
 // =====================================================================
 
 OS::String::String(OS * allocator): super(allocator)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(const String& str): super(str)
 {
-	allocator = str.allocator->retain();
+	allocator->retain();
 }
 
-OS::String::String(OS * allocator, Core::GCStringValue * str): super(str)
+OS::String::String(const Core::String& str): super(str)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
-OS::String::String(OS * allocator, const Core::String& str): super(str)
+OS::String::String(OS * allocator, Core::GCStringValue * str): super(allocator, str)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const OS_CHAR * str): super(allocator, str)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const OS_CHAR * str1, int len1, const OS_CHAR * str2, int len2): super(allocator, str1, len1, str2, len2)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const OS_CHAR * str, int len): super(allocator, str, len)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const OS_CHAR * str, int len, bool trim_left, bool trim_right): super(allocator, str, len, trim_left, trim_right)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const void * buf, int size): super(allocator, buf, size)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, const void * buf1, int size1, const void * buf2, int size2): super(allocator, buf1, size1, buf2, size2)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, OS_INT value): super(allocator, value)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, OS_FLOAT value): super(allocator, value)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::String(OS * allocator, OS_FLOAT value, int precision): super(allocator, value, precision)
 {
-	this->allocator = allocator->retain();
+	allocator->retain();
 }
 
 OS::String::~String()
 {
 	OS_ASSERT(string->external_ref_count > 0);
-	string->external_ref_count--;
+	if(!--string->external_ref_count && !string->ref_count){
+		allocator->core->saveFreeCandidateValue(string);
+	}
 	string = NULL;
 	allocator->release();
 }
@@ -1244,7 +1286,9 @@ OS::String& OS::String::operator=(const Core::String& str)
 {
 	if(string != str.string){
 		OS_ASSERT(string->external_ref_count > 0);
-		string->external_ref_count--;
+		if(!--string->external_ref_count && !string->ref_count){
+			allocator->core->saveFreeCandidateValue(string);
+		}
 		string = str.string;
 		string->external_ref_count++;
 #ifdef OS_DEBUG
@@ -1254,36 +1298,21 @@ OS::String& OS::String::operator=(const Core::String& str)
 	return *this;
 }
 
-OS::String& OS::String::operator=(const String& str)
-{
-	OS_ASSERT(allocator == str.allocator);
-	if(string != str.string){
-		OS_ASSERT(string->external_ref_count > 0);
-		string->external_ref_count--;
-		string = str.string;
-		string->external_ref_count++;
-#ifdef OS_DEBUG
-		this->str = string->toChar();
-#endif
-	}
-	return *this;
-}
-
-OS::String& OS::String::operator+=(const String& str)
+OS::String& OS::String::operator+=(const Core::String& str)
 {
 	Core::GCStringValue * string = allocator->core->pushStringValue(*this, str);
 	Pop pop(allocator); (void)pop;
-	return *this = string;
+	return *this = String(allocator, string);
 }
 
 OS::String& OS::String::operator+=(const OS_CHAR * str)
 {
 	Core::GCStringValue * string = allocator->core->pushStringValue(toChar(), getDataSize(), str, (int)OS_STRLEN(str)*sizeof(OS_CHAR));
 	Pop pop(allocator); (void)pop;
-	return *this = string;
+	return *this = String(allocator, string);
 }
 
-OS::String OS::String::operator+(const String& str) const
+OS::String OS::String::operator+(const Core::String& str) const
 {
 	Core::GCStringValue * string = allocator->core->pushStringValue(*this, str);
 	Pop pop(allocator); (void)pop;
@@ -3733,7 +3762,7 @@ bool OS::Core::Compiler::compile()
 		Expression * exp = postCompileExpression(scope, scope);
 		OS_ASSERT(exp->type == EXP_TYPE_FUNCTION);
 
-		OS::String filename(allocator, tokenizer->getTextData()->filename);
+		OS::String filename = tokenizer->getTextData()->filename;
 		bool is_eval = filename.getDataSize() == 0;
 
 		if((!is_eval || allocator->core->settings.create_text_eval_opcodes) && 
@@ -9345,7 +9374,9 @@ OS::Core::Program::~Program()
 		OS_ASSERT(dynamic_cast<GCStringValue*>(OS_VALUE_VARIANT(const_values[j]).string));
 		GCStringValue * string = OS_VALUE_VARIANT(const_values[j]).string;
 		OS_ASSERT(string->external_ref_count > 0);
-		string->external_ref_count--;
+		if(!--string->external_ref_count && !string->ref_count){
+			allocator->core->saveFreeCandidateValue(string);
+		}
 	}
 
 	allocator->free(const_values);
@@ -9553,7 +9584,7 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader)
 		const_values[i + num_numbers + CONST_STD_VALUES] = string;
 		buf.freeCacheStr();
 	}
-	filename = OS_VALUE_VARIANT(const_values[prog_filename_string_index + num_numbers + CONST_STD_VALUES]).string;
+	filename = String(allocator, OS_VALUE_VARIANT(const_values[prog_filename_string_index + num_numbers + CONST_STD_VALUES]).string);
 
 	functions = (FunctionDecl*)allocator->malloc(sizeof(FunctionDecl) * num_functions OS_DBG_FILEPOS);
 	for(i = 0; i < num_functions; i++){
@@ -9581,7 +9612,7 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader)
 			OS_ASSERT(cached_name_index >= 0 && cached_name_index < num_strings);
 			FunctionDecl::LocalVar * local_var = func->locals + j;
 			OS_ASSERT(dynamic_cast<GCStringValue*>(OS_VALUE_VARIANT(const_values[cached_name_index + num_numbers + CONST_STD_VALUES]).string));
-			String var_name(OS_VALUE_VARIANT(const_values[cached_name_index + num_numbers + CONST_STD_VALUES]).string);
+			String var_name(allocator, OS_VALUE_VARIANT(const_values[cached_name_index + num_numbers + CONST_STD_VALUES]).string);
 			new (local_var) FunctionDecl::LocalVar(var_name);
 			local_var->start_code_pos = reader->readUVariable() + func->opcodes_pos;
 			local_var->end_code_pos = reader->readUVariable() + func->opcodes_pos;
@@ -10638,15 +10669,6 @@ OS::Core::Property * OS::Core::addTableProperty(Table * table, const Value& inde
 	retainValue(prop->index);
 	retainValue(prop->value);
 
-#if defined OS_DEBUG && 123 && 0
-	if(prop->index.getGCValue() && free_ptrs.find(prop->index.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-	if(prop->value.getGCValue() && free_ptrs.find(prop->value.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-#endif
-
 	if((table->count>>HASH_GROW_SHIFT) >= table->head_mask){
 		int new_size = table->heads ? (table->head_mask+1) * 2 : 4;
 		int alloc_size = sizeof(Property*)*new_size;
@@ -11391,12 +11413,6 @@ OS::Core::GCValue::GCValue()
 	type = OS_VALUE_TYPE_NULL;
 	is_object_instance = false;
 	is_destructor_called = false;
-
-#if defined OS_DEBUG && 123 && 0
-	if(free_ptrs.find(this) != free_ptrs.end()){
-		free_ptrs.erase(this);
-	}
-#endif
 }
 
 OS::Core::GCValue::~GCValue()
@@ -11414,6 +11430,13 @@ OS::Core::GCValue::~GCValue()
 OS::Core::GCStringValue::GCStringValue(int p_data_size)
 {
 	data_size = p_data_size;
+	hash = 0;
+	hash_next_ref = NULL;
+}
+
+OS::Core::GCStringValue::~GCStringValue()
+{
+	OS_ASSERT(!hash_next_ref);
 }
 
 OS::Core::GCStringValue * OS::Core::GCStringValue::allocAndPush(OS * allocator, int p_hash, const void * buf, int data_size OS_DBG_FILEPOS_DECL)
@@ -11434,6 +11457,7 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::allocAndPush(OS * allocator, 
 		string->calcHash();
 	}
 	allocator->core->registerValueAndPush(string);
+	allocator->core->registerStringRef(string);
 #ifdef OS_DEBUG
 	string->str = string->toChar();
 #endif
@@ -11459,6 +11483,7 @@ OS::Core::GCStringValue * OS::Core::GCStringValue::allocAndPush(OS * allocator, 
 		string->calcHash();
 	}
 	allocator->core->registerValueAndPush(string);
+	allocator->core->registerStringRef(string);
 #ifdef OS_DEBUG
 	string->str = string->toChar();
 #endif
@@ -11659,7 +11684,7 @@ OS::Core::String OS::Core::valueToString(const Value& val, bool valueof_enabled)
 		return String(allocator, (OS_FLOAT)OS_VALUE_NUMBER(val));
 
 	case OS_VALUE_TYPE_STRING:
-		return String(OS_VALUE_VARIANT(val).string);
+		return String(allocator, OS_VALUE_VARIANT(val).string);
 	}
 	if(valueof_enabled){
 		pushValueOf(val);
@@ -11673,10 +11698,10 @@ OS::String OS::Core::valueToStringOS(const Value& val, bool valueof_enabled)
 {
 	switch(OS_VALUE_TYPE(val)){
 	case OS_VALUE_TYPE_NULL:
-		return OS::String(allocator, strings->syntax_null);
+		return strings->syntax_null;
 
 	case OS_VALUE_TYPE_BOOL:
-		return OS::String(allocator, OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false);
+		return OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false;
 
 	case OS_VALUE_TYPE_NUMBER:
 		return OS::String(allocator, (OS_FLOAT)OS_VALUE_NUMBER(val));
@@ -11718,7 +11743,7 @@ bool OS::Core::isValueString(const Value& val, String * out)
 	case OS_VALUE_TYPE_STRING:
 		if(out){
 			OS_ASSERT(dynamic_cast<GCStringValue*>(OS_VALUE_VARIANT(val).string));
-			*out = String(OS_VALUE_VARIANT(val).string);
+			*out = String(allocator, OS_VALUE_VARIANT(val).string);
 		}
 		return true;
 	}
@@ -11734,14 +11759,14 @@ bool OS::Core::isValueStringOS(const Value& val, OS::String * out)
 	case OS_VALUE_TYPE_NULL:
 		if(out){
 			// *out = String(allocator);
-			*out = OS::String(allocator, strings->syntax_null);
+			*out = strings->syntax_null;
 		}
 		return false;
 
 	case OS_VALUE_TYPE_BOOL:
 		if(out){
 			// *out = String(allocator, val->value.boolean ? OS_TEXT("1") : OS_TEXT(""));
-			*out = OS::String(allocator, OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false);
+			*out = OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false;
 		}
 		return true;
 
@@ -11780,16 +11805,16 @@ OS::Core::StringRefs::~StringRefs()
 	OS_ASSERT(!heads);
 }
 
-void OS::Core::registerStringRef(StringRef * str_ref)
+void OS::Core::registerStringRef(GCStringValue * str_ref)
 {
 	if((string_refs.count>>HASH_GROW_SHIFT) >= string_refs.head_mask){
 		int new_size = string_refs.heads ? (string_refs.head_mask+1) * 2 : 32;
-		int alloc_size = sizeof(StringRef*) * new_size;
-		StringRef ** new_heads = (StringRef**)malloc(alloc_size OS_DBG_FILEPOS);
+		int alloc_size = sizeof(GCStringValue*) * new_size;
+		GCStringValue ** new_heads = (GCStringValue**)malloc(alloc_size OS_DBG_FILEPOS);
 		OS_ASSERT(new_heads);
 		OS_MEMSET(new_heads, 0, alloc_size);
 
-		StringRef ** old_heads = string_refs.heads;
+		GCStringValue ** old_heads = string_refs.heads;
 		int old_mask = string_refs.head_mask;
 
 		string_refs.heads = new_heads;
@@ -11797,10 +11822,10 @@ void OS::Core::registerStringRef(StringRef * str_ref)
 
 		if(old_heads){
 			for(int i = 0; i <= old_mask; i++){
-				for(StringRef * str_ref = old_heads[i], * next; str_ref; str_ref = next){
-					next = str_ref->hash_next;
-					int slot = str_ref->string_hash & string_refs.head_mask;
-					str_ref->hash_next = string_refs.heads[slot];
+				for(GCStringValue * str_ref = old_heads[i], * next; str_ref; str_ref = next){
+					next = str_ref->hash_next_ref;
+					int slot = str_ref->hash & string_refs.head_mask;
+					str_ref->hash_next_ref = string_refs.heads[slot];
 					string_refs.heads[slot] = str_ref;
 				}
 			}
@@ -11808,26 +11833,26 @@ void OS::Core::registerStringRef(StringRef * str_ref)
 		}
 	}
 
-	int slot = str_ref->string_hash & string_refs.head_mask;
-	str_ref->hash_next = string_refs.heads[slot];
+	int slot = str_ref->hash & string_refs.head_mask;
+	str_ref->hash_next_ref = string_refs.heads[slot];
 	string_refs.heads[slot] = str_ref;
 	string_refs.count++;
 }
 
-void OS::Core::unregisterStringRef(StringRef * str_ref)
+void OS::Core::unregisterStringRef(GCStringValue * str_ref)
 {
-	int slot = str_ref->string_hash & string_refs.head_mask;
-	StringRef * cur = string_refs.heads[slot], * prev = NULL;
-	for(; cur; prev = cur, cur = cur->hash_next){
+	int slot = str_ref->hash & string_refs.head_mask;
+	GCStringValue * cur = string_refs.heads[slot], * prev = NULL;
+	for(; cur; prev = cur, cur = cur->hash_next_ref){
 		if(cur == str_ref){
 			if(prev){
-				prev->hash_next = cur->hash_next;
+				prev->hash_next_ref = cur->hash_next_ref;
 			}else{
-				string_refs.heads[slot] = cur->hash_next;
+				string_refs.heads[slot] = cur->hash_next_ref;
 			}
 			OS_ASSERT(string_refs.count > 0);
 			string_refs.count--;
-			cur->hash_next = NULL;
+			cur->hash_next_ref = NULL;
 			return;
 		}
 	}
@@ -11841,8 +11866,8 @@ void OS::Core::deleteStringRefs()
 	}
 	for(int i = 0; i <= string_refs.head_mask; i++){
 		while(string_refs.heads[i]){
-			StringRef * cur = string_refs.heads[i];
-			string_refs.heads[i] = cur->hash_next;
+			GCStringValue * cur = string_refs.heads[i];
+			string_refs.heads[i] = cur->hash_next_ref;
 			free(cur);
 		}
 	}
@@ -11868,17 +11893,17 @@ OS::Core::UserptrRefs::~UserptrRefs()
 	OS_ASSERT(!heads);
 }
 
-void OS::Core::registerUserptrRef(UserptrRef * user_pointer_ref)
+void OS::Core::registerUserptrRef(GCUserdataValue * user_pointer_ref)
 {
-	OS_ASSERT(!user_pointer_ref->hash_next);
+	OS_ASSERT(!user_pointer_ref->hash_next_ref);
 	if((userptr_refs.count>>HASH_GROW_SHIFT) >= userptr_refs.head_mask){
 		int new_size = userptr_refs.heads ? (userptr_refs.head_mask+1) * 2 : 32;
-		int alloc_size = sizeof(UserptrRef*) * new_size;
-		UserptrRef ** new_heads = (UserptrRef**)malloc(alloc_size OS_DBG_FILEPOS);
+		int alloc_size = sizeof(GCUserdataValue*) * new_size;
+		GCUserdataValue ** new_heads = (GCUserdataValue**)malloc(alloc_size OS_DBG_FILEPOS);
 		OS_ASSERT(new_heads);
 		OS_MEMSET(new_heads, 0, alloc_size);
 
-		UserptrRef ** old_heads = userptr_refs.heads;
+		GCUserdataValue ** old_heads = userptr_refs.heads;
 		int old_mask = userptr_refs.head_mask;
 
 		userptr_refs.heads = new_heads;
@@ -11886,10 +11911,10 @@ void OS::Core::registerUserptrRef(UserptrRef * user_pointer_ref)
 
 		if(old_heads){
 			for(int i = 0; i <= old_mask; i++){
-				for(UserptrRef * user_pointer_ref = old_heads[i], * next; user_pointer_ref; user_pointer_ref = next){
-					next = user_pointer_ref->hash_next;
-					int slot = user_pointer_ref->userptr_hash & userptr_refs.head_mask;
-					user_pointer_ref->hash_next = userptr_refs.heads[slot];
+				for(GCUserdataValue * user_pointer_ref = old_heads[i], * next; user_pointer_ref; user_pointer_ref = next){
+					next = user_pointer_ref->hash_next_ref;
+					int slot = OS_PTR_HASH(user_pointer_ref->ptr) & userptr_refs.head_mask;
+					user_pointer_ref->hash_next_ref = userptr_refs.heads[slot];
 					userptr_refs.heads[slot] = user_pointer_ref;
 				}
 			}
@@ -11897,26 +11922,26 @@ void OS::Core::registerUserptrRef(UserptrRef * user_pointer_ref)
 		}
 	}
 
-	int slot = user_pointer_ref->userptr_hash & userptr_refs.head_mask;
-	user_pointer_ref->hash_next = userptr_refs.heads[slot];
+	int slot = OS_PTR_HASH(user_pointer_ref->ptr) & userptr_refs.head_mask;
+	user_pointer_ref->hash_next_ref = userptr_refs.heads[slot];
 	userptr_refs.heads[slot] = user_pointer_ref;
 	userptr_refs.count++;
 }
 
-void OS::Core::unregisterUserptrRef(UserptrRef * userptr_ref)
+void OS::Core::unregisterUserptrRef(GCUserdataValue * userptr_ref)
 {
-	int slot = userptr_ref->userptr_hash & userptr_refs.head_mask;
-	UserptrRef * cur = userptr_refs.heads[slot], * prev = NULL;
-	for(; cur; prev = cur, cur = cur->hash_next){
+	int slot = OS_PTR_HASH(userptr_ref->ptr) & userptr_refs.head_mask;
+	GCUserdataValue * cur = userptr_refs.heads[slot], * prev = NULL;
+	for(; cur; prev = cur, cur = cur->hash_next_ref){
 		if(cur == userptr_ref){
 			if(prev){
-				prev->hash_next = cur->hash_next;
+				prev->hash_next_ref = cur->hash_next_ref;
 			}else{
-				userptr_refs.heads[slot] = cur->hash_next;
+				userptr_refs.heads[slot] = cur->hash_next_ref;
 			}
 			OS_ASSERT(userptr_refs.count > 0);
 			userptr_refs.count--;
-			cur->hash_next = NULL;
+			cur->hash_next_ref = NULL;
 			return;
 		}
 	}
@@ -11929,15 +11954,15 @@ void OS::Core::unregisterUserptrRef(void * ptr, int value_id)
 		OS_ASSERT(userptr_refs.heads && userptr_refs.head_mask);
 		int hash = OS_PTR_HASH(ptr);
 		int slot = hash & userptr_refs.head_mask;
-		UserptrRef * userptr_ref = userptr_refs.heads[slot];
-		for(UserptrRef * prev = NULL; userptr_ref; prev = userptr_ref, userptr_ref = userptr_ref->hash_next){
-			if(userptr_ref->userptr_value_id == value_id){
+		GCUserdataValue * userptr_ref = userptr_refs.heads[slot];
+		for(GCUserdataValue * prev = NULL; userptr_ref; prev = userptr_ref, userptr_ref = userptr_ref->hash_next_ref){
+			if(userptr_ref->value_id == value_id){
 				if(!prev){
-					userptr_refs.heads[slot] = userptr_ref->hash_next;
+					userptr_refs.heads[slot] = userptr_ref->hash_next_ref;
 				}else{
-					prev->hash_next = userptr_ref->hash_next;
+					prev->hash_next_ref = userptr_ref->hash_next_ref;
 				}
-				free(userptr_ref);
+				// free(userptr_ref);
 				userptr_refs.count--;
 				return;
 			}
@@ -11952,9 +11977,10 @@ void OS::Core::deleteUserptrRefs()
 	}
 	for(int i = 0; i <= userptr_refs.head_mask; i++){
 		while(userptr_refs.heads[i]){
-			UserptrRef * cur = userptr_refs.heads[i];
-			userptr_refs.heads[i] = cur->hash_next;
-			free(cur);
+			GCUserdataValue * cur = userptr_refs.heads[i];
+			userptr_refs.heads[i] = cur->hash_next_ref;
+			cur->hash_next_ref = NULL;
+			// free(cur);
 		}
 	}
 	free(userptr_refs.heads);
@@ -11979,17 +12005,18 @@ OS::Core::CFuncRefs::~CFuncRefs()
 	OS_ASSERT(!heads);
 }
 
-void OS::Core::registerCFuncRef(CFuncRef * cfunc_ref)
+void OS::Core::registerCFuncRef(GCCFunctionValue * cfunc_ref)
 {
-	OS_ASSERT(!cfunc_ref->hash_next);
+	OS_ASSERT(!cfunc_ref->hash_next_ref);
+	OS_ASSERT(cfunc_ref->cfunc_hash);
 	if((cfunc_refs.count>>HASH_GROW_SHIFT) >= cfunc_refs.head_mask){
 		int new_size = cfunc_refs.heads ? (cfunc_refs.head_mask+1) * 2 : 32;
-		int alloc_size = sizeof(CFuncRef*) * new_size;
-		CFuncRef ** new_heads = (CFuncRef**)malloc(alloc_size OS_DBG_FILEPOS);
+		int alloc_size = sizeof(GCCFunctionValue*) * new_size;
+		GCCFunctionValue ** new_heads = (GCCFunctionValue**)malloc(alloc_size OS_DBG_FILEPOS);
 		OS_ASSERT(new_heads);
 		OS_MEMSET(new_heads, 0, alloc_size);
 
-		CFuncRef ** old_heads = cfunc_refs.heads;
+		GCCFunctionValue ** old_heads = cfunc_refs.heads;
 		int old_mask = cfunc_refs.head_mask;
 
 		cfunc_refs.heads = new_heads;
@@ -11997,10 +12024,10 @@ void OS::Core::registerCFuncRef(CFuncRef * cfunc_ref)
 
 		if(old_heads){
 			for(int i = 0; i <= old_mask; i++){
-				for(CFuncRef * cfunc_ref = old_heads[i], * next; cfunc_ref; cfunc_ref = next){
-					next = cfunc_ref->hash_next;
+				for(GCCFunctionValue * cfunc_ref = old_heads[i], * next; cfunc_ref; cfunc_ref = next){
+					next = cfunc_ref->hash_next_ref;
 					int slot = cfunc_ref->cfunc_hash & cfunc_refs.head_mask;
-					cfunc_ref->hash_next = cfunc_refs.heads[slot];
+					cfunc_ref->hash_next_ref = cfunc_refs.heads[slot];
 					cfunc_refs.heads[slot] = cfunc_ref;
 				}
 			}
@@ -12009,25 +12036,25 @@ void OS::Core::registerCFuncRef(CFuncRef * cfunc_ref)
 	}
 
 	int slot = cfunc_ref->cfunc_hash & cfunc_refs.head_mask;
-	cfunc_ref->hash_next = cfunc_refs.heads[slot];
+	cfunc_ref->hash_next_ref = cfunc_refs.heads[slot];
 	cfunc_refs.heads[slot] = cfunc_ref;
 	cfunc_refs.count++;
 }
 
-void OS::Core::unregisterCFuncRef(CFuncRef * cfunc_ref)
+void OS::Core::unregisterCFuncRef(GCCFunctionValue * cfunc_ref)
 {
 	int slot = cfunc_ref->cfunc_hash & cfunc_refs.head_mask;
-	CFuncRef * cur = cfunc_refs.heads[slot], * prev = NULL;
-	for(; cur; prev = cur, cur = cur->hash_next){
+	GCCFunctionValue * cur = cfunc_refs.heads[slot], * prev = NULL;
+	for(; cur; prev = cur, cur = cur->hash_next_ref){
 		if(cur == cfunc_ref){
 			if(prev){
-				prev->hash_next = cur->hash_next;
+				prev->hash_next_ref = cur->hash_next_ref;
 			}else{
-				cfunc_refs.heads[slot] = cur->hash_next;
+				cfunc_refs.heads[slot] = cur->hash_next_ref;
 			}
 			OS_ASSERT(cfunc_refs.count > 0);
 			cfunc_refs.count--;
-			cur->hash_next = NULL;
+			cur->hash_next_ref = NULL;
 			return;
 		}
 	}
@@ -12040,15 +12067,15 @@ void OS::Core::unregisterCFuncRef(OS_CFunction func, void * user_param, int valu
 		OS_ASSERT(cfunc_refs.heads && cfunc_refs.head_mask);
 		int hash = Utils::keyToHash(&func, sizeof(func), user_param ? &user_param : NULL, user_param ? sizeof(user_param) : 0);
 		int slot = hash & cfunc_refs.head_mask;
-		CFuncRef * cfunc_ref = cfunc_refs.heads[slot];
-		for(CFuncRef * prev = NULL; cfunc_ref; prev = cfunc_ref, cfunc_ref = cfunc_ref->hash_next){
-			if(cfunc_ref->cfunc_value_id == value_id){
+		GCCFunctionValue * cfunc_ref = cfunc_refs.heads[slot];
+		for(GCCFunctionValue * prev = NULL; cfunc_ref; prev = cfunc_ref, cfunc_ref = cfunc_ref->hash_next_ref){
+			if(cfunc_ref->value_id == value_id){
 				if(!prev){
-					cfunc_refs.heads[slot] = cfunc_ref->hash_next;
+					cfunc_refs.heads[slot] = cfunc_ref->hash_next_ref;
 				}else{
-					prev->hash_next = cfunc_ref->hash_next;
+					prev->hash_next_ref = cfunc_ref->hash_next_ref;
 				}
-				free(cfunc_ref);
+				// free(cfunc_ref);
 				cfunc_refs.count--;
 				return;
 			}
@@ -12063,9 +12090,9 @@ void OS::Core::deleteCFuncRefs()
 	}
 	for(int i = 0; i <= cfunc_refs.head_mask; i++){
 		while(cfunc_refs.heads[i]){
-			CFuncRef * cur = cfunc_refs.heads[i];
-			cfunc_refs.heads[i] = cur->hash_next;
-			free(cur);
+			GCCFunctionValue * cur = cfunc_refs.heads[i];
+			cfunc_refs.heads[i] = cur->hash_next_ref;
+			// free(cur);
 		}
 	}
 	free(cfunc_refs.heads);
@@ -12299,12 +12326,12 @@ void OS::Core::registerFreeCandidateValue(GCValue * value)
 	gc_candidate_values.count++;
 }
 
-void OS::Core::unregisterFreeCandidateValue(int value_id)
+void OS::Core::unregisterFreeCandidateValue(GCValue * value)
 {
-	int slot = value_id & gc_candidate_values.head_mask;
+	int slot = value->value_id & gc_candidate_values.head_mask;
 	GCValue * candidate = gc_candidate_values.heads[slot], * prev = NULL;
 	for(; candidate; prev = candidate, candidate = candidate->hash_next_free_candidate){
-		if(candidate->value_id == value_id){
+		if(candidate == value){
 			if(prev){
 				prev->hash_next_free_candidate = candidate->hash_next_free_candidate;
 			}else{
@@ -12313,10 +12340,6 @@ void OS::Core::unregisterFreeCandidateValue(int value_id)
 			OS_ASSERT(gc_candidate_values.count > 0);
 			candidate->hash_next_free_candidate = NULL;
 			gc_candidate_values.count--;
-			// candidate->hash_next = NULL;
-			// candidate->value = NULL;
-			// candidate->~
-			// free(candidate);
 			return;
 		}
 	}
@@ -12579,7 +12602,8 @@ void OS::Core::gcFreeCandidateValues(bool full)
 	for(i = 0; i <= head_mask; i++){
 		for(candidate = gc_candidate_values.heads[i], prev = NULL; candidate; candidate = next){
 			next = candidate->hash_next_free_candidate;
-			if(candidate->ref_count > 0 || candidate->external_ref_count > 0){
+			if(candidate->ref_count | candidate->external_ref_count){
+				OS_ASSERT(candidate->ref_count > 0 || candidate->external_ref_count > 0);
 				if(prev){
 					prev->hash_next_free_candidate = next;
 				}else{
@@ -12622,7 +12646,7 @@ void OS::Core::gcFreeCandidateValues(bool full)
 		}
 	}
 
-	int used_bytes = allocator->getAllocatedBytes() - allocator->getCachedBytes();
+	int used_bytes = allocator->getUsedBytes();
 	if(full || used_bytes >= gc_next_allocated_bytes){		
 		lib.gc_step_type = ++gc_step_type;
 
@@ -12667,7 +12691,7 @@ void OS::Core::gcFreeCandidateValues(bool full)
 					continue;
 				}
 				// OS_ASSERT(!gc_candidate_values.get(value->value_id));
-				unregisterFreeCandidateValue(value->value_id);
+				// unregisterFreeCandidateValue(value->value_id);
 				OS_ASSERT(value->ref_count >= 0);
 				clearValue(value);
 				if(prev){
@@ -12688,20 +12712,21 @@ void OS::Core::gcFreeCandidateValues(bool full)
 			GCValue * value = destroy_list;
 			destroy_list = value->hash_next;
 			value->hash_next = NULL;
+			unregisterFreeCandidateValue(value);
 			deleteValue(value);
 		}
 		gc_fix_in_progress = false;
 		// lib.destroyValues(false);
-		used_bytes = allocator->getAllocatedBytes() - allocator->getCachedBytes();
-		if(used_bytes/2 >= gc_next_allocated_bytes){
+		used_bytes = allocator->getUsedBytes();
+		if(used_bytes >= gc_next_allocated_bytes){
 			gc_next_allocated_bytes *= 2;
-		}else{
+		}else if(1){
 			while(used_bytes < gc_next_allocated_bytes/2 && gc_next_allocated_bytes/2 >= gc_start_allocated_bytes){
 				gc_next_allocated_bytes /= 2;
 			}
 		}
-#if 1
-		if(!full){
+#if 0
+		if(0 && full){
 			static bool in_progress = false;
 			if(!in_progress){
 				in_progress = true;
@@ -12709,6 +12734,8 @@ void OS::Core::gcFreeCandidateValues(bool full)
 				OS_CHAR str[128];
 				OS_SNPRINTF(str, sizeof(str), "gc-%d.txt", ++i);
 				dumpValuesToFile(str);
+				OS_SNPRINTF(str, sizeof(str), "heap-%d.txt", i);
+				((OSHeapManager*)allocator->memory_manager)->dumpUsage(allocator, str);
 				in_progress = false;
 			}
 		}
@@ -12845,7 +12872,7 @@ void OS::Core::dumpValues(Buffer& out)
 			case OS_VALUE_TYPE_STRING:
 				OS_VALUE_VARIANT(cur).string->gc_step_type = core->gc_step_type;
 				appendString(format(OS_TEXT("<string:%d> "), OS_VALUE_VARIANT(cur).string->value_id));
-				appendQuotedString(OS_VALUE_VARIANT(cur).string);
+				appendQuotedString(String(core->allocator, OS_VALUE_VARIANT(cur).string));
 				break;
 			
 			default:
@@ -12862,7 +12889,7 @@ void OS::Core::dumpValues(Buffer& out)
 				case OS_VALUE_TYPE_STRING:
 					OS_ASSERT(dynamic_cast<GCStringValue*>(value));
 					appendString(format(OS_TEXT("<string:%d> "), value->value_id));
-					appendQuotedString((GCStringValue*)value);
+					appendQuotedString(String(core->allocator, (GCStringValue*)value));
 					return;
 			
 				case OS_VALUE_TYPE_ARRAY:
@@ -12902,7 +12929,7 @@ void OS::Core::dumpValues(Buffer& out)
 			case OS_VALUE_TYPE_STRING:
 				OS_ASSERT(dynamic_cast<GCStringValue*>(value));
 				appendString(format(OS_TEXT("<string:%d> "), value->value_id));
-				appendQuotedString((GCStringValue*)value);
+				appendQuotedString(String(core->allocator, (GCStringValue*)value));
 				return;
 			
 			case OS_VALUE_TYPE_ARRAY:
@@ -13360,436 +13387,6 @@ void OS::printf(const OS_CHAR * format, ...)
 	va_end(va);
 }
 
-OS::SmartMemoryManager::SmartMemoryManager()
-{
-	allocated_bytes = 0;
-	max_allocated_bytes = 0;
-	cached_bytes = 0;
-	OS_MEMSET(page_desc, 0, sizeof(page_desc));
-	num_page_desc = 0;
-	OS_MEMSET(pages, 0, sizeof(pages));
-	OS_MEMSET(cached_blocks, 0, sizeof(cached_blocks));
-
-#ifdef OS_DEBUG
-	dbg_mem_list = NULL;
-	dbg_std_mem_list = NULL;
-	dbg_breakpoint_id = -1;
-#endif
-
-	stat_malloc_count = 0;
-	stat_free_count = 0;
-
-	registerPageDesc(sizeof(Core::GCObjectValue), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::GCStringValue), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::GCUserdataValue), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::GCFunctionValue), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::GCCFunctionValue), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::GCCFunctionValue) + sizeof(Core::Value)*4, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Property), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	// registerPageDesc(sizeof(Core::StackFunction), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Locals), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Locals) + sizeof(void*)*4, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Locals) + sizeof(void*)*8, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Table), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::Compiler::EXPRESSION_SIZE), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(sizeof(Core::TokenData), OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(8, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(16, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(32, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(64, OS_MEMORY_MANAGER_PAGE_BLOCKS);
-	registerPageDesc(128, OS_MEMORY_MANAGER_PAGE_BLOCKS/2);
-	registerPageDesc(256, OS_MEMORY_MANAGER_PAGE_BLOCKS/4);
-	sortPageDesc();
-
-	page_map_size = page_desc[num_page_desc-1].block_size + 1;
-	page_map = new int[page_map_size];
-	for(int i = 0; i < page_map_size; i++){
-		page_map[i] = -1;
-	}
-}
-
-OS::SmartMemoryManager::~SmartMemoryManager()
-{
-	freeCachedMemory(0);
-	delete [] page_map;
-#ifdef OS_DEBUG
-	{
-		for(MemBlock * mem = dbg_mem_list; mem; mem = mem->dbg_mem_next){
-			OS_PRINTF("[LEAK] %d bytes, id: %d, line %d, %s\n", mem->block_size, mem->dbg_id, mem->dbg_line, mem->dbg_filename);
-		}
-	}
-	{
-		for(StdMemBlock * mem = dbg_std_mem_list; mem; mem = mem->dbg_mem_next){
-			OS_ASSERT(mem->block_size & 0x80000000);
-			OS_PRINTF("[LEAK] %d bytes, id: %d, line %d, %s\n", (mem->block_size & ~0x80000000), mem->dbg_id, mem->dbg_line, mem->dbg_filename);
-		}
-	}
-#endif
-	// OS_ASSERT(!allocated_bytes && !cached_bytes);
-}
-
-#ifdef OS_DEBUG
-static const int MEM_MARK_BEGIN = 0xabcdef98;
-static const int MEM_MARK_END = 0x3579faec;
-static const int FREE_MARK_BEGIN = 0xdabcef98;
-static const int FREE_MARK_END = 0x3faec579;
-static const int STD_MEM_MARK_BEGIN = 0xaefbcd98;
-static const int STD_MEM_MARK_END = 0x35ae79fc;
-#define MEM_MARK_END_SIZE sizeof(int)
-#else
-#define MEM_MARK_END_SIZE 0
-#endif
-
-int OS::SmartMemoryManager::comparePageDesc(const void * pa, const void * pb)
-{
-	PageDesc * a = (PageDesc*)pa;
-	PageDesc * b = (PageDesc*)pb;
-	return a->block_size - b->block_size;
-}
-
-void OS::SmartMemoryManager::sortPageDesc()
-{
-	::qsort(page_desc, num_page_desc, sizeof(page_desc[0]), comparePageDesc);
-}
-
-void OS::SmartMemoryManager::registerPageDesc(int block_size, int num_blocks)
-{
-	if(num_page_desc == MAX_PAGE_TYPE_COUNT){
-		return;
-	}
-	if(block_size > 128){
-		block_size = (block_size + 31) & ~31;
-	}else if(block_size > 64){
-		block_size = (block_size + 15) & ~15;
-	}else if(block_size > 32){
-		block_size = (block_size + 7) & ~7;
-	}else{
-		block_size = (block_size + 3) & ~3;
-	}
-	int i;
-	for(i = 0; i < num_page_desc; i++){
-		if(page_desc[i].block_size == block_size){
-			if(page_desc[i].num_blocks < num_blocks){
-				page_desc[i].num_blocks = num_blocks;
-				page_desc[i].allocated_bytes = sizeof(Page) + (sizeof(MemBlock) + block_size + MEM_MARK_END_SIZE) * num_blocks;
-			}
-			return;
-		}
-	}
-	page_desc[i].block_size = block_size;
-	page_desc[i].num_blocks = num_blocks;
-	page_desc[i].allocated_bytes = sizeof(Page) + (sizeof(MemBlock) + block_size + MEM_MARK_END_SIZE) * num_blocks;
-	num_page_desc++;
-}
-
-void * OS::SmartMemoryManager::allocFromCachedBlock(int i OS_DBG_FILEPOS_DECL)
-{
-#ifdef OS_DEBUG
-	if(stat_malloc_count == dbg_breakpoint_id){
-		DEBUG_BREAK;
-	}
-#endif
-	stat_malloc_count++;
-	OS_ASSERT(i >= 0 && i < num_page_desc);
-	CachedBlock * cached_block = cached_blocks[i];
-	OS_ASSERT(cached_block);
-#ifdef OS_DEBUG
-	OS_ASSERT(cached_block->mark == FREE_MARK_BEGIN);
-	OS_ASSERT(*(int*)(((OS_BYTE*)((MemBlock*)cached_block+1)) + page_desc[i].block_size) == FREE_MARK_END);
-#endif
-	cached_blocks[i] = cached_block->next;
-	Page * page = cached_block->page;
-	OS_ASSERT(page->num_cached_blocks > 0);
-	page->num_cached_blocks--;
-	MemBlock * mem_block = (MemBlock*)cached_block;
-	mem_block->page = page;
-	mem_block->block_size = page_desc[i].block_size;
-#ifdef OS_DEBUG
-	mem_block->mark = MEM_MARK_BEGIN;
-	*(int*)(((OS_BYTE*)(mem_block+1)) + mem_block->block_size) = MEM_MARK_END;
-
-	mem_block->dbg_filename = dbg_filename;
-	mem_block->dbg_line = dbg_line;
-	mem_block->dbg_id = stat_malloc_count-1;
-
-	mem_block->dbg_mem_prev = NULL;
-	mem_block->dbg_mem_next = dbg_mem_list;
-	if(dbg_mem_list){
-		dbg_mem_list->dbg_mem_prev = mem_block;
-	}
-	dbg_mem_list = mem_block;
-#endif
-	cached_bytes -= mem_block->block_size + sizeof(MemBlock);
-	void * p = mem_block + 1;
-	OS_MEMSET(p, 0, mem_block->block_size);
-	// OS_ASSERT(mem_block->mark == MEM_MARK_BEGIN);
-	// OS_ASSERT(*(int*)(((OS_BYTE*)(mem_block+1)) + mem_block->block_size) == MEM_MARK_END);
-	return p;
-}
-
-void * OS::SmartMemoryManager::allocFromPageType(int i OS_DBG_FILEPOS_DECL)
-{
-	OS_ASSERT(i >= 0 && i < num_page_desc);
-	if(cached_blocks[i]){
-		return allocFromCachedBlock(i OS_DBG_FILEPOS_PARAM);
-	}
-
-	int allocated_bytes = page_desc[i].allocated_bytes;
-	Page * page = (Page*)stdAlloc(allocated_bytes OS_DBG_FILEPOS);
-	page->index = i;
-	page->next_page = pages[i];
-	pages[i] = page;
-	page->num_cached_blocks = page_desc[i].num_blocks;
-	cached_bytes += allocated_bytes;
-
-	OS_BYTE * next_page_block = (OS_BYTE*)(page + 1);
-	for(int j = 0; j < page_desc[i].num_blocks; j++){
-		CachedBlock * cached_block = (CachedBlock*)next_page_block;
-		cached_block->page = page;
-		cached_block->next = cached_blocks[i];
-#ifdef OS_DEBUG
-		cached_block->mark = FREE_MARK_BEGIN;
-		*(int*)(((OS_BYTE*)((MemBlock*)cached_block+1)) + page_desc[page->index].block_size) = FREE_MARK_END;
-		OS_MEMSET(cached_block+1, 0xde, page_desc[i].block_size + (sizeof(MemBlock) - sizeof(CachedBlock)));
-#endif
-		cached_blocks[i] = cached_block;
-		next_page_block += sizeof(MemBlock) + page_desc[i].block_size + MEM_MARK_END_SIZE;
-	}
-
-	return allocFromCachedBlock(i OS_DBG_FILEPOS_PARAM);
-}
-
-void OS::SmartMemoryManager::freeMemBlock(MemBlock * mem_block)
-{
-	stat_free_count++;
-#ifdef OS_DEBUG
-	OS_ASSERT(mem_block->mark == MEM_MARK_BEGIN);
-	OS_ASSERT(*(int*)(((OS_BYTE*)(mem_block+1)) + mem_block->block_size) == MEM_MARK_END);
-	if(mem_block->dbg_id == dbg_breakpoint_id){
-		DEBUG_BREAK;
-	}
-	if(mem_block == dbg_mem_list){
-		OS_ASSERT(!mem_block->dbg_mem_prev);
-		dbg_mem_list = mem_block->dbg_mem_next;
-	}else{ // if(mem_block->dbg_mem_prev){
-		OS_ASSERT(mem_block->dbg_mem_prev);
-		mem_block->dbg_mem_prev->dbg_mem_next = mem_block->dbg_mem_next;
-	}
-	if(mem_block->dbg_mem_next){
-		mem_block->dbg_mem_next->dbg_mem_prev = mem_block->dbg_mem_prev;
-	}
-#endif
-	Page * page = mem_block->page;
-	int size = mem_block->block_size;
-	cached_bytes += size + sizeof(MemBlock);
-	CachedBlock * cached_block = (CachedBlock*)mem_block;
-	cached_block->page = page;
-	cached_block->next = cached_blocks[page->index];
-#ifdef OS_DEBUG
-	cached_block->mark = FREE_MARK_BEGIN;
-	*(int*)(((OS_BYTE*)((MemBlock*)cached_block+1)) + page_desc[page->index].block_size) = FREE_MARK_END;
-	OS_MEMSET(cached_block+1, 0xde, size + (sizeof(MemBlock) - sizeof(CachedBlock)));
-#endif
-	cached_blocks[page->index] = cached_block;
-	page->num_cached_blocks++;
-}
-
-void OS::SmartMemoryManager::freeCachedMemory(int new_cached_bytes)
-{
-	if(cached_bytes > new_cached_bytes){
-		for(int i = num_page_desc-1; i >= 0; i--){
-			bool found_free_page = false;
-			int num_blocks = page_desc[i].num_blocks;
-			CachedBlock * prev_cached_block = NULL, * next_cached_block = NULL;
-			for(CachedBlock * cached_block = cached_blocks[i]; cached_block; cached_block = next_cached_block){
-				OS_ASSERT(cached_block->page->index == i);
-				next_cached_block = cached_block->next;
-				if(cached_block->page->num_cached_blocks == num_blocks){
-					found_free_page = true;
-					if(!prev_cached_block){
-						cached_blocks[i] = next_cached_block;
-					}else{
-						prev_cached_block->next = next_cached_block;
-					}
-					// keep prev_cached_block
-					continue;
-				}
-				prev_cached_block = cached_block;
-			}
-			if(found_free_page){
-				Page * prev = NULL, * next;
-				for(Page * page = pages[i]; page; page = next){
-					next = page->next_page;
-					if(page->num_cached_blocks == num_blocks){
-						if(!prev){
-							pages[i] = page->next_page;
-						}else{
-							prev->next_page = page->next_page;
-						}
-						cached_bytes -= page_desc[i].allocated_bytes;
-						stdFree(page);
-						// stat_free_count++;
-					}else{
-						prev = page;
-					}
-				}
-				if(cached_bytes <= new_cached_bytes){
-					break;
-				}
-			}
-		}
-	}
-}
-
-void * OS::SmartMemoryManager::stdAlloc(int size OS_DBG_FILEPOS_DECL)
-{
-#ifdef OS_DEBUG
-	if(stat_malloc_count == dbg_breakpoint_id){
-		DEBUG_BREAK;
-	}
-#endif
-	stat_malloc_count++;
-	size = (size + 7) & ~7;
-	StdMemBlock * mem_block = (StdMemBlock*)::malloc(size + sizeof(StdMemBlock) + MEM_MARK_END_SIZE);
-	if(!mem_block && cached_bytes > 0){
-		freeCachedMemory(0);
-		mem_block = (StdMemBlock*)::malloc(size + sizeof(StdMemBlock) + MEM_MARK_END_SIZE);
-		if(!mem_block){
-			return NULL;
-		}
-	}
-#ifdef OS_DEBUG
-	mem_block->mark = STD_MEM_MARK_BEGIN;
-	*(int*)(((OS_BYTE*)(mem_block+1)) + size) = STD_MEM_MARK_END;
-
-	mem_block->dbg_filename = dbg_filename;
-	mem_block->dbg_line = dbg_line;
-	mem_block->dbg_id = stat_malloc_count-1;
-
-	mem_block->dbg_mem_prev = NULL;
-	mem_block->dbg_mem_next = dbg_std_mem_list;
-	if(dbg_std_mem_list){
-		dbg_std_mem_list->dbg_mem_prev = mem_block;
-	}
-	dbg_std_mem_list = mem_block;
-#endif
-	mem_block->block_size = size | 0x80000000;
-	allocated_bytes += size + sizeof(StdMemBlock) + MEM_MARK_END_SIZE;
-	if(max_allocated_bytes < allocated_bytes){
-		max_allocated_bytes = allocated_bytes;
-	}
-	OS_MEMSET(mem_block+1, 0, size);
-	return mem_block+1;
-}
-
-void OS::SmartMemoryManager::stdFree(void * ptr)
-{
-	stat_free_count++;
-	StdMemBlock * mem_block = (StdMemBlock*)ptr - 1;
-	OS_ASSERT(mem_block->block_size & 0x80000000);
-#ifdef OS_DEBUG
-	OS_ASSERT(mem_block->mark == STD_MEM_MARK_BEGIN);
-	OS_ASSERT(*(int*)(((OS_BYTE*)(mem_block+1)) + (mem_block->block_size & ~0x80000000)) == STD_MEM_MARK_END);
-
-	if(mem_block->dbg_id == dbg_breakpoint_id){
-		DEBUG_BREAK;
-	}
-	if(mem_block == dbg_std_mem_list){
-		OS_ASSERT(!mem_block->dbg_mem_prev);
-		dbg_std_mem_list = mem_block->dbg_mem_next;
-	}else{ // if(mem_block->dbg_mem_prev){
-		OS_ASSERT(mem_block->dbg_mem_prev);
-		mem_block->dbg_mem_prev->dbg_mem_next = mem_block->dbg_mem_next;
-	}
-	if(mem_block->dbg_mem_next){
-		mem_block->dbg_mem_next->dbg_mem_prev = mem_block->dbg_mem_prev;
-	}
-#endif
-	int size = mem_block->block_size & ~0x80000000;
-	allocated_bytes -= size + sizeof(StdMemBlock) + MEM_MARK_END_SIZE;
-#ifdef OS_DEBUG
-	OS_MEMSET(ptr, 0xde, size);
-#endif
-	::free(mem_block);
-}
-
-void * OS::SmartMemoryManager::malloc(int size OS_DBG_FILEPOS_DECL)
-{
-	if(size <= 0){
-		return NULL;
-	}
-#if 1 // performance optimization
-	if(size < page_map_size){
-		int i = page_map[size];
-		if(i < 0){
-			for(i = 0; i < num_page_desc; i++){
-				if(size <= page_desc[i].block_size){
-					return allocFromPageType(page_map[size] = i OS_DBG_FILEPOS_PARAM);
-				}
-			}
-			OS_ASSERT(false);
-		}
-		return allocFromPageType(i OS_DBG_FILEPOS_PARAM);
-	}
-	OS_ASSERT(size > page_desc[num_page_desc-1].block_size);
-#else
-	if(size <= page_desc[num_page_desc-1].block_size){
-		for(int i = 0; i < num_page_desc; i++){
-			if(size <= page_desc[i].block_size){
-				return allocFromPageType(i OS_DBG_FILEPOS_PARAM);
-			}
-		}
-	}
-#endif
-	return stdAlloc(size OS_DBG_FILEPOS_PARAM);
-}
-
-void OS::SmartMemoryManager::free(void * ptr)
-{
-	if(!ptr){
-		return;
-	}
-	// stat_free_count++;
-#ifdef OS_DEBUG
-	int * p = (int*)ptr - 2;
-#else
-	int * p = (int*)ptr - 1;
-#endif
-	int size = p[0];
-	if(size & 0x80000000){
-		stdFree(ptr); // p, size & ~0x80000000);
-		return;
-	}
-	MemBlock * mem_block = (MemBlock*)ptr - 1;
-	OS_ASSERT(mem_block->block_size == size);
-	freeMemBlock(mem_block);
-	if(!(stat_free_count % 1024) && cached_bytes > allocated_bytes / 2){
-		freeCachedMemory(cached_bytes / 2);
-	}
-}
-
-void OS::SmartMemoryManager::setBreakpointId(int id)
-{
-#ifdef OS_DEBUG
-	dbg_breakpoint_id = id;
-#endif
-}
-
-int OS::SmartMemoryManager::getAllocatedBytes()
-{
-	return allocated_bytes;
-}
-
-int OS::SmartMemoryManager::getMaxAllocatedBytes()
-{
-	return max_allocated_bytes;
-}
-
-int OS::SmartMemoryManager::getCachedBytes()
-{
-	return cached_bytes;
-}
-
 // =====================================================================
 // =====================================================================
 // =====================================================================
@@ -13863,6 +13460,11 @@ int OS::getAllocatedBytes()
 int OS::getMaxAllocatedBytes()
 {
 	return memory_manager->getMaxAllocatedBytes();
+}
+
+int OS::getUsedBytes()
+{
+	return memory_manager->getUsedBytes();
 }
 
 int OS::getCachedBytes()
@@ -14046,7 +13648,7 @@ OS * OS::start(MemoryManager * manager)
 
 bool OS::init(MemoryManager * p_manager)
 {
-	memory_manager = p_manager ? p_manager : new SmartMemoryManager();
+	memory_manager = p_manager ? p_manager : new OSHeapManager(); // OSMemoryManagerOld();
 	core = new (malloc(sizeof(Core) OS_DBG_FILEPOS)) Core(this);
 
 	if(core->init()){
@@ -14188,7 +13790,7 @@ void OS::Core::shutdown()
 		GCValue * value = values.heads[i], * prev = NULL, * next;
 		for(; value; value = next){
 			next = value->hash_next;
-			unregisterFreeCandidateValue(value->value_id);
+			// unregisterFreeCandidateValue(value->value_id);
 			clearValue(value);
 			if(prev){
 				prev->hash_next = next;
@@ -14206,6 +13808,7 @@ void OS::Core::shutdown()
 		GCValue * value = destroy_list;
 		destroy_list = value->hash_next;
 		value->hash_next = NULL;
+		unregisterFreeCandidateValue(value);
 		deleteValue(value);
 	}
 	gc_fix_in_progress = false;
@@ -14447,7 +14050,7 @@ OS::String OS::getTextOpcodesFilename(const String& resolved_filename)
 		return changeFilenameExt(resolved_filename, OS_EXT_TEXT_OPCODES);
 	}
 	static int num_evals = 0;
-	return String(this, Core::String::format(this, OS_TEXT("eval-%d%s"), ++num_evals, OS_EXT_TEXT_OPCODES));
+	return String::format(this, OS_TEXT("eval-%d%s"), ++num_evals, OS_EXT_TEXT_OPCODES);
 }
 
 OS::String OS::resolvePath(const String& filename)
@@ -14457,7 +14060,7 @@ OS::String OS::resolvePath(const String& filename)
 		for(int i = core->call_stack_funcs.count-1; i >= 0; i--){
 			Core::StackFunction * stack_func = core->call_stack_funcs.buf + i;
 			if(!stack_func->func->prog->filename.isEmpty()){
-				cur_path = getFilenamePath(stack_func->func->prog->filename);
+				cur_path = getFilenamePath(String(stack_func->func->prog->filename));
 				break;
 			}
 		}
@@ -14634,14 +14237,6 @@ void OS::Core::gcAddToGreyList(const Value& val)
 void OS::Core::gcAddToGreyList(GCValue * value)
 {
 	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
-#if defined OS_DEBUG && 123 && 0
-	if(free_ptrs.find(value) != free_ptrs.end()){
-		int i = 0;
-	}
-	if(value->value_id == 13480){
-		int i = 0;
-	}
-#endif
 	// if(value->gc_color == GC_WHITE || value->gc_color == GC_WHITE_2 || value->gc_color == GC_GREY_WAIT){
 	if(value->gc_color != GC_GREY && value->gc_color != GC_BLACK){
 		OS_ASSERT(!value->gc_grey_next);
@@ -14676,11 +14271,6 @@ void OS::Core::gcAddToGreyList_r(const Value& val)
 void OS::Core::gcAddToGreyList_r(GCValue * value)
 {
 	OS_ASSERT((OS_U32)(intptr_t)value->gc_grey_next != 0xdededede);
-#if defined OS_DEBUG && 123 && 0
-	if(free_ptrs.find(value) != free_ptrs.end()){
-		int i = 0;
-	}
-#endif
 	if(value->gc_color != GC_GREY && value->gc_color != GC_BLACK){
 		OS_ASSERT(!value->gc_grey_next);
 		value->gc_grey_next = gc_grey_list_first;
@@ -15154,6 +14744,7 @@ void OS::Core::clearValue(GCValue * val)
 	case OS_VALUE_TYPE_STRING:
 		{
 			OS_ASSERT(dynamic_cast<GCStringValue*>(val));
+			unregisterStringRef((GCStringValue*)val);
 			break;
 		}
 
@@ -15621,10 +15212,6 @@ void OS::Core::deleteValue(GCValue * val)
 	val->~GCValue();
 	free(val);
 	num_destroyed_values++;
-
-#if defined OS_DEBUG && 123 && 0
-	free_ptrs[val] = 1;
-#endif
 }
 
 void OS::Core::retainValue(const Value& val)
@@ -15902,17 +15489,6 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 
 void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Value value, bool setter_enabled)
 {
-#if defined OS_DEBUG && 123 && 0
-	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-	if(_index.getGCValue() && free_ptrs.find(_index.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-#endif
-	/* if(table_value->value_id == 15380){
-		int i = 0;
-	} */
 #if 1 // performance optimization
 	OS_SETTER_VALUE_PTR(table_value, _index, value, setter_enabled);
 #else
@@ -16076,17 +15652,6 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 
 void OS::Core::setPropertyValue(const Value& table_value, const Value& index, const Value& value, bool setter_enabled)
 {
-#if defined OS_DEBUG && 123 && 0
-	if(value.getGCValue() && free_ptrs.find(value.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-	if(index.getGCValue() && free_ptrs.find(index.getGCValue()) != free_ptrs.end()){
-		int i = 0;
-	}
-#endif
-	/* if(OS_IS_VALUE_GC(value) && value.getGCValue()->value_id == 15380){
-		int i = 0;
-	} */
 #if 1 // performance optimization
 	OS_SETTER_VALUE(table_value, index, value, setter_enabled);
 #else
@@ -16240,6 +15805,13 @@ OS::Core::GCStringValue * OS::Core::pushStringValue(const String& str)
 	return str.string;
 }
 
+OS::Core::GCStringValue * OS::Core::pushStringValue(GCStringValue * string)
+{
+	OS_ASSERT((OS_U32)(intptr_t)string != 0xdededede);
+	pushValue(string);
+	return string;
+}
+
 OS::Core::GCStringValue * OS::Core::pushStringValue(const void * buf, int size)
 {
 	return pushStringValue(buf, size, NULL, 0);
@@ -16253,35 +15825,16 @@ OS::Core::GCStringValue * OS::Core::pushStringValue(const void * buf1, int size1
 		OS_ASSERT(string_refs.heads && string_refs.head_mask);
 		hash = Utils::keyToHash(buf1, size1, buf2, size2);
 		int slot = hash & string_refs.head_mask;
-		StringRef * str_ref = string_refs.heads[slot];
-		for(StringRef * prev = NULL, * next; str_ref; str_ref = next){
-			next = str_ref->hash_next;
-			GCStringValue * string_value = (GCStringValue*)values.get(str_ref->string_value_id);
-			if(!string_value){
-				if(!prev){
-					string_refs.heads[slot] = next;
-				}else{
-					prev->hash_next = next;					
-				}
-				free(str_ref);
-				string_refs.count--;
-				continue;
-			}
+		GCStringValue * string_value = string_refs.heads[slot];
+		for(; string_value; string_value = string_value->hash_next_ref){
 			OS_ASSERT(string_value->type == OS_VALUE_TYPE_STRING);
 			OS_ASSERT(dynamic_cast<GCStringValue*>(string_value));
 			if(string_value->isEqual(hash, buf1, size1, buf2, size2)){
 				return pushStringValue(string_value);
 			}
-			prev = str_ref;
 		}
 	}
-	GCStringValue * string_value = GCStringValue::allocAndPush(allocator, hash, buf1, size1, buf2, size2 OS_DBG_FILEPOS);
-	StringRef * str_ref = (StringRef*)malloc(sizeof(StringRef) OS_DBG_FILEPOS);
-	str_ref->string_hash = string_value->hash;
-	str_ref->string_value_id = string_value->value_id;
-	str_ref->hash_next = NULL;
-	registerStringRef(str_ref);
-	return string_value;
+	return GCStringValue::allocAndPush(allocator, hash, buf1, size1, buf2, size2 OS_DBG_FILEPOS);
 }
 
 OS::Core::GCStringValue * OS::Core::pushStringValue(const void * buf1, int size1, const void * buf2, int size2, const void * buf3, int size3)
@@ -16381,28 +15934,15 @@ OS::Core::GCCFunctionValue * OS::Core::pushCFunctionValue(OS_CFunction func, int
 		if(cfunc_refs.count > 0){
 			OS_ASSERT(cfunc_refs.heads && cfunc_refs.head_mask > 0);
 			int slot = hash & cfunc_refs.head_mask;
-			CFuncRef * cfunc_ref = cfunc_refs.heads[slot];
-			for(CFuncRef * prev = NULL, * next; cfunc_ref; cfunc_ref = next){
-				next = cfunc_ref->hash_next;
-				GCCFunctionValue * cfunc_value = (GCCFunctionValue*)values.get(cfunc_ref->cfunc_value_id);
-				if(!cfunc_value){
-					if(!prev){
-						cfunc_refs.heads[slot] = next;
-					}else{
-						prev->hash_next = next;					
-					}
-					free(cfunc_ref);
-					cfunc_refs.count--;
-					continue;
-				}
+			GCCFunctionValue * cfunc_value = cfunc_refs.heads[slot];
+			for(; cfunc_value; cfunc_value = cfunc_value->hash_next_ref){
 				OS_ASSERT(cfunc_value->type == OS_VALUE_TYPE_CFUNCTION);
 				OS_ASSERT(dynamic_cast<GCCFunctionValue*>(cfunc_value));
 				if(cfunc_value->func == func && cfunc_value->user_param == user_param){
-					OS_ASSERT(cfunc_ref->cfunc_hash == hash);
+					OS_ASSERT(cfunc_value->cfunc_hash == hash);
 					pushValue(cfunc_value);
 					return cfunc_value;
 				}
-				prev = cfunc_ref;
 			}
 		}
 	}	
@@ -16428,11 +15968,8 @@ OS::Core::GCCFunctionValue * OS::Core::pushCFunctionValue(OS_CFunction func, int
 	registerValueAndPush(res);
 
 	if(!num_closure_values){
-		CFuncRef * cfunc_ref = (CFuncRef*)malloc(sizeof(CFuncRef) OS_DBG_FILEPOS);
-		cfunc_ref->cfunc_hash = hash;
-		cfunc_ref->cfunc_value_id = res->value_id;
-		cfunc_ref->hash_next = NULL;
-		registerCFuncRef(cfunc_ref);
+		res->cfunc_hash = hash;
+		registerCFuncRef(res);
 	}
 	return res;
 }
@@ -16465,26 +16002,13 @@ OS::Core::GCUserdataValue * OS::Core::findUserPointerValue(void * ptr)
 	if(ptr && userptr_refs.count > 0){
 		OS_ASSERT(userptr_refs.heads && userptr_refs.head_mask > 0);
 		int slot = hash & userptr_refs.head_mask;
-		UserptrRef * userptr_ref = userptr_refs.heads[slot];
-		for(UserptrRef * prev = NULL, * next; userptr_ref; userptr_ref = next){
-			next = userptr_ref->hash_next;
-			GCUserdataValue * userptr_value = (GCUserdataValue*)values.get(userptr_ref->userptr_value_id);
-			if(!userptr_value){
-				if(!prev){
-					userptr_refs.heads[slot] = next;
-				}else{
-					prev->hash_next = next;					
-				}
-				free(userptr_ref);
-				userptr_refs.count--;
-				continue;
-			}
+		GCUserdataValue * userptr_value = userptr_refs.heads[slot];
+		for(; userptr_value; userptr_value = userptr_value->hash_next_ref){
 			OS_ASSERT(userptr_value->type == OS_VALUE_TYPE_USERPTR);
 			OS_ASSERT(dynamic_cast<GCUserdataValue*>(userptr_value));
 			if(userptr_value->ptr == ptr){ // && userptr_value->crc == crc){
 				return userptr_value;
 			}
-			prev = userptr_ref;
 		}
 	}
 	return NULL;
@@ -16496,39 +16020,16 @@ OS::Core::GCUserdataValue * OS::Core::pushUserPointerValue(int crc, void * ptr, 
 	if(userptr_refs.count > 0){
 		OS_ASSERT(userptr_refs.heads && userptr_refs.head_mask > 0);
 		int slot = hash & userptr_refs.head_mask;
-		UserptrRef * userptr_ref = userptr_refs.heads[slot];
-		for(UserptrRef * prev = NULL, * next; userptr_ref; userptr_ref = next){
-			next = userptr_ref->hash_next;
-			GCUserdataValue * userptr_value = (GCUserdataValue*)values.get(userptr_ref->userptr_value_id);
-			if(!userptr_value){
-				if(!prev){
-					userptr_refs.heads[slot] = next;
-				}else{
-					prev->hash_next = next;					
-				}
-				free(userptr_ref);
-				userptr_refs.count--;
-				continue;
-			}
+		GCUserdataValue * userptr_value = userptr_refs.heads[slot];
+		for(; userptr_value; userptr_value = userptr_value->hash_next_ref){
 			OS_ASSERT(userptr_value->type == OS_VALUE_TYPE_USERPTR);
 			OS_ASSERT(dynamic_cast<GCUserdataValue*>(userptr_value));
 			if(userptr_value->ptr == ptr){ // && userptr_value->crc == crc){
 				OS_ASSERT(userptr_value->crc == crc);
 				OS_ASSERT(userptr_value->dtor == dtor);
-				if(userptr_value->crc != crc){
-					if(!prev){
-						userptr_refs.heads[slot] = next;
-					}else{
-						prev->hash_next = next;					
-					}
-					free(userptr_ref);
-					userptr_refs.count--;
-					continue;
-				}
 				pushValue(userptr_value);
 				return userptr_value;
 			}
-			prev = userptr_ref;
 		}
 	}
 	gcFreeCandidateValues();
@@ -16543,12 +16044,7 @@ OS::Core::GCUserdataValue * OS::Core::pushUserPointerValue(int crc, void * ptr, 
 	res->ptr = ptr;
 	res->type = OS_VALUE_TYPE_USERPTR;
 	registerValueAndPush(res);
-
-	UserptrRef * userptr_ref = (UserptrRef*)malloc(sizeof(UserptrRef) OS_DBG_FILEPOS);
-	userptr_ref->userptr_hash = hash;
-	userptr_ref->userptr_value_id = res->value_id;
-	userptr_ref->hash_next = NULL;
-	registerUserptrRef(userptr_ref);
+	registerUserptrRef(res);
 
 	return res;
 }
@@ -16588,17 +16084,6 @@ OS::Core::GCArrayValue * OS::Core::pushArrayValue(int initial_capacity)
 void OS::Core::pushValue(const Value& p_val)
 {
 	OS_ASSERT((OS_U32)(intptr_t)p_val.getGCValue() != 0xdededede);
-#if 1
-#else
-	GCValue * value = p_val.getGCValue();
-	if(value && value->gc_color != GC_GREY){
-		if(value->value_id == 13480){
-			int i = 0;
-		}
-		value->gc_color = GC_GREY_WAIT;
-		// gcAddToGreyList_r(value);
-	}
-#endif
 	StackValues& stack_values = this->stack_values;
 	if(stack_values.capacity < stack_values.count+1){
 		Value val = p_val;
@@ -18149,7 +17634,7 @@ OS::Core::String OS::Core::getValueClassname(GCValue * value)
 	}
 #endif
 	if(value && value->name){
-		return OS::Core::String(value->name);
+		return OS::Core::String(allocator, value->name);
 	}
 	return OS::Core::String(allocator);
 }
@@ -24514,6 +23999,11 @@ void OS::initGCModule()
 			os->pushNumber(os->getMaxAllocatedBytes());
 			return 1;
 		}
+		static int getUsedBytes(OS * os, int params, int, int, void*)
+		{
+			os->pushNumber(os->getUsedBytes());
+			return 1;
+		}
 		static int getCachedBytes(OS * os, int params, int, int, void*)
 		{
 			os->pushNumber(os->getCachedBytes());
@@ -24543,6 +24033,7 @@ void OS::initGCModule()
 	FuncDef list[] = {
 		{OS_TEXT("__get@allocatedBytes"), GC::getAllocatedBytes},
 		{OS_TEXT("__get@maxAllocatedBytes"), GC::getMaxAllocatedBytes},
+		{OS_TEXT("__get@usedBytes"), GC::getUsedBytes},
 		{OS_TEXT("__get@cachedBytes"), GC::getCachedBytes},
 		{OS_TEXT("__get@numObjects"), GC::getNumObjects},
 		{OS_TEXT("__get@numCreatedObjects"), GC::getNumCreatedObjects},
@@ -24803,6 +24294,7 @@ void OS::Core::pushArguments(StackFunction * stack_func)
 				setPropertyValue(args, Value(args->values.count), arr->values[i], false);
 			}
 		}
+		retainValue(args);
 		stack_func->arguments = args;
 	}else{
 		pushValue(stack_func->arguments);
@@ -24835,6 +24327,7 @@ void OS::Core::pushRestArguments(StackFunction * stack_func)
 {
 	if(!stack_func->rest_arguments){
 		stack_func->rest_arguments = pushArrayValue();
+		retainValue(stack_func->rest_arguments);
 	}else{
 		pushValue(stack_func->rest_arguments);
 	}

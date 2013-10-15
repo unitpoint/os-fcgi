@@ -348,121 +348,8 @@ namespace ObjectScript
 
 			virtual int getAllocatedBytes() = 0;
 			virtual int getMaxAllocatedBytes() = 0;
+			virtual int getUsedBytes() = 0;
 			virtual int getCachedBytes() = 0;
-		};
-
-		class SmartMemoryManager: public MemoryManager
-		{
-		protected:
-
-			int allocated_bytes;
-			int max_allocated_bytes;
-			int cached_bytes;
-
-			struct PageDesc
-			{
-				int block_size;
-				int num_blocks;
-
-				int allocated_bytes;
-			};
-
-			struct Page
-			{
-				int index;
-				int num_cached_blocks;
-				Page * next_page;
-			};
-
-			struct CachedBlock
-			{
-#ifdef OS_DEBUG
-				int mark;
-#endif
-				Page * page;
-				CachedBlock * next;
-			};
-
-			struct MemBlock
-			{
-				Page * page;
-#ifdef OS_DEBUG
-				const OS_CHAR * dbg_filename;
-				int dbg_line;
-				int dbg_id;
-				MemBlock * dbg_mem_prev;
-				MemBlock * dbg_mem_next;
-#endif
-				int block_size;
-#ifdef OS_DEBUG
-				int mark;
-#endif
-			};
-
-			struct StdMemBlock
-			{
-#ifdef OS_DEBUG
-				const OS_CHAR * dbg_filename;
-				int dbg_line;
-				int dbg_id;
-				StdMemBlock * dbg_mem_prev;
-				StdMemBlock * dbg_mem_next;
-#endif
-				int block_size;
-#ifdef OS_DEBUG
-				int mark;
-#endif
-			};
-
-			enum {
-				MAX_PAGE_TYPE_COUNT = 17
-			};
-
-			PageDesc page_desc[MAX_PAGE_TYPE_COUNT];
-			int num_page_desc;
-
-			int * page_map;
-			int page_map_size;
-
-			Page * pages[MAX_PAGE_TYPE_COUNT];
-
-			CachedBlock * cached_blocks[MAX_PAGE_TYPE_COUNT];
-
-#ifdef OS_DEBUG
-			MemBlock * dbg_mem_list;
-			StdMemBlock * dbg_std_mem_list;
-			int dbg_breakpoint_id;
-#endif
-
-			int stat_malloc_count;
-			int stat_free_count;
-
-			void registerPageDesc(int block_size, int num_blocks);
-			
-			static int comparePageDesc(const void * pa, const void * pb);
-			void sortPageDesc();
-
-			void * allocFromCachedBlock(int i OS_DBG_FILEPOS_DECL);
-			void * allocFromPageType(int i OS_DBG_FILEPOS_DECL);
-			void freeMemBlock(MemBlock*);
-
-			void freeCachedMemory(int new_cached_bytes);
-
-			void * stdAlloc(int size OS_DBG_FILEPOS_DECL);
-			void stdFree(void * p);
-
-		public:
-
-			SmartMemoryManager();
-			~SmartMemoryManager();
-			
-			void * malloc(int size OS_DBG_FILEPOS_DECL);
-			void free(void * p);
-			void setBreakpointId(int id);
-
-			int getAllocatedBytes();
-			int getMaxAllocatedBytes();
-			int getCachedBytes();
 		};
 
 		struct Utils
@@ -670,8 +557,12 @@ namespace ObjectScript
 
 	protected:
 
+		friend class OSMemoryManagerOld;
+
 		class Core
 		{
+			friend class OSMemoryManagerOld;
+
 		public:
 
 			class StreamReader;
@@ -881,9 +772,10 @@ namespace ObjectScript
 				const OS_CHAR * str;
 #endif
 				GCStringValue * string;
+				OS * allocator;
 
 				String(OS*);
-				String(GCStringValue*);
+				String(OS * os, GCStringValue*);
 				String(const String&);
 				String(OS*, const String&, const String&);
 				String(OS*, const OS_CHAR*);
@@ -952,7 +844,8 @@ namespace ObjectScript
 			{
 			protected:
 
-				Core::GCStringValue * cacheStr;
+				Core::GCStringValue * cache_str;
+				OS * allocator;
 
 			public:
 
@@ -1322,8 +1215,10 @@ namespace ObjectScript
 				int data_size;
 				int hash;
 
+				GCStringValue * hash_next_ref;
+
 				GCStringValue(int p_data_size);
-				// ~GCStringValue();
+				~GCStringValue();
 
 				int getDataSize() const { return data_size; }
 				int getLen() const { return data_size/sizeof(OS_CHAR); }
@@ -1354,6 +1249,8 @@ namespace ObjectScript
 				void * ptr;
 				OS_UserdataDtor dtor;
 				void * user_param;
+				GCUserdataValue * hash_next_ref;
+				// ~GCUserdataValue();
 			};
 
 			struct GCCFunctionValue: public GCValue
@@ -1361,6 +1258,8 @@ namespace ObjectScript
 				OS_CFunction func;
 				void * user_param;
 				int num_closure_values;
+				int cfunc_hash;
+				GCCFunctionValue * hash_next_ref;
 			};
 
 			struct GCFunctionValue;
@@ -2334,16 +2233,17 @@ namespace ObjectScript
 				OS_U32 * opcodes;
 			};
 
-			struct StringRef
+			/* struct StringRef
 			{
 				int string_hash;
 				int string_value_id;
 				StringRef * hash_next;
-			};
+			}; */
 
 			struct StringRefs
 			{
-				StringRef ** heads;
+				// StringRef ** heads;
+				GCStringValue ** heads;
 				int head_mask;
 				int count;
 
@@ -2351,16 +2251,16 @@ namespace ObjectScript
 				~StringRefs();
 			};
 
-			struct UserptrRef
+			/* struct UserptrRef
 			{
 				int userptr_hash;
 				int userptr_value_id;
 				UserptrRef * hash_next;
-			};
+			}; */
 
 			struct UserptrRefs
 			{
-				UserptrRef ** heads;
+				GCUserdataValue ** heads;
 				int head_mask;
 				int count;
 
@@ -2368,16 +2268,16 @@ namespace ObjectScript
 				~UserptrRefs();
 			};
 
-			struct CFuncRef
+			/* struct CFuncRef
 			{
 				int cfunc_hash;
 				int cfunc_value_id;
 				CFuncRef * hash_next;
-			};
+			}; */
 
 			struct CFuncRefs
 			{
-				CFuncRef ** heads;
+				GCCFunctionValue ** heads;
 				int head_mask;
 				int count;
 
@@ -2598,7 +2498,7 @@ namespace ObjectScript
 			bool gc_fix_in_progress;
 
 			void registerFreeCandidateValue(GCValue * value);
-			void unregisterFreeCandidateValue(int value_id);
+			void unregisterFreeCandidateValue(GCValue * value);
 			void deleteFreeCandidateValues();
 			void gcFreeCandidateValues(bool full = false);
 			void gcFull();
@@ -2759,6 +2659,7 @@ namespace ObjectScript
 			GCStringValue * pushStringValue(const void * buf, int size);
 			GCStringValue * pushStringValue(const void * buf1, int size1, const void * buf2, int size2);
 			GCStringValue * pushStringValue(const void * buf1, int size1, const void * buf2, int size2, const void * buf3, int size3);
+			GCStringValue * pushStringValue(GCStringValue*);
 			GCStringValue * pushStringValue(GCStringValue*, GCStringValue*);
 			GCStringValue * pushStringValue(OS_INT);
 			GCStringValue * pushStringValue(OS_FLOAT);
@@ -2850,17 +2751,17 @@ namespace ObjectScript
 
 			int syncRetValues(int need_ret_values, int cur_ret_values);
 
-			void registerStringRef(StringRef*);
-			void unregisterStringRef(StringRef*);
+			void registerStringRef(GCStringValue*);
+			void unregisterStringRef(GCStringValue*);
 			void deleteStringRefs();
 
-			void registerUserptrRef(UserptrRef*);
-			void unregisterUserptrRef(UserptrRef*);
+			void registerUserptrRef(GCUserdataValue*);
+			void unregisterUserptrRef(GCUserdataValue*);
 			void unregisterUserptrRef(void*, int);
 			void deleteUserptrRefs();
 
-			void registerCFuncRef(CFuncRef*);
-			void unregisterCFuncRef(CFuncRef*);
+			void registerCFuncRef(GCCFunctionValue*);
+			void unregisterCFuncRef(GCCFunctionValue*);
 			void unregisterCFuncRef(OS_CFunction, void*, int);
 			void deleteCFuncRefs();
 
@@ -3011,20 +2912,20 @@ namespace ObjectScript
 
 		protected:
 
-			OS * allocator;
+			// OS * allocator;
 			String(OS*, Core::GCStringValue*);
 
 		public:
 
 			String(OS*);
 			String(const String&);
-			String(OS*, const Core::String&);
-			String(OS*, const Core::String&, const Core::String&);
+			String(const Core::String&);
+			String(const Core::String&, const Core::String&);
 			String(OS*, const OS_CHAR*);
 			String(OS*, const OS_CHAR*, int len);
 			String(OS*, const OS_CHAR*, int len, const OS_CHAR*, int len2);
 			String(OS*, const OS_CHAR*, int len, bool trim_left, bool trim_right);
-			String(OS*, const Core::String&, bool trim_left, bool trim_right);
+			String(const Core::String&, bool trim_left, bool trim_right);
 			String(OS*, const void*, int size);
 			String(OS*, const void * buf1, int len1, const void * buf2, int len2);
 			String(OS*, OS_INT value);
@@ -3033,13 +2934,16 @@ namespace ObjectScript
 			~String();
 
 			String& operator=(const Core::String&);
-			String& operator=(const String&);
-			String& operator+=(const String&);
+			// String& operator=(const String&);
+			String& operator+=(const Core::String&);
 			String& operator+=(const OS_CHAR*);
-			String operator+(const String&) const;
+			String operator+(const Core::String&) const;
 			String operator+(const OS_CHAR*) const;
 
 			String trim(bool trim_left = true, bool trim_right = true) const;
+
+			static String format(OS*, const OS_CHAR * fmt, ...);
+			static String formatVa(OS*, const OS_CHAR * fmt, va_list va);
 		};
 
 		static OS * create(MemoryManager* = NULL);
@@ -3064,6 +2968,7 @@ namespace ObjectScript
 
 		int getAllocatedBytes();
 		int getMaxAllocatedBytes();
+		int getUsedBytes();
 		int getCachedBytes();
 
 		void setMemBreakpointId(int id);

@@ -63,7 +63,7 @@ public:
 			close();
 		}
 
-		OS::String getType() const { return OS::String(os, type); }
+		OS::String getType() const { return OS::String(type); }
 
 		void begin()
 		{
