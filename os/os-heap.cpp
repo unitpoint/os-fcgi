@@ -9,8 +9,6 @@ using namespace ObjectScript;
 #define STD_MALLOC ::malloc
 #define STD_FREE ::free
 
-#define OS_SNPRINTF sprintf_s
-
 // #define USE_STD_MALLOC
 #define FREE_FREEPAGES
 #define FIND_BEST_FREE_BLOCK
@@ -34,6 +32,31 @@ using namespace ObjectScript;
 #define DUMMY_LARGE_FREE_ID_POST 0xded5aea5
 
 #define SAVE_EFS_SIZE (1024*10)
+
+#if defined __GNUC__ || defined IW_SDK
+
+int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
+{
+	return vsnprintf(str, size, format, va);
+}
+
+#else
+
+int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
+{
+	return vsnprintf_s(str, size, size/sizeof(OS_CHAR), format, va);
+}
+
+#endif
+
+int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
+{
+	va_list va;
+	va_start(va, format);
+	int ret = OS_VSNPRINTF(str, size, format, va);
+	va_end(va);
+	return ret;
+}
 
 void OSHeapManager::SimpleStats::registerAlloc(OS_U32 used_size, OS_U32 data_size)
 {
