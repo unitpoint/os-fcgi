@@ -237,21 +237,21 @@ static void checkFlagClear(int instruction, int flag)
 
 #if defined __GNUC__ || defined IW_SDK
 
-int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
+static int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
 {
 	return vsnprintf(str, size, format, va);
 }
 
 #else
 
-int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
+static int OS_VSNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, va_list va)
 {
 	return vsnprintf_s(str, size, size/sizeof(OS_CHAR), format, va);
 }
 
 #endif
 
-int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
+static int OS_SNPRINTF(OS_CHAR * str, size_t size, const OS_CHAR *format, ...)
 {
 	va_list va;
 	va_start(va, format);
