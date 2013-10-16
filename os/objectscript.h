@@ -90,7 +90,7 @@ inline void operator delete(void *, void *){}
 #if defined __GNUC__ 
 #include <inttypes.h>
 
-#define OS_INT int
+#define OS_INT int64_t	// dependence on OS_NUMBER
 #define OS_INT32 int32_t
 #define OS_INT64 int64_t
 #define OS_U32 uint32_t
@@ -98,7 +98,7 @@ inline void operator delete(void *, void *){}
 
 #elif defined IW_SDK
 
-#define OS_INT int
+#define OS_INT int64	// dependence on OS_NUMBER
 #define OS_INT32 int32
 #define OS_INT64 int64
 #define OS_U32 uint32
@@ -106,7 +106,7 @@ inline void operator delete(void *, void *){}
 
 #else
 
-#define OS_INT __int64
+#define OS_INT __int64	// dependence on OS_NUMBER
 #define OS_INT32 __int32
 #define OS_INT64 __int64
 #define OS_U32 unsigned __int32
