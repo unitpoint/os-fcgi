@@ -51,11 +51,11 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("8")
-#define OS_VERSION_RELEASE	OS_TEXT("-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("1-dev")
 
-#define OS_VERSION		OS_TEXT("OS ") OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR
+#define OS_VERSION		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR
 #define OS_VERSION_EX	OS_VERSION OS_TEXT(".") OS_VERSION_RELEASE
-#define OS_COPYRIGHT	OS_VERSION_EX OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
+#define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_EX OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/objectscript")
 
 #if defined _DEBUG && !defined OS_RELEASE && !defined OS_DEBUG
@@ -106,7 +106,7 @@ inline void operator delete(void *, void *){}
 
 #else
 
-#define OS_INT int
+#define OS_INT __int64
 #define OS_INT32 __int32
 #define OS_INT64 __int64
 #define OS_U32 unsigned __int32
