@@ -694,50 +694,15 @@ public:
 		if(script < argc){
 			String script_filename(this, argv[script]);
 		
-			getGlobal("_SERVER");
-			pushString("SCRIPT_FILENAME");
-			pushString(script_filename);
-			setProperty();
-
 			if(script_filename.isEmpty()){
-				echo("Filename is not defined\n");
+				echo("filename is not defined\n");
 			}else{
-#if 0
-				if(getFilename(script_filename).isEmpty()){
-					String new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_TEMPLATE;
-					if(!isFileExist(new_script_filename)){
-						new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_SOURCECODE;
-						new_script_filename = resolvePath(new_script_filename);
-					}
-					script_filename = new_script_filename;
-				}
-#endif	
-				String ext = getFilenameExt(script_filename);
-				if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
-					require(script_filename, true);
-					// triggerShutdownFunctions();
-				}else{
-	#if 1
-					printf("Error ObjectScript file: %s\n", script_filename.toChar());
-	#else
-					FileHandle * f = openFile(script_filename, "rb");
-					if(f){
-						const int BUF_SIZE = 1024*256;
-						int size = getFileSize(f);
-						void * buf = malloc(BUF_SIZE < size ? BUF_SIZE : size OS_DBG_FILEPOS);
-						for(int i = 0; i < size; i += BUF_SIZE){
-							int len = BUF_SIZE < size - i ? BUF_SIZE : size - i;
-							readFile(buf, len, f);
-							echo((const void*)buf, len);
-						}
-						free(buf);				
-						closeFile(f);
-					}else{
-						// FCGX_PutS("Error open file: ", request->out);
-						// FCGX_PutS(script_filename, request->out);
-					}
-	#endif
-				}
+				getGlobal("_SERVER");
+				pushString("SCRIPT_FILENAME");
+				pushString(script_filename);
+				setProperty();
+
+				require(script_filename, true);
 			}
 		}
 		if(args[has_i]){ /* -i option? */
