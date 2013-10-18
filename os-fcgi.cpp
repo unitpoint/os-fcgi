@@ -44,6 +44,8 @@
 
 using namespace ObjectScript;
 
+// #define USE_BUFFERED_OUTPUT
+
 class FCGX_OS: public OS
 {
 protected:
@@ -51,19 +53,25 @@ protected:
 	FCGX_Request * request;
 	int shutdown_funcs_id;
 	bool header_sent;
+#ifdef USE_BUFFERED_OUTPUT
 	Core::Buffer * buffer;
+#endif
 	Core::String * cache_path;
 
 	virtual ~FCGX_OS()
 	{
+#ifdef USE_BUFFERED_OUTPUT
 		OS_ASSERT(!buffer);
+#endif
 	}
 
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
-			// core->gc_start_used_bytes = 32*1024*1024;
+			setGCStartUsedBytes(32 * 1024 * 1024);
+#ifdef USE_BUFFERED_OUTPUT			
 			buffer = new (malloc(sizeof(Core::Buffer) OS_DBG_FILEPOS)) Core::Buffer(this);
+#endif
 			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
 #ifdef _MSC_VER
 				"cache-osc"
@@ -99,7 +107,9 @@ protected:
 	virtual void shutdown()
 	{
 		deleteObj(cache_path);
+#ifdef USE_BUFFERED_OUTPUT
 		deleteObj(buffer);
+#endif
 		OS::shutdown();
 	}
 
@@ -109,7 +119,9 @@ public:
 	{
 		request = NULL;
 		header_sent = false;
+#ifdef USE_BUFFERED_OUTPUT
 		buffer = NULL;
+#endif
 	}
 
 	void initPreScript()
@@ -146,15 +158,18 @@ public:
 
 	void flushBuffer()
 	{
+#ifdef USE_BUFFERED_OUTPUT
 		if(buffer->buffer.count > 0){
 			FCGX_PutStr((const char*)buffer->buffer.buf, buffer->buffer.count, request->out);
 			buffer->buffer.count = 0;
 			buffer->pos = 0;
 		}
+#endif
 	}
 
 	void appendBuffer(const void * buf, int size)
 	{
+#ifdef USE_BUFFERED_OUTPUT
 		OS_ASSERT(buffer);
 		const int MAX_BUFFER = 32*1024;
 		if(buffer->buffer.count + size > MAX_BUFFER){
@@ -165,6 +180,9 @@ public:
 			}
 		}
 		buffer->append(buf, size);
+#else
+		FCGX_PutStr((char*)buf, size, request->out);
+#endif
 	}
 
 	void appendBuffer(const OS_CHAR * str)
@@ -543,8 +561,11 @@ public:
 		triggerShutdownFunctions();
 		flushBuffer();
 		
-		// FCGX_Finish_r(request);
+#if 1
+		FCGX_Finish_r(request);
+#else
 		FCGX_FFlush(request->out);
+#endif
 	}
 
 	const OS_CHAR * getContentType(const OS_CHAR * ext)
@@ -630,7 +651,7 @@ void * doit(void * a)
 		os->processRequest(request);
         os->release();
 
-		FCGX_Finish_r(request);
+		// FCGX_Finish_r(request);
     }
 	// we are not here
 	delete request;
