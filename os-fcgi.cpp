@@ -512,7 +512,7 @@ public:
 				header_sent = true;
 				FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
 			}
-			FCGX_PutS("Filename is not defined", request->out);
+			FCGX_PutS("script filename is not defined", request->out);
 		}else{
 			if(getFilename(script_filename).isEmpty()){
 				String new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_TEMPLATE;
@@ -533,6 +533,7 @@ public:
 					FCGX_PutS("<h1>Server is just ready to use ObjectScript</h1>", request->out);
 				}
 			}else{
+				// print requested file, it's not recommended, only ObjectScript scripts are recommended
 				if(!header_sent){
 					header_sent = true;
 					FCGX_PutS("Content-type: ", request->out);
@@ -574,6 +575,8 @@ public:
 			ext++;
 		}
 		static const OS_CHAR * mime_types[][2] = {
+			{OS_EXT_SOURCECODE, "text/os"},
+			{OS_EXT_TEMPLATE, "text/osh"},
 			{"html", "text/html"},
 			{"htm", "text/html"},
 			{"js", "text/javascript"},
@@ -585,8 +588,6 @@ public:
 			{"ico", "image/x-icon"},
 			{"txt", "text/plain"},
 			{"log", "text/plain"},
-			{OS_EXT_SOURCECODE, "text/os"},
-			{OS_EXT_TEMPLATE, "text/osh"},
 			{}
 		};
 		for(int i = 0;; i++){

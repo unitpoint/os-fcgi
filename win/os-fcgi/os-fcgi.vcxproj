@@ -270,7 +270,9 @@
     <ClCompile Include="..\..\os\ext-regexp\os-regexp.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\os-sqlite3.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\sqlite3.c" />
-    <ClCompile Include="..\..\os\objectscript.cpp" />
+    <ClCompile Include="..\..\os\objectscript.cpp">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">All</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="..\..\3rdparty\pcrelib\pcreposix.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_chartables.c" />
     <ClCompile Include="..\..\3rdparty\pcrelib\pcre_compile.c" />
