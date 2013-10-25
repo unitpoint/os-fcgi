@@ -507,41 +507,70 @@ public:
 		getGlobal("_SERVER");
 		getProperty("SCRIPT_FILENAME");
 		String script_filename = popString();
-		if(script_filename.isEmpty()){
-			if(!header_sent){
-				header_sent = true;
-				FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
+		do{
+			static const char * not_found = "Content-type: text/html\r\n"
+				"Status: 404 Not Found\r\n"
+				"\r\n\r\n"
+				"<html><head><title>404 Not Found</title></head><body bgcolor=\"white\">"
+				"<center><h1>404 Not Found</h1></center><hr><center>"
+					"ObjectScript " OS_VERSION_STR "<br />"
+					// OS_COPYRIGHT "<br />"
+					OS_OPENSOURCE
+				"</center></body></html>"
+				;
+			if(script_filename.isEmpty()){
+				if(!header_sent){
+					header_sent = true;
+					FCGX_PutS(not_found, request->out);
+				}else
+					FCGX_PutS("Filename is not found", request->out);
+				break;
 			}
-			FCGX_PutS("script filename is not defined", request->out);
-		}else{
 			if(getFilename(script_filename).isEmpty()){
-				String new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_TEMPLATE;
-				if(!isFileExist(new_script_filename)){
-					new_script_filename = script_filename + OS_TEXT("index") + OS_EXT_SOURCECODE;
-					new_script_filename = resolvePath(new_script_filename);
+				static const char * ext[] = {
+					OS_EXT_TEMPLATE,
+					OS_EXT_SOURCECODE,
+					OS_EXT_TEMPLATE_HTML,
+					OS_EXT_TEMPLATE_HTM,
+					NULL
+				};
+				bool found = false;
+				for(int i = 0; ext[i]; i++){
+					String new_script_filename = script_filename + OS_TEXT("index") + ext[i];
+					if(isFileExist(new_script_filename)){
+						script_filename = new_script_filename;
+						found = true;
+						break;
+					}
 				}
-				script_filename = new_script_filename;
+				if(!found){
+					if(!header_sent){
+						header_sent = true;
+						FCGX_PutS(not_found, request->out);
+					}else
+						FCGX_PutS("Filename is not found", request->out);
+					break;
+				}
 			}
-		
 			String ext = getFilenameExt(script_filename);
 			if(ext == OS_EXT_SOURCECODE || ext == OS_EXT_TEMPLATE || ext == OS_EXT_TEMPLATE_HTML || ext == OS_EXT_TEMPLATE_HTM){
 				require(script_filename, true);
 				triggerShutdownFunctions();
 				if(!header_sent){
 					header_sent = true;
-					FCGX_PutS("Content-type: text/plain\r\n\r\n", request->out);
+					FCGX_PutS("Content-type: text/html\r\n\r\n", request->out);
 					FCGX_PutS("<h1>Server is just ready to use ObjectScript</h1>", request->out);
 				}
 			}else{
 				// print requested file, it's not recommended, only ObjectScript scripts are recommended
-				if(!header_sent){
-					header_sent = true;
-					FCGX_PutS("Content-type: ", request->out);
-					FCGX_PutS(getContentType(ext), request->out);
-					FCGX_PutS("\r\n\r\n", request->out);
-				}
 				FileHandle * f = openFile(script_filename, "rb");
 				if(f){
+					if(!header_sent){
+						header_sent = true;
+						FCGX_PutS("Content-type: ", request->out);
+						FCGX_PutS(getContentType(ext), request->out);
+						FCGX_PutS("\r\n\r\n", request->out);
+					}
 					const int BUF_SIZE = 1024*256;
 					int size = getFileSize(f);
 					void * buf = malloc(BUF_SIZE < size ? BUF_SIZE : size OS_DBG_FILEPOS);
@@ -553,11 +582,14 @@ public:
 					free(buf);				
 					closeFile(f);
 				}else{
-					// FCGX_PutS("Error open file: ", request->out);
-					// FCGX_PutS(script_filename, request->out);
+					if(!header_sent){
+						header_sent = true;
+						FCGX_PutS(not_found, request->out);
+					}else
+						FCGX_PutS("Filename is not found", request->out);
 				}
 			}
-		}
+		}while(false);
 
 		triggerShutdownFunctions();
 		flushBuffer();
