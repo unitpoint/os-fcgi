@@ -51,7 +51,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("8")
-#define OS_VERSION_RELEASE	OS_TEXT("3-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("4-dev")
 
 #define OS_VERSION_STR		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_STR OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
@@ -2009,7 +2009,7 @@ namespace ObjectScript
 				};
 
 				Expression * expectSingleExpression(Scope*, const Params& p);
-				Expression * expectSingleExpression(Scope*, bool allow_nop_result = false, bool allow_inline_nested_block = false);
+				Expression * expectSingleExpression(Scope*, bool allow_nop_result = false, bool allow_inline_nested_block = false, bool allow_params = true);
 
 				Expression * expectExpressionValues(Expression * exp, int ret_values, bool auto_no_values = false);
 				Expression * newExpressionFromList(ExpressionList& list, int ret_values, bool auto_no_values = false);

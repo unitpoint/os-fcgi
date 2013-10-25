@@ -3046,9 +3046,14 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, ExpressionList& list, bool 
 					int prev_a = OS_GETARG_A(prev);
 					int cur_a = OS_GETARG_A(cur);
 					if(prev_a == OS_GETARG_B(cur) && cur_a == OS_GETARG_B(prev)){
+						/*
+							this optimization is incorrect for following code
+							f = n || f
+
 						OS_SETARG_B(cur, cur_a); // use value
 						prog_opcodes[prog_opcodes.count - 1] = cur;
 						start = prog_opcodes.count + 1;
+						*/
 					}else if(prev_a+1 == cur_a){
 						Instruction instruction = OS_FROM_OPCODE_TYPE(OP_MOVE2);
 						OS_SETARG_A(instruction, prev_a);
@@ -7525,7 +7530,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectThrowExpression(Scope
 	if(!expectToken()){
 		return NULL;
 	}
-	Expression * exp = expectSingleExpression(scope);
+	Expression * exp = expectSingleExpression(scope, false, false, false);
 	if(!exp){
 		return NULL;
 	}
@@ -8589,13 +8594,14 @@ bool OS::Core::Compiler::isVarNameValid(const String& name)
 		);
 }
 
-OS::Core::Compiler::Expression * OS::Core::Compiler::expectSingleExpression(Scope * scope, bool allow_nop_result, bool allow_inline_nested_block)
+OS::Core::Compiler::Expression * OS::Core::Compiler::expectSingleExpression(Scope * scope, bool allow_nop_result, 
+	bool allow_inline_nested_block, bool allow_params)
 {
 	return expectSingleExpression(scope, Params()
 		.setAllowAssign(true)
 		.setAllowAutoCall(true)
 		.setAllowBinaryOperator(true)
-		.setAllowParams(true)
+		.setAllowParams(allow_params)
 		.setAllowRootBlocks(true)
 		.setAllowNopResult(allow_nop_result)
 		.setAllowInlineNestedBlock(allow_inline_nested_block));
@@ -19493,6 +19499,7 @@ corrupted:
 		OS_CASE_OPCODE_ALL(OP_MOVE):
 			// a = OS_GETARG_A(instruction);
 			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
+			// a = OS_GETARG_A(instruction);
 			b = OS_GETARG_B(instruction);
 			stack_func_locals[OS_GETARG_A(instruction)] = OS_GETARG_B_VALUE();
 			break;
@@ -20072,9 +20079,9 @@ void OS::setGlobal(const Core::String& name, bool setter_enabled)
 	if(core->stack_values.count >= 1){
 		Core::Value object = core->global_vars;
 		Core::Value value = core->stack_values[core->stack_values.count - 1];
-		Core::Value index = core->pushStringValue(name);
+		Core::Value index = name;
 		core->setPropertyValue(object, index, value, setter_enabled);
-		pop(2);
+		pop(1);
 	}
 }
 
