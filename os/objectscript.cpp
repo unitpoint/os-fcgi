@@ -3033,12 +3033,12 @@ void OS::Core::Compiler::fixJumpOpcode(int offs, int pos)
 
 bool OS::Core::Compiler::writeOpcodes(Scope * scope, ExpressionList& list, bool optimization_enabled)
 {
-	int start = prog_opcodes.count + 2;
+	prog_optimize_offs = prog_opcodes.count;
 	for(int i = 0; i < list.count; i++){
 		if(!writeOpcodes(scope, list[i])){
 			return false;
 		}
-		if(optimization_enabled && prog_opcodes.count >= start){
+		if(optimization_enabled && prog_opcodes.count - prog_optimize_offs >= 2){
 			Instruction prev = prog_opcodes[prog_opcodes.count - 2];
 			if(OS_GET_OPCODE_TYPE(prev) == OP_MOVE){
 				Instruction cur = prog_opcodes[prog_opcodes.count - 1];
@@ -3068,7 +3068,7 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, ExpressionList& list, bool 
 							instruction |= OS_OPCODE_CONST_C;
 						}
 						prog_opcodes[prog_opcodes.count - 2] = instruction;
-						start = --prog_opcodes.count;
+						prog_optimize_offs = --prog_opcodes.count;
 					}
 				}
 			}
@@ -3335,7 +3335,7 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 			if(!writeOpcodes(scope, exp->list[1])){
 				return false;
 			}
-			int if_jump_to = getOpcodePos();
+			int if_jump_to = prog_optimize_offs = getOpcodePos();
 			if(exp->list.count == 3){ // && exp->list[2]->list.count > 0){
 				int jump_pos = writeOpcode(OP_JUMP);
 				
@@ -3343,6 +3343,7 @@ bool OS::Core::Compiler::writeOpcodes(Scope * scope, Expression * exp)
 				if(!writeOpcodes(scope, exp->list[2])){
 					return false;
 				}
+				prog_optimize_offs = getOpcodePos();
 				fixJumpOpcode(getOpcodePos() - jump_pos - 1, jump_pos);
 			}
 			fixJumpOpcode(if_jump_to - if_jump_pos - 1, if_jump_pos);
@@ -3729,6 +3730,7 @@ OS::Core::Compiler::Compiler(Tokenizer * p_tokenizer)
 	prog_numbers_table = NULL;
 	prog_filename_string_index = 0;
 	prog_max_up_count = 0;
+	prog_optimize_offs = 0;
 }
 
 OS::Core::Compiler::~Compiler()
@@ -5298,6 +5300,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			case EXP_TYPE_CONCAT:
 			case EXP_TYPE_BEFORE_INJECT_VAR:
 			case EXP_TYPE_AFTER_INJECT_VAR:
+			/*
 			case EXP_TYPE_LOGIC_PTR_EQ:
 			case EXP_TYPE_LOGIC_PTR_NE:
 			case EXP_TYPE_LOGIC_EQ:
@@ -5306,6 +5309,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 			case EXP_TYPE_LOGIC_LE:
 			case EXP_TYPE_LOGIC_GREATER:
 			case EXP_TYPE_LOGIC_LESS:
+			*/
 			case EXP_TYPE_BIT_AND:
 			case EXP_TYPE_BIT_OR:
 			case EXP_TYPE_BIT_XOR:
@@ -16600,7 +16604,8 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& value)
 				core->call(0, 1);
 				return;
 			}
-			core->allocator->setException(String::format(core->allocator, OS_TEXT("method %s is not implemented"), method_name.toChar()));
+			core->allocator->setException(String::format(core->allocator, OS_TEXT("method %s is not implemented in %s"), 
+				method_name.toChar(), core->getValueClassname(value).toChar()));
 			core->pushNull();
 		}
 	};
@@ -16670,7 +16675,10 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 				core->call(1, 1);
 				return;
 			}
-			core->allocator->setException(String::format(core->allocator, OS_TEXT("method %s is not implemented"), method_name.toChar()));
+			core->allocator->setException(String::format(core->allocator, OS_TEXT("method %s is not implemented in %s and %s is not implemented in %s"), 
+				method_name.toChar(), core->getValueClassname(left_value).toChar(),
+				reverse_method_name.toChar(), core->getValueClassname(right_value).toChar()
+				));
 			core->pushNull();
 		}
 	};
@@ -17791,6 +17799,21 @@ OS::Core::String OS::Core::getValueClassname(GCValue * value)
 	if(value && value->name){
 		return OS::Core::String(allocator, value->name);
 	}
+	switch(value->type){
+	case OS_VALUE_TYPE_ARRAY:
+		return OS::Core::String(allocator, OS_TEXT("Array"));
+
+	case OS_VALUE_TYPE_OBJECT:
+		return OS::Core::String(allocator, OS_TEXT("Object"));
+
+	case OS_VALUE_TYPE_USERDATA:
+	case OS_VALUE_TYPE_USERPTR:
+		return OS::Core::String(allocator, OS_TEXT("Userdata"));
+
+	case OS_VALUE_TYPE_FUNCTION:
+	case OS_VALUE_TYPE_CFUNCTION:
+		return OS::Core::String(allocator, OS_TEXT("Function"));
+	}
 	return OS::Core::String(allocator);
 }
 
@@ -17799,6 +17822,16 @@ OS::Core::String OS::Core::getValueClassname(const Value& val)
 	if(OS_IS_VALUE_GC(val)){
 		Core::GCValue * value = OS_VALUE_VARIANT(val).value;
 		return getValueClassname(value);
+	}
+	switch(OS_VALUE_TYPE(val)){
+	case OS_VALUE_TYPE_NULL:
+		return OS::Core::String(allocator, OS_TEXT("Null"));
+
+	case OS_VALUE_TYPE_NUMBER:
+		return OS::Core::String(allocator, OS_TEXT("Number"));
+
+	case OS_VALUE_TYPE_BOOL:
+		return OS::Core::String(allocator, OS_TEXT("Boolean"));
 	}
 	return OS::Core::String(allocator);
 }
@@ -19499,9 +19532,9 @@ corrupted:
 		OS_CASE_OPCODE_ALL(OP_MOVE):
 			// a = OS_GETARG_A(instruction);
 			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
-			// a = OS_GETARG_A(instruction);
+			a = OS_GETARG_A(instruction);
 			b = OS_GETARG_B(instruction);
-			stack_func_locals[OS_GETARG_A(instruction)] = OS_GETARG_B_VALUE();
+			stack_func_locals[a] = OS_GETARG_B_VALUE();
 			break;
 
 		OS_CASE_OPCODE_ALL(OP_MOVE2):

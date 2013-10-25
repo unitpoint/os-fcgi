@@ -51,7 +51,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("8")
-#define OS_VERSION_RELEASE	OS_TEXT("4-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("5-dev")
 
 #define OS_VERSION_STR		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_STR OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
@@ -1948,6 +1948,7 @@ namespace ObjectScript
 				Vector<DebugInfoItem> prog_debug_info;
 				int prog_filename_string_index;
 				int prog_max_up_count;
+				int prog_optimize_offs;
 
 				bool isError();
 				void resetError();
