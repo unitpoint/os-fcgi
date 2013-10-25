@@ -55,7 +55,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_STR		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_STR OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
-#define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/objectscript")
+#define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
 #if defined _DEBUG && !defined OS_RELEASE && !defined OS_DEBUG
 #define OS_DEBUG

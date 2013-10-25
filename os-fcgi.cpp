@@ -44,6 +44,8 @@
 
 using namespace ObjectScript;
 
+#define OS_FCGI_VERSION_STR	OS_TEXT("1.0-dev")
+
 // #define USE_BUFFERED_OUTPUT
 
 class FCGX_OS: public OS
@@ -744,11 +746,18 @@ int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char * argv[])
 #endif
 {
+	printf("ObjectScript FastCGI Process Manager %s\n", OS_FCGI_VERSION_STR);
+	printf("%s\n", OS_COPYRIGHT);
+	printf("%s\n", OS_OPENSOURCE);
+
 #ifndef _MSC_VER
 	demonize();
 #endif
 
 	if(FCGX_Init()){
+#ifdef _MSC_VER
+		printf("Error: fastcgi library initialization is failed\n");
+#endif
 		exit(1); 
 	}
 
@@ -761,12 +770,19 @@ int main(int argc, char * argv[])
 		exit(1);
 	}
 
+#ifdef _MSC_VER
+	printf("listen: %s\n", port);
+#endif
+
 #ifndef _MSC_VER
 	const int THREAD_COUNT = 8;
+	// printf("threads: %d\n", THREAD_COUNT);
 	pthread_t id[THREAD_COUNT];
 	for(int i = 1; i < THREAD_COUNT; i++){
         pthread_create(&id[i], NULL, doit, (void*)listen_socket);
 	}
+#else
+	printf("threads: %d\n", 1);
 #endif
 	doit((void*)listen_socket);
 

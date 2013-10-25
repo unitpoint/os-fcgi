@@ -358,12 +358,15 @@ public:
 	void printUsage(char ** argv, const char *badoption)
 	{
 		char * progname = argv[0] && argv[0][0] ? argv[0] : "unknown progname";
-		printf("%s: ", progname);
-		if(badoption[1] == 'e' || badoption[1] == 'l')
-			printf("'%s' needs argument\n", badoption);
-		else
-			printf("unrecognized option '%s'\n", badoption);
-		
+		if(badoption){
+			printf("%s: ", progname);
+			if(badoption[1] == 'e' || badoption[1] == 'l')
+				printf("'%s' needs argument\n", badoption);
+			else
+				printf("unrecognized option '%s'\n", badoption);
+		}else{
+			printVersion();
+		}
 		printf(
 			"Usage: %s [options] [script [args]]\n"
 			"available options are:\n"
@@ -639,6 +642,10 @@ public:
 
 	void processRequest(int argc, char * argv[])
 	{
+		if(argc == 1){
+			printUsage(argv, NULL);
+			return;
+		}
 		int args[NUM_HAS];
 		args[has_i] = args[has_v] = args[has_e] = args[has_E] = 0;
 		int script = collectArgs(argc, argv, args);
