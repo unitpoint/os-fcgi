@@ -16872,20 +16872,20 @@ void OS::Core::setGlobalValue(const OS_CHAR * name, Value value, bool setter_ena
 
 int OS::Core::getStackOffs(int offs)
 {
-	return offs <= 0 ? stack_values.count + offs + 1 : offs;
+	return offs < 0 ? stack_values.count + offs : offs;
 }
 
 OS::Core::Value OS::Core::getStackValue(int offs)
 {
 	StackValues& stack_values = this->stack_values;
-	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
+	offs = offs < 0 ? stack_values.count + offs : offs;
 	if(offs >= 0 && offs < stack_values.count){
 		return stack_values.buf[offs];
 	}
-	if(offs == OS_REGISTER_GLOBALS - 1){
+	if(offs == OS_REGISTER_GLOBALS){
 		return global_vars;
 	}
-	if(offs == OS_REGISTER_USERPOOL - 1){
+	if(offs == OS_REGISTER_USERPOOL){
 		return user_pool;
 	}
 	// OS_ASSERT(false);
@@ -16936,7 +16936,7 @@ void OS::Core::removeStackValues(int offs, int count)
 		return;
 	}
 	StackValues& stack_values = this->stack_values;
-	int start = offs <= 0 ? stack_values.count + offs : offs - 1;
+	int start = offs < 0 ? stack_values.count + offs : offs;
 	if(start < 0 || start >= stack_values.count){
 		OS_ASSERT(false);
 		return;
@@ -16989,7 +16989,7 @@ void OS::Core::moveStackValues(int offs, int count, int new_offs)
 		return;
 	}
 	StackValues& stack_values = this->stack_values;
-	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
+	offs = offs < 0 ? stack_values.count + offs : offs;
 	if(offs < 0 || offs >= stack_values.count){
 		OS_ASSERT(false);
 		return;
@@ -16999,7 +16999,7 @@ void OS::Core::moveStackValues(int offs, int count, int new_offs)
 		OS_ASSERT(false);
 		return;
 	}
-	new_offs = new_offs <= 0 ? stack_values.count + new_offs : new_offs - 1;
+	new_offs = new_offs < 0 ? stack_values.count + new_offs : new_offs;
 	if(new_offs < 0 || new_offs >= stack_values.count){
 		OS_ASSERT(false);
 		return;
@@ -17022,13 +17022,13 @@ void OS::Core::moveStackValues(int offs, int count, int new_offs)
 void OS::Core::moveStackValue(int offs, int new_offs)
 {
 	StackValues& stack_values = this->stack_values;
-	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
+	offs = offs < 0 ? stack_values.count + offs : offs;
 	if(offs < 0 || offs >= stack_values.count){
 		OS_ASSERT(false);
 		return;
 	}
 
-	new_offs = new_offs <= 0 ? stack_values.count + new_offs : new_offs - 1;
+	new_offs = new_offs < 0 ? stack_values.count + new_offs : new_offs;
 	if(new_offs < 0 || new_offs >= stack_values.count){
 		OS_ASSERT(false);
 		return;
@@ -17045,7 +17045,7 @@ void OS::Core::moveStackValue(int offs, int new_offs)
 
 void OS::Core::insertValue(Value val, int offs)
 {
-	offs = offs <= 0 ? stack_values.count + offs : offs - 1;
+	offs = offs < 0 ? stack_values.count + offs : offs;
 
 	reserveStackValues(stack_values.count+1);
 	stack_values.count++;
@@ -19517,15 +19517,27 @@ corrupted:
 				GCFunctionValue * func_value = stack_func->func;
 				if(stack_func->self_for_proto && func_value->name){
 					proto = stack_func->self_for_proto->prototype;
-					if(stack_func->self_for_proto->is_object_instance){
-						proto = proto ? proto->prototype : NULL;
+					if(proto && stack_func->self_for_proto->is_object_instance 
+						&& stack_func_locals[PRE_VAR_THIS].getGCValue() == stack_func->self_for_proto)
+					{
+						proto = proto->prototype;
 					}
 					if(proto){
-						bool prototype_enabled = true;
 						OS_ASSERT(strings->__destruct != func_value->name);
-						if(getPropertyValue(value, proto, func_value->name, prototype_enabled)
-							&& value.isFunction())
-						{
+						bool prototype_enabled = false;
+						for(GCValue * cur_proto = proto;;){
+							if(getPropertyValue(value, cur_proto, func_value->name, prototype_enabled)){
+								if(value.getGCValue() != func_value){
+									break;
+								}
+							}
+							cur_proto = cur_proto->prototype;
+							if(!cur_proto){
+								value = Value();
+								break;
+							}
+						}
+						if(value.isFunction()){
 							stack_func_locals = this->stack_func_locals;
 							stack_func_locals[a] = value;
 							stack_func_locals[a + 1] = stack_func_locals[PRE_VAR_THIS];
@@ -19685,8 +19697,10 @@ corrupted:
 				case OP_MULTI_SUPER:
 					if(stack_func->self_for_proto){
 						GCValue * proto = stack_func->self_for_proto->prototype;
-						if(stack_func->self_for_proto->is_object_instance){
-							proto = proto ? proto->prototype : NULL;
+						if(proto && stack_func->self_for_proto->is_object_instance 
+							&& stack_func_locals[PRE_VAR_THIS].getGCValue() == stack_func->self_for_proto)
+						{
+							proto = proto->prototype;
 						}					
 						stack_func_locals[a] = proto;
 					}else{
@@ -24002,13 +24016,25 @@ void OS::initPathModule()
 		{
 			return os->getFilenameExt(filename);
 		}
+
+		static bool exists(OS * os, const OS::String& filename)
+		{
+			return os->isFileExist(filename);
+		}
+
+		static bool absolute(OS * os, const OS::String& filename)
+		{
+			return os->isAbsolutePath(filename);
+		}
 	};
 	
 	OS::FuncDef funcs[] = {
 		def(OS_TEXT("dirname"), &Lib::dirname),
 		def(OS_TEXT("basename"), &Lib::basename),
 		def(OS_TEXT("extname"), &Lib::extname),
-		// resolve will set to reuire.resolve inside of initPostScript
+		def(OS_TEXT("exists"), &Lib::exists),
+		def(OS_TEXT("absolute"), &Lib::absolute),
+		// resolve will set to require.resolve inside of initPostScript
 		{}
 	};
 

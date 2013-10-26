@@ -51,7 +51,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("8")
-#define OS_VERSION_RELEASE	OS_TEXT("5-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("6-dev")
 
 #define OS_VERSION_STR		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_STR OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
@@ -1103,6 +1103,8 @@ namespace ObjectScript
 				static int compareOperatorDesc(const void * a, const void * b) ;
 				static void initOperatorsTable();
 
+				TokenData * addToken(const String& token, TokenType type, int line, int pos OS_DBG_FILEPOS_DECL);
+
 				bool parseFloat(const OS_CHAR *& str, OS_FLOAT& fval, bool parse_end_spaces);
 				bool parseLines(OS_ESourceCodeType source_code_type, bool check_utf8_bom);
 
@@ -1113,8 +1115,6 @@ namespace ObjectScript
 
 				OS * getAllocator();
 				TextData * getTextData() const { return text_data; }
-
-				TokenData * addToken(const String& token, TokenType type, int line, int pos OS_DBG_FILEPOS_DECL);
 
 				bool isError() const { return error != ERROR_NOTHING; }
 				Error getErrorCode() const { return error; }
