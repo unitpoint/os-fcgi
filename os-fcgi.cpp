@@ -382,16 +382,24 @@ public:
 		
 		// reset shutdown_funcs_id
 		pushValueById(shutdown_funcs_id);
-		getProperty(-1, "clear");
+		getProperty("clear");
 		pushValueById(shutdown_funcs_id);
 		call();
 	}
 
 	void initGlobalFunctions()
 	{
+		struct Lib {
+			static int triggerShutdownFunctions(OS * os, int params, int, int, void*)
+			{
+				((FCGX_OS*)os)->triggerShutdownFunctions();
+				return 0;
+			}
+		};
 		FuncDef funcs[] = {
 			{"registerShutdownFunction", FCGX_OS::registerShutdownFunction},
 			{"triggerHeaderSent", FCGX_OS::triggerHeaderSent},
+			{"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
 			{}
 		};
 		pushGlobals();
@@ -415,7 +423,7 @@ public:
 		newObject();
 		shutdown_funcs_id = getValueId();
 		retainValueById(shutdown_funcs_id);
-		// addProperty();
+		pop();
 
 		initGlobalFunctions();
 		initUrlLibrary();
