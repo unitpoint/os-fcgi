@@ -263,7 +263,7 @@
     <ClCompile Include="..\..\os-fcgi.cpp" />
     <ClCompile Include="..\..\os\ext-curl\os-curl.cpp" />
     <ClCompile Include="..\..\os\ext-datetime\os-datetime.cpp">
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">true</ShowIncludes>
     </ClCompile>
     <ClCompile Include="..\..\os\ext-odbo\os-odbo.cpp" />
