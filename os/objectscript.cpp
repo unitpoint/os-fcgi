@@ -1718,6 +1718,7 @@ bool OS::Core::Tokenizer::parseText(const OS_CHAR * text, int len, const String&
 	OS * allocator = getAllocator();
 
 	text_data->filename = filename;
+	allocator->vectorClear(text_data->lines);
 
 	const OS_CHAR * str = text;
 	const OS_CHAR * str_end = str + len;
@@ -1739,7 +1740,15 @@ bool OS::Core::Tokenizer::parseText(const OS_CHAR * text, int len, const String&
 		str = line_end+1;
 #endif
 	}
-	return parseLines(source_code_type, check_utf8_bom);
+	if(parseLines(source_code_type, check_utf8_bom)){
+		if(!tokens.count){
+			allocator->vectorClear(text_data->lines);
+			allocator->vectorAddItem(text_data->lines, String(allocator, OS_TEXT("return;")) OS_DBG_FILEPOS);
+			return parseLines(OS_SOURCECODE_PLAIN, false);
+		}
+		return true;
+	}
+	return false;
 }
 
 void OS::Core::Tokenizer::TokenData::setFloat(OS_FLOAT value)
@@ -17800,6 +17809,9 @@ OS::Core::String OS::Core::getValueClassname(GCValue * value)
 		return OS::Core::String(allocator, value->name);
 	}
 	switch(value->type){
+	case OS_VALUE_TYPE_STRING:
+		return OS::Core::String(allocator, OS_TEXT("String"));
+
 	case OS_VALUE_TYPE_ARRAY:
 		return OS::Core::String(allocator, OS_TEXT("Array"));
 
