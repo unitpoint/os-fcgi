@@ -758,13 +758,9 @@ int main(int argc, char * argv[])
 	printf("%s\n", OS_COPYRIGHT);
 	printf("%s\n", OS_OPENSOURCE);
 
-#ifndef _MSC_VER
-	demonize();
-#endif
-
 	if(FCGX_Init()){
 #ifdef _MSC_VER
-		printf("Error: fastcgi library initialization is failed\n");
+		printf("Error: initialization is failed\n");
 #endif
 		exit(1); 
 	}
@@ -783,19 +779,19 @@ int main(int argc, char * argv[])
 #endif
 		os->require(config_flename, false, 1);
 		threads = (os->getProperty(-1, "threads"), os->popInt());
-		OS::String listen = (os->getProperty(-1, "listen"), os->popString());
+		OS::String listen = (os->getProperty(-1, "listen"), os->popString(":9000"));
 		os->release();
 
 		int listen_queue_backlog = 400;
 		listen_socket = FCGX_OpenSocket(listen, listen_queue_backlog);
 		if(listen_socket < 0){
 			printf("Error: listen address is incorrect %s\n", listen.toChar());
-			log("listen_socket < 0 \n");
+			// log("listen_socket < 0 \n");
 			exit(1);
 		}
-#ifdef _MSC_VER
+// #ifdef _MSC_VER
 		printf("listen: %s\n", listen.toChar());
-#endif
+// #endif
 	}
 
 #ifndef _MSC_VER
@@ -806,6 +802,8 @@ int main(int argc, char * argv[])
 		threads = MAX_THREAD_COUNT;
 	}
 	printf("threads: %d\n", threads);
+	demonize();
+	
 	pthread_t id[MAX_THREAD_COUNT];
 	for(int i = 1; i < threads; i++){
         pthread_create(&id[i], NULL, doit, (void*)listen_socket);
