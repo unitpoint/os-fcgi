@@ -769,28 +769,50 @@ int main(int argc, char * argv[])
 		exit(1); 
 	}
 
-	const char * port = ":9000";
-    int listen_queue_backlog = 400;
+	int threads, listen_socket;
+	{
+		OS * os = OS::create();
+#ifdef _MSC_VER
+		const char * config_flename = "conf\\etc\\os-fcgi\\conf.os";
+		if(!os->isFileExist(config_flename)){
+			config_flename = "..\\..\\conf\\etc\\os-fcgi\\conf.os";
+			// os->isFileExist(config_flename);
+		}
+#else
+		const char * config_flename = "/etc/os-fcgi/conf.os";
+#endif
+		os->require(config_flename, false, 1);
+		threads = (os->getProperty(-1, "threads"), os->popInt());
+		OS::String listen = (os->getProperty(-1, "listen"), os->popString());
+		os->release();
 
-    int listen_socket = FCGX_OpenSocket(port, listen_queue_backlog);
-    if(listen_socket < 0){
-		log("listen_socket < 0 \n");
-		exit(1);
+		int listen_queue_backlog = 400;
+		listen_socket = FCGX_OpenSocket(listen, listen_queue_backlog);
+		if(listen_socket < 0){
+			printf("Error: listen address is incorrect %s\n", listen.toChar());
+			log("listen_socket < 0 \n");
+			exit(1);
+		}
+#ifdef _MSC_VER
+		printf("listen: %s\n", listen.toChar());
+#endif
 	}
 
-#ifdef _MSC_VER
-	printf("listen: %s\n", port);
-#endif
-
 #ifndef _MSC_VER
-	const int THREAD_COUNT = 8;
-	// printf("threads: %d\n", THREAD_COUNT);
-	pthread_t id[THREAD_COUNT];
-	for(int i = 1; i < THREAD_COUNT; i++){
+	const int MAX_THREAD_COUNT = 8;
+	if(threads < 1){
+		threads = 1;
+	}else if(threads > MAX_THREAD_COUNT){ 
+		threads = MAX_THREAD_COUNT;
+	}
+	printf("threads: %d\n", threads);
+	pthread_t id[MAX_THREAD_COUNT];
+	for(int i = 1; i < threads; i++){
         pthread_create(&id[i], NULL, doit, (void*)listen_socket);
 	}
 #else
-	printf("threads: %d\n", 1);
+	threads = 1;
+	printf("threads: %d\n", threads);
 #endif
 	doit((void*)listen_socket);
 

@@ -1,5 +1,6 @@
-{
+return {
 
-threads = 8
+	threads = 8,
+	listen = "localhost:9000",
 
 }
