@@ -10536,6 +10536,7 @@ int OS::Core::getValueHash(const Value& index)
 			return i;
 #elif 1 // it's really faster
 			float d = (float)OS_VALUE_NUMBER(index);
+			OS_ASSERT(sizeof(d) == 4);
 			OS_BYTE * buf = (OS_BYTE*)&d;
 			int hash = OS_STR_HASH_START_VALUE;
 			OS_ADD_STR_HASH_VALUE; buf++;
@@ -11029,7 +11030,8 @@ void OS::Core::sortTable(Table * table, int(*comp)(OS*, const void*, const void*
 		Property ** props = (Property**)malloc(sizeof(Property*) * table->count OS_DBG_FILEPOS);
 		int i = 0;
 		Property * cur = table->first;
-		for(; cur && i < table->count; cur = cur->next, i++){
+		for(; cur; cur = cur->next, i++){
+			OS_ASSERT(i < table->count);
 			props[i] = cur;
 		}
 		OS_ASSERT(!cur && i == table->count);
@@ -21329,33 +21331,37 @@ void OS::initObjectClass()
 			return 0;
 		}
 
-		static int toJson(OS * os, int params, int closure_values, int, void*)
+		static int toJson(OS * os, int params, int, int, void*)
 		{
 			// allow usage with parameter toJson(v)
 			Core::Buffer buf(os);
- 			Core::Value self_var = os->core->getStackValue(-params-closure_values-1 + (params > 0));
+ 			Core::Value self_var = os->core->getStackValue(-params-1 + (params > 0));
 			OS_EValueType type = (OS_EValueType)OS_VALUE_TYPE(self_var);
 			if(type == OS_VALUE_TYPE_NULL){
 				os->pushString(os->core->strings->typeof_null);
 				return 1;
 			}			
 			if(params > 0){
+				Core::Value func_var = os->core->getStackValue(-params-2);
 				os->core->pushValue(self_var);
 				os->getProperty("toJson");
-				os->core->pushValue(self_var);
-				os->call(0, 1);
-				return 1;
+				if(!os->core->isEqualExactly(func_var, os->core->getStackValue(-1))){
+					os->core->pushValue(self_var);
+					os->call(0, 1);
+					self_var = os->core->getStackValue(-1);
+					type = (OS_EValueType)OS_VALUE_TYPE(self_var);
+					if(type == OS_VALUE_TYPE_STRING){
+						OS_ASSERT(dynamic_cast<Core::GCStringValue*>(OS_VALUE_VARIANT(self_var).string));
+						Core::GCStringValue * string = OS_VALUE_VARIANT(self_var).string;
+						if(string->getLen() >= 2 && (string->toChar()[0] == OS_TEXT('\"') || string->toChar()[0] == OS_TEXT('\''))){
+							return 1;
+						}
+						OS_ASSERT(false);
+					}
+				}else{
+					os->pop();
+				}
 			}
-			if(!os->core->pushValueOfRecursion(self_var)){
-				os->pushString(os->core->strings->typeof_null);
-				return 1;
-			}
-			struct Finalizer {
-				Core * core;
-				Core::Value val;
-				~Finalizer(){ core->popValueOfRecursion(val); }
-			} finalizer = {os->core, self_var}; (void)finalizer;
-
 			switch(type){
 			// case OS_VALUE_TYPE_NULL:
 			default:
@@ -21378,6 +21384,16 @@ void OS::initObjectClass()
 
 			case OS_VALUE_TYPE_ARRAY:
 				{
+					if(!os->core->pushValueOfRecursion(self_var)){
+						os->pushString(os->core->strings->typeof_null);
+						return 1;
+					}
+					struct Finalizer {
+						Core * core;
+						Core::Value val;
+						~Finalizer(){ core->popValueOfRecursion(val); }
+					} finalizer = {os->core, self_var}; (void)finalizer;
+
 					OS_ASSERT(dynamic_cast<Core::GCArrayValue*>(OS_VALUE_VARIANT(self_var).arr));
 					Core::GCArrayValue * arr = OS_VALUE_VARIANT(self_var).arr;
 					buf += OS_TEXT("[");
@@ -21402,6 +21418,16 @@ void OS::initObjectClass()
 			case OS_VALUE_TYPE_USERPTR:
 			case OS_VALUE_TYPE_OBJECT:
 				{
+					if(!os->core->pushValueOfRecursion(self_var)){
+						os->pushString(os->core->strings->typeof_null);
+						return 1;
+					}
+					struct Finalizer {
+						Core * core;
+						Core::Value val;
+						~Finalizer(){ core->popValueOfRecursion(val); }
+					} finalizer = {os->core, self_var}; (void)finalizer;
+
 					OS_ASSERT(dynamic_cast<Core::GCValue*>(OS_VALUE_VARIANT(self_var).value));
 					Core::GCValue * self = OS_VALUE_VARIANT(self_var).value;
 					buf += OS_TEXT("{");
@@ -21415,9 +21441,9 @@ void OS::initObjectClass()
 							buf += os->core->strings->typeof_null;
 							break; */
 
-						case OS_VALUE_TYPE_BOOL:
+						/* case OS_VALUE_TYPE_BOOL:
 							buf += OS_VALUE_VARIANT(prop->index).boolean ? os->core->strings->syntax_true : os->core->strings->syntax_false;
-							break;
+							break; */
 
 						case OS_VALUE_TYPE_NUMBER:
 							buf += OS::Core::String(os, (OS_FLOAT)OS_VALUE_NUMBER(prop->index));
@@ -24180,7 +24206,12 @@ void OS::initJsonModule()
 				{
 					OS::Core::Buffer buf(new_os);
 					buf += OS_TEXT("return (");
-					buf += os->toString(-params+0);
+					OS::String str = os->toString(-params+0);
+					if(str.getLen() >= 3 && OS_STRNCMP(str.toChar(), OS_TEXT("\xef\xbb\xbf"), 3) == 0){
+						buf.append(str.toChar()+3, str.getLen()-3); // skip utf8 BOM
+					}else{
+						buf += str;
+					}
 					buf += OS_TEXT(")");
 
 					new_os->compile(buf.toStringOS(), OS_SOURCECODE_PLAIN, false);
@@ -25267,8 +25298,6 @@ int OS::getGCStartUsedBytes()
 
 static void qsortSwap(char *a, char *b, unsigned width)
 {
-	char tmp;
-
 	if(a != b) {
 		if(width == sizeof(void*)){
 			void * tmp = *(void**)a;
@@ -25284,7 +25313,7 @@ static void qsortSwap(char *a, char *b, unsigned width)
 			return;
 		}
 		while(width--){
-			tmp = *a;
+			char tmp = *a;
 			*a++ = *b;
 			*b++ = tmp;
 		}
