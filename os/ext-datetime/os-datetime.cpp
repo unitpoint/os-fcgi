@@ -46,21 +46,21 @@ static int ml_table_leap[13]   = {  0,  31,  29,  31,  30,  31,  30,  31,  31,  
 static int m_table_common[13] = { -1, 0, 3, 3, 6, 1, 4, 6, 2, 5, 0, 3, 5 }; /* 1 = jan */
 static int m_table_leap[13] =   { -1, 6, 2, 3, 6, 1, 4, 6, 2, 5, 0, 3, 5 }; /* 1 = jan */ 
 
-static char *mon_full_names[] = {
+static const char *mon_full_names[] = {
 	"January", "February", "March", "April",
 	"May", "June", "July", "August",
 	"September", "October", "November", "December"
 };
 
-static char *mon_short_names[] = {
+static const char *mon_short_names[] = {
 	"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-static char *day_full_names[] = {
+static const char *day_full_names[] = {
 	"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 };
 
-static char *day_short_names[] = {
+static const char *day_short_names[] = {
 	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
 };
 
@@ -1618,7 +1618,7 @@ public:
 				}
 				buf.append(buffer, length);
 			}
-			return buf;
+			return buf.toStringOS();
 		}
 
 		/* Returns a Python string containing the locale's timezone name for
