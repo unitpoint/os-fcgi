@@ -517,6 +517,9 @@ public:
 		getGlobal("_SERVER");
 		getProperty("SCRIPT_FILENAME");
 		String script_filename = popString();
+#if defined _MSC_VER && 0
+		fprintf(stderr, "%s\n", script_filename.toChar());
+#endif
 		do{
 			static const char * not_found = "Content-type: text/html\r\n"
 				"Status: 404 Not Found\r\n"
@@ -759,9 +762,9 @@ int main(int argc, char * argv[])
 	printf("%s\n", OS_OPENSOURCE);
 
 	if(FCGX_Init()){
-#ifdef _MSC_VER
+// #ifdef _MSC_VER
 		printf("Error: initialization is failed\n");
-#endif
+// #endif
 		exit(1); 
 	}
 
@@ -778,8 +781,8 @@ int main(int argc, char * argv[])
 		const char * config_flename = "/etc/os-fcgi/conf.os";
 #endif
 		os->require(config_flename, false, 1);
-		threads = (os->getProperty(-1, "threads"), os->popInt());
-		OS::String listen = (os->getProperty(-1, "listen"), os->popString(":9000"));
+		threads =			(os->getProperty(-1, "threads"),	os->popInt());
+		OS::String listen = (os->getProperty(-1, "listen"),		os->popString(":9000"));
 		os->release();
 
 		int listen_queue_backlog = 400;

@@ -1749,6 +1749,13 @@ public:
 			return calendar;
 		}
 
+		OS::String toJson()
+		{
+			OS::Core::Buffer buf(os);
+			os->appendQuotedString(buf, toString());
+			return buf.toStringOS();
+		}
+
 		/* Writes a string representation to buffer. If the string does not
 		fit the buffer, nothing is written. */
 		OS::String toString()
@@ -2053,6 +2060,7 @@ void DateTimeOS::initLibrary(OS * os)
 			{OS_TEXT("now"), DateTime::now},
 			def(OS_TEXT("clone"), &DateTime::clone),
 			def(OS_TEXT("valueOf"), &DateTime::toString),
+			def(OS_TEXT("toJson"), &DateTime::toJson),
 			def(OS_TEXT("format"), &DateTime::format),
 
 			def(OS_TEXT("__get@absdays"), &DateTime::getAbsDays),

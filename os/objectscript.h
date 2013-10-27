@@ -51,7 +51,7 @@ inline void operator delete(void *, void *){}
 
 #define OS_VERSION_MAJOR	OS_TEXT("1")
 #define OS_VERSION_MINOR	OS_TEXT("8")
-#define OS_VERSION_RELEASE	OS_TEXT("6-dev")
+#define OS_VERSION_RELEASE	OS_TEXT("7-dev")
 
 #define OS_VERSION_STR		OS_VERSION_MAJOR OS_TEXT(".") OS_VERSION_MINOR OS_TEXT(".") OS_VERSION_RELEASE
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION_STR OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
@@ -2747,7 +2747,7 @@ namespace ObjectScript
 			bool pushFunctionOf(const Value& val);
 
 			void pushCloneValue(Value val);
-			void pushCloneValueProtected(OS * other, Value val);
+			void pushCloneValueFrom(OS * other, Value other_val);
 
 			// unary operator
 			void pushOpResultValue(OpcodeType opcode, const Value& value);
@@ -2911,6 +2911,7 @@ namespace ObjectScript
 		void initProcessModule();
 		void initPathModule();
 		void initMathModule();
+		void initJsonModule();
 		void initGCModule();
 		void initLangTokenizerModule();
 		virtual void initPreScript();
@@ -3240,6 +3241,8 @@ namespace ObjectScript
 		void echo(const OS_CHAR * str);
 		void echo(const Core::String& str);
 		virtual void printf(const OS_CHAR * fmt, ...);
+
+		void appendQuotedString(Core::Buffer& buf, const Core::String& string);
 	};
 } // namespace ObjectScript
 

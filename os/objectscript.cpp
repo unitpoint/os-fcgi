@@ -13259,6 +13259,11 @@ void OS::Core::dumpValuesToFile(const OS_CHAR * filename)
 static const OS_CHAR DIGITS[] = "0123456789abcdefghijklmnopqrstuvwxyz";
 static const OS_CHAR UPPER_DIGITS[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+void OS::appendQuotedString(Core::Buffer& buf, const Core::String& string)
+{
+	core->appendQuotedString(buf, string);
+}
+
 void OS::Core::appendQuotedString(Buffer& buf, const String& string)
 {
 	buf += OS_TEXT("\"");
@@ -13809,7 +13814,7 @@ OS * OS::start(MemoryManager * manager)
 
 bool OS::init(MemoryManager * p_manager)
 {
-	memory_manager = p_manager ? p_manager : new OSHeapManager(); // OSMemoryManagerOld();
+	memory_manager = p_manager ? p_manager->retain() : new OSHeapManager(); // OSMemoryManagerOld();
 	core = new (malloc(sizeof(Core) OS_DBG_FILEPOS)) Core(this);
 
 	if(core->init()){
@@ -13828,6 +13833,7 @@ bool OS::init(MemoryManager * p_manager)
 		initExceptionClass();
 		initFileClass();
 		initPathModule();
+		initJsonModule();
 		initMathModule();
 		initProcessModule();
 		initGCModule();
@@ -16439,21 +16445,6 @@ bool OS::Core::pushValueOf(Value val)
 		~Finalizer(){ core->popValueOfRecursion(val); }
 	} finalizer = {this, val}; (void)finalizer;
 
-	/* OS_ASSERT(check_recursion && check_recursion->type == OS_VALUE_TYPE_OBJECT);
-	if(++check_recursion->ref_count == 1 && check_recursion->table){
-		clearTable(check_recursion->table);
-	}
-	setPropertyValue(check_recursion, val, Value(true), false);
-	struct Finalizer { 
-		Core * core; 
-		~Finalizer()
-		{ 
-			if(--core->check_recursion->ref_count == 0 && core->check_recursion->table){
-				core->clearTable(core->check_recursion->table);
-			}
-		}
-	} finalizer = {this}; (void)finalizer; */
-
 	bool prototype_enabled = true;
 	Value func;
 	GCValue * proto = OS_VALUE_VARIANT(val).value;
@@ -16546,33 +16537,33 @@ void OS::Core::pushCloneValue(Value value)
 	pushNull();
 }
 
-void OS::Core::pushCloneValueProtected(OS * other, Value val)
+void OS::Core::pushCloneValueFrom(OS * other, Value other_val)
 {
-	switch(OS_VALUE_TYPE(val)){
+	switch(OS_VALUE_TYPE(other_val)){
 	default:
 	case OS_VALUE_TYPE_NULL:
 		pushNull();
 		return;
 
 	case OS_VALUE_TYPE_BOOL:
-		pushBool(OS_VALUE_VARIANT(val).boolean ? true : false);
+		pushBool(OS_VALUE_VARIANT(other_val).boolean ? true : false);
 		return;
 
 	case OS_VALUE_TYPE_NUMBER:
-		pushNumber(OS_VALUE_NUMBER(val));
+		pushNumber(OS_VALUE_NUMBER(other_val));
 		return;
 
 	case OS_VALUE_TYPE_STRING:
-		pushStringValue((void*)OS_VALUE_VARIANT(val).string->toChar(), OS_VALUE_VARIANT(val).string->getDataSize());
+		pushStringValue((void*)OS_VALUE_VARIANT(other_val).string->toChar(), OS_VALUE_VARIANT(other_val).string->getDataSize());
 		return;
 
 	case OS_VALUE_TYPE_ARRAY:
 		{
-			OS_ASSERT(dynamic_cast<Core::GCArrayValue*>(OS_VALUE_VARIANT(val).arr));
-			Core::GCArrayValue * src_arr = OS_VALUE_VARIANT(val).arr;
+			OS_ASSERT(dynamic_cast<Core::GCArrayValue*>(OS_VALUE_VARIANT(other_val).arr));
+			Core::GCArrayValue * src_arr = OS_VALUE_VARIANT(other_val).arr;
 			Core::GCArrayValue * dest_arr = pushArrayValue(src_arr->values.count);
 			for(int i = 0; i < src_arr->values.count; i++){
-				pushCloneValueProtected(other, src_arr->values[i]);
+				pushCloneValueFrom(other, src_arr->values[i]);
 				retainValue(stack_values.lastElement());
 				allocator->vectorAddItem(dest_arr->values, stack_values.lastElement() OS_DBG_FILEPOS);
 				pop();
@@ -16582,14 +16573,14 @@ void OS::Core::pushCloneValueProtected(OS * other, Value val)
 
 	case OS_VALUE_TYPE_OBJECT:
 		{
-			OS_ASSERT(dynamic_cast<Core::GCObjectValue*>(OS_VALUE_VARIANT(val).object));
-			Core::GCObjectValue * src_obj = OS_VALUE_VARIANT(val).object;
+			OS_ASSERT(dynamic_cast<Core::GCObjectValue*>(OS_VALUE_VARIANT(other_val).object));
+			Core::GCObjectValue * src_obj = OS_VALUE_VARIANT(other_val).object;
 			Core::GCObjectValue * dest_obj = pushObjectValue();
 			if(src_obj->table && src_obj->table->count > 0){
 				for(Property * prop = src_obj->table->first; prop; prop = prop->next){
 					pushStackValue(-1);
-					pushCloneValueProtected(other, prop->index);
-					pushCloneValueProtected(other, prop->value);
+					pushCloneValueFrom(other, prop->index);
+					pushCloneValueFrom(other, prop->value);
 					allocator->setProperty(false);
 				}
 			}
@@ -21338,6 +21329,125 @@ void OS::initObjectClass()
 			return 0;
 		}
 
+		static int toJson(OS * os, int params, int closure_values, int, void*)
+		{
+			// allow usage with parameter toJson(v)
+			Core::Buffer buf(os);
+ 			Core::Value self_var = os->core->getStackValue(-params-closure_values-1 + (params > 0));
+			OS_EValueType type = (OS_EValueType)OS_VALUE_TYPE(self_var);
+			if(type == OS_VALUE_TYPE_NULL){
+				os->pushString(os->core->strings->typeof_null);
+				return 1;
+			}			
+			if(params > 0){
+				os->core->pushValue(self_var);
+				os->getProperty("toJson");
+				os->core->pushValue(self_var);
+				os->call(0, 1);
+				return 1;
+			}
+			if(!os->core->pushValueOfRecursion(self_var)){
+				os->pushString(os->core->strings->typeof_null);
+				return 1;
+			}
+			struct Finalizer {
+				Core * core;
+				Core::Value val;
+				~Finalizer(){ core->popValueOfRecursion(val); }
+			} finalizer = {os->core, self_var}; (void)finalizer;
+
+			switch(type){
+			// case OS_VALUE_TYPE_NULL:
+			default:
+				os->pushString(os->core->strings->typeof_null);
+				return 1;
+
+			case OS_VALUE_TYPE_BOOL:
+				os->pushString(OS_VALUE_VARIANT(self_var).boolean ? os->core->strings->syntax_true : os->core->strings->syntax_false);
+				return 1;
+
+			case OS_VALUE_TYPE_NUMBER:
+				os->pushString(OS::Core::String(os, (OS_FLOAT)OS_VALUE_NUMBER(self_var)));
+				return 1;
+
+			case OS_VALUE_TYPE_STRING:
+				OS_ASSERT(dynamic_cast<Core::GCStringValue*>(OS_VALUE_VARIANT(self_var).string));
+				os->core->appendQuotedString(buf, OS::Core::String(os, OS_VALUE_VARIANT(self_var).string));
+				os->pushString(buf.toString());
+				return 1;
+
+			case OS_VALUE_TYPE_ARRAY:
+				{
+					OS_ASSERT(dynamic_cast<Core::GCArrayValue*>(OS_VALUE_VARIANT(self_var).arr));
+					Core::GCArrayValue * arr = OS_VALUE_VARIANT(self_var).arr;
+					buf += OS_TEXT("[");
+					for(int i = 0; i < arr->values.count && !os->isExceptionSet(); i++){
+						if(i > 0){
+							buf += OS_TEXT(",");
+						}						
+						os->pushCFunction(toJson);
+						os->pushNull();
+						os->core->pushValue(arr->values[i]);
+						os->call(1, 1);
+						buf += os->popString();
+					}
+					if(!os->isExceptionSet()){
+						buf += OS_TEXT("]");
+					}
+					os->pushString(buf);
+					return 1;
+				}
+
+			case OS_VALUE_TYPE_USERDATA:
+			case OS_VALUE_TYPE_USERPTR:
+			case OS_VALUE_TYPE_OBJECT:
+				{
+					OS_ASSERT(dynamic_cast<Core::GCValue*>(OS_VALUE_VARIANT(self_var).value));
+					Core::GCValue * self = OS_VALUE_VARIANT(self_var).value;
+					buf += OS_TEXT("{");
+					Core::Property * prop = self->table ? self->table->first : NULL;
+					for(int i = 0; prop && !os->isExceptionSet(); prop = prop->next, i++){
+						if(i > 0){
+							buf += OS_TEXT(",");
+						}
+						switch(OS_VALUE_TYPE(prop->index)){
+						/* case OS_VALUE_TYPE_NULL:
+							buf += os->core->strings->typeof_null;
+							break; */
+
+						case OS_VALUE_TYPE_BOOL:
+							buf += OS_VALUE_VARIANT(prop->index).boolean ? os->core->strings->syntax_true : os->core->strings->syntax_false;
+							break;
+
+						case OS_VALUE_TYPE_NUMBER:
+							buf += OS::Core::String(os, (OS_FLOAT)OS_VALUE_NUMBER(prop->index));
+							break;
+
+						case OS_VALUE_TYPE_STRING:
+							OS_ASSERT(dynamic_cast<Core::GCStringValue*>(OS_VALUE_VARIANT(prop->index).string));
+							os->core->appendQuotedString(buf, OS::Core::String(os, OS_VALUE_VARIANT(prop->index).string));
+							break;
+
+						default:
+							// skip value
+							continue;						
+						}
+						buf += OS_TEXT(":");
+						os->pushCFunction(toJson);
+						os->pushNull();
+						os->core->pushValue(prop->value);
+						os->call(1, 1);
+						buf += os->popString();
+					}
+					if(!os->isExceptionSet()){
+						buf += OS_TEXT("}");
+					}
+					os->pushString(buf);
+					return 1;
+				}
+			}
+		}
+
 		static int valueOf(OS * os, int params, int closure_values, int, void*)
 		{
 			// allow usage with parameter valueOf(v)
@@ -21927,6 +22037,7 @@ dump_object:
 		{OS_TEXT("reverseIter"), Object::reverseIterator},
 		{core->strings->func_valueOf, Object::valueOf},
 		{core->strings->func_clone, Object::clone},
+		{OS_TEXT("toJson"), Object::toJson},
 		{OS_TEXT("sort"), Object::sort},
 		{core->strings->func_push, Object::push},
 		{OS_TEXT("pop"), Object::pop},
@@ -24043,6 +24154,68 @@ void OS::initPathModule()
 	pop();
 }
 
+void OS::initJsonModule()
+{
+	struct Lib 
+	{
+		static int encode(OS * os, int params, int, int, void*)
+		{
+			if(params > 0){
+				int offs = os->getAbsoluteOffs(-params+0);
+				os->getGlobal(OS_TEXT("Object"));
+				os->getProperty(OS_TEXT("toJson"));
+				os->pushNull();
+				os->pushStackValue(offs);
+				os->call(1, 1);
+				return 1;
+			}
+			return 0;
+		}
+
+		static int decode(OS * os, int params, int, int, void*)
+		{
+			if(params > 0){
+				int ret = 0;
+				OS * new_os = OS::create(os->memory_manager);
+				{
+					OS::Core::Buffer buf(new_os);
+					buf += OS_TEXT("return (");
+					buf += os->toString(-params+0);
+					buf += OS_TEXT(")");
+
+					new_os->compile(buf.toStringOS(), OS_SOURCECODE_PLAIN, false);
+					/* new_os->getGlobal(OS_TEXT("compileText"));
+					new_os->pushGlobals();
+					new_os->pushString(buf);
+					new_os->pushNumber(OS_SOURCECODE_PLAIN);
+					new_os->pushBool(false);
+					new_os->call(3, 1); */
+				}
+				if(new_os->isFunction()){
+					new_os->pushNull();
+					new_os->call(0, 1);
+					os->core->pushCloneValueFrom(new_os, new_os->core->getStackValue(-1));
+					ret = 1;
+				}
+				new_os->pop();
+				new_os->release();
+				return ret;
+			}
+			return 0;
+		}
+	};
+	
+	OS::FuncDef funcs[] = {
+		{OS_TEXT("encode"), &Lib::encode},
+		{OS_TEXT("decode"), &Lib::decode},
+		{}
+	};
+
+	getModule(OS_TEXT("json"));
+	setFuncs(funcs);
+	pop();
+}
+
 void OS::initProcessModule()
 {
 	struct Lib
@@ -24972,15 +25145,15 @@ void OS::evalProtected(const OS_CHAR * str, int params, int ret_values, OS_ESour
 {
 	resetException();
 	
-	OS * os = OS::create(new OS(), memory_manager);
+	OS * os = OS::create(memory_manager);
 	int i;
 	for(i = 0; i < params; i++){
-		os->core->pushCloneValueProtected(this, core->getStackValue(-params + i));
+		os->core->pushCloneValueFrom(this, core->getStackValue(-params + i));
 	}
 	pop(params);
 	os->eval(str, params, ret_values, source_code_type, check_utf8_bom);
 	for(i = 0; i < ret_values; i++){
-		core->pushCloneValueProtected(os, os->core->getStackValue(-ret_values + i));
+		core->pushCloneValueFrom(os, os->core->getStackValue(-ret_values + i));
 	}
 	os->release();
 
