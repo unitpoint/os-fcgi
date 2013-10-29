@@ -22248,8 +22248,8 @@ void OS::initBufferClass()
 }
 
 #define UTF8_SKIP_MULTI_BYTE_SEQUENCE(input, end) \
-	if((*(input++)) >= 0xc0 ){ \
-		while(input < end && (*input & 0xc0) == 0x80) input++;	\
+	if((*(OS_BYTE*)(input++)) >= 0xc0 ){ \
+		while(input < end && (*(OS_BYTE*)input & 0xc0) == 0x80) input++;	\
 	}
 
 static int machine_little_endian;
@@ -23209,7 +23209,7 @@ void OS::initStringClass()
 			}
 
 			size = (int)(cur_end - string);
-			os->pushString((void*)((OS_BYTE*)str.toChar() + start), size);
+			os->pushString((void*)string, size);
 			return 1;
 		}
 
@@ -23285,23 +23285,51 @@ void OS::initStringClass()
 
 		static int find(OS * os, int params, int, int, void*)
 		{
-			OS::String subject = os->toString(-params-1);
-			int subject_len = subject.getLen();
 			if(params >= 1){
+				OS::String subject = os->toString(-params-1);
+				int subject_len = subject.getLen();
 				OS::String search = os->toString(-params);
 				int search_len = search.getLen();
-				if(search_len > 0 && search_len <= subject_len){
+				int i = params >= 2 ? os->toInt(-params+1) : 0;
+				if(search_len > 0 && search_len <= subject_len && i >= 0){
 					const OS_CHAR * subject_str = subject.toChar();
 					const OS_CHAR * search_str = search.toChar();
 					int end = subject_len - search_len;
-					int i = params >= 2 ? os->toInt(-params+1) : 0;
-					for(; i <= end;){
+					for(; i <= end; i++){
 						if(OS_MEMCMP(subject_str + i, search_str, sizeof(OS_CHAR)*search_len) == 0){
 							os->pushNumber(i);
 							return 1;
 						}
 					}
 				}
+			}
+			return 0;
+		}
+
+		static int findUtf8(OS * os, int params, int closure_values, int need_ret_values, void * user_param)
+		{
+			int offs = os->getAbsoluteOffs(-params-1);
+			OS::String subject = os->toString(offs);
+			if(os->getType(offs) != OS_VALUE_TYPE_STRING){
+				os->core->stack_values[offs] = Core::Value(subject);
+			}
+			int ret = find(os, params, closure_values, need_ret_values, user_param);
+			if(ret > 0){
+				int pos = os->toInt(-ret);
+				int subject_len = subject.getLen();
+				OS_ASSERT(pos < subject_len);
+				const OS_CHAR * start = subject.toChar();
+				const OS_CHAR * end = start + pos;
+				int new_pos = 0;
+				for(; start < end; new_pos++){
+					UTF8_SKIP_MULTI_BYTE_SEQUENCE(start, end);
+				}
+				if(start != end){
+					os->setException(OS_TEXT("find utf-8 error: illegal seq"));
+					return 0;
+				}
+				os->pushNumber(new_pos);
+				return 1;
 			}
 			return 0;
 		}
@@ -23448,6 +23476,8 @@ void OS::initStringClass()
 		{OS_TEXT("subAnsi"), String::sub},
 		{OS_TEXT("subUtf8"), String::subUtf8},
 		{OS_TEXT("find"), String::find},
+		{OS_TEXT("findAnsi"), String::find},
+		{OS_TEXT("findUtf8"), String::findUtf8},
 		{OS_TEXT("replace"), String::replace},
 		{OS_TEXT("trim"), String::trim},
 		{OS_TEXT("upper"), String::upper},
@@ -24728,10 +24758,15 @@ OS::Core::GCObjectValue * OS::Core::initObjectInstance(GCObjectValue * object)
 void OS::Core::pushArguments(StackFunction * stack_func)
 {
 	if(!stack_func->arguments){
-		int i;
-		GCArrayValue * args = pushArrayValue(stack_func->num_params - PRE_VARS + (stack_func->rest_arguments ? stack_func->rest_arguments->values.count : 0));
-		Locals * func_locals = stack_func->locals;
 		int num_params = stack_func->num_params;
+		if(stack_func->rest_arguments && num_params == PRE_VARS){
+			retainValue(stack_func->arguments = stack_func->rest_arguments);
+			pushValue(stack_func->arguments);
+			return;
+		}
+		int i;
+		GCArrayValue * args = pushArrayValue(num_params - PRE_VARS + (stack_func->rest_arguments ? stack_func->rest_arguments->values.count : 0));
+		Locals * func_locals = stack_func->locals;
 		for(i = PRE_VARS; i < num_params; i++){
 			retainValue(func_locals->values[i]);
 			allocator->vectorAddItem(args->values, func_locals->values[i] OS_DBG_FILEPOS);

@@ -28,6 +28,10 @@
 #include "os/ext-sqlite3/os-sqlite3.h"
 #endif
 
+#ifndef OS_ICONV_DISABLED
+#include "os/ext-iconv/os-iconv.h"
+#endif
+
 #ifndef OS_REGEXP_DISABLED
 #include "os/ext-regexp/os-regexp.h"
 #endif
@@ -88,6 +92,10 @@ protected:
 
 #ifndef OS_SQLITE3_DISABLED
 			initSqlite3Library(this);
+#endif
+
+#ifndef OS_ICONV_DISABLED
+			initIconvLibrary(this);
 #endif
 
 #ifndef OS_REGEXP_DISABLED
@@ -798,7 +806,7 @@ int main(int argc, char * argv[])
 	}
 
 #ifndef _MSC_VER
-	const int MAX_THREAD_COUNT = 8;
+	const int MAX_THREAD_COUNT = 64;
 	if(threads < 1){
 		threads = 1;
 	}else if(threads > MAX_THREAD_COUNT){ 
