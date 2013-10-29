@@ -1,7 +1,9 @@
 win/os-fcgi/Release/
 win/os-fcgi/Debug/
+win/os-fcgi/DebugPrice/
 win/os-fcgi/bin-Release/
 win/os-fcgi/bin-Debug/
+win/os-fcgi/bin-DebugPrice/
 win/os-fcgi/ipch/
 win/os-fcgi/x64/Release/
 win/os-fcgi/x64/Debug/

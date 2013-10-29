@@ -84,7 +84,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;../;$(IncludePath)</IncludePath>
+    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;..\..\3rdparty\libiconv-1.14\lib;../../3rdparty/libiconv-1.14/include;..\..\3rdparty\libiconv-1.14\libcharset\include;../;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Debug;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
   </PropertyGroup>
@@ -106,7 +106,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;$(IncludePath)</IncludePath>
+    <IncludePath>../../3rdparty/soci/include;../../3rdparty/mysql/include;../../3rdparty/soci/include\mysql;..\..\3rdparty\fcgi-2.4.1\include;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc\include;..\..\3rdparty\pcrelib;..\..\3rdparty\libiconv-1.14\lib;../../3rdparty/libiconv-1.14/include;..\..\3rdparty\libiconv-1.14\libcharset\include;$(IncludePath)</IncludePath>
     <LibraryPath>..\..\3rdparty\mysql\lib;..\..\3rdparty\soci\lib\Release;..\..\3rdparty\libcurl-7.19.3-win32-ssl-msvc;$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)$(ProjectName)\bin-$(Configuration)\</OutDir>
   </PropertyGroup>
@@ -226,6 +226,222 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_aix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_aix_sysaix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_dos.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_extra.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_osf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_osf1_sysosf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_sysaix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_syshpux.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_sysosf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\aliases_syssolaris.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\armscii_8.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ascii.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\atarist.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5hkscs1999.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5hkscs2001.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5hkscs2004.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5hkscs2008.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\big5_2003.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\c99.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_aix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_aix_sysaix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_dos.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_extra.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_local.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_local_sysaix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_local_syshpux.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_local_sysosf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_local_syssolaris.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_osf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_osf1_sysosf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_sysaix.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_syshpux.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_sysosf1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\canonical_syssolaris.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ces_big5.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ces_gbk.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cjk_variants.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_15.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_3.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_4.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_4a.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_4b.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_5.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_6.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_7.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cns11643_inv.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\converters.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1046.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1124.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1125.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1129.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1131.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1133.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1161.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1162.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1163.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1250.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1251.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1252.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1253.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1254.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1255.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1256.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1257.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp1258.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp437.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp737.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp775.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp850.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp852.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp853.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp855.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp856.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp857.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp858.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp860.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp861.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp862.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp863.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp864.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp865.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp866.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp869.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp874.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp922.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp932.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp932ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp936.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp936ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp943.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp949.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp950.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\cp950ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\dec_hanyu.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\dec_kanji.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\euc_cn.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\euc_jisx0213.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\euc_jp.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\euc_kr.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\euc_tw.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\flags.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\flushwc.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb12345.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb12345ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb18030.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb18030ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb18030uni.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gb2312.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gbk.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gbkext1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gbkext2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\gbkext_inv.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\georgian_academy.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\georgian_ps.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hkscs1999.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hkscs2001.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hkscs2004.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hkscs2008.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hp_roman8.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\hz.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iconv_open1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iconv_open2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_cn.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_cnext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_jp.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_jp1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_jp2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_jp3.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso2022_kr.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso646_cn.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso646_jp.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_10.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_11.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_13.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_14.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_15.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_16.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_3.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_4.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_5.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_6.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_7.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_8.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\iso8859_9.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\isoir165.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\isoir165ext.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\java.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\jisx0201.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\jisx0208.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\jisx0212.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\jisx0213.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\johab.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\johab_hangul.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\koi8_r.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\koi8_ru.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\koi8_t.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\koi8_u.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ksc5601.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\loops.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\loop_unicode.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\loop_wchar.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_arabic.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_centraleurope.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_croatian.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_cyrillic.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_greek.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_hebrew.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_iceland.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_roman.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_romania.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_thai.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_turkish.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mac_ukraine.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\mulelao.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\nextstep.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\pt154.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\relocatable.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\riscos1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\rk1048.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\shift_jisx0213.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\sjis.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\tcvn.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\tds565.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\tis620.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\translit.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs2be.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs2internal.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs2le.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs2swapped.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs4.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs4be.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs4internal.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs4le.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\ucs4swapped.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\uhc_1.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\uhc_2.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf16.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf16be.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf16le.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf32.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf32be.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf32le.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf7.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\utf8.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\vietcomb.h" />
+    <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\viscii.h" />
     <ClInclude Include="..\..\3rdparty\md5\md5.h" />
     <ClInclude Include="..\..\os\ext-curl\os-curl.h" />
     <ClInclude Include="..\..\os\ext-datetime\os-datetime.h" />
@@ -241,13 +457,16 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\3rdparty\libiconv-1.14\libcharset\lib\localcharset.c" />
+    <ClCompile Include="..\..\3rdparty\libiconv-1.14\lib\iconv.c" />
     <ClCompile Include="..\..\3rdparty\md5\md5.cpp" />
     <ClCompile Include="..\..\os.cpp" />
     <ClCompile Include="..\..\os\ext-curl\os-curl.cpp" />
     <ClCompile Include="..\..\os\ext-datetime\os-datetime.cpp">
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">true</ShowIncludes>
     </ClCompile>
+    <ClCompile Include="..\..\os\ext-iconv\os-iconv.cpp" />
     <ClCompile Include="..\..\os\ext-odbo\os-odbo.cpp" />
     <ClCompile Include="..\..\os\ext-regexp\os-regexp.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\os-sqlite3.cpp" />

@@ -27,6 +27,10 @@
 #include "os/ext-sqlite3/os-sqlite3.h"
 #endif
 
+#ifndef OS_ICONV_DISABLED
+#include "os/ext-iconv/os-iconv.h"
+#endif
+
 #ifndef OS_REGEXP_DISABLED
 #include "os/ext-regexp/os-regexp.h"
 #endif
@@ -98,6 +102,10 @@ protected:
 
 #ifndef OS_SQLITE3_DISABLED
 			initSqlite3Library(this);
+#endif
+
+#ifndef OS_ICONV_DISABLED
+			initIconvLibrary(this);
 #endif
 
 #ifndef OS_REGEXP_DISABLED
@@ -346,8 +354,17 @@ public:
 
 	void initGlobalFunctions()
 	{
+		struct Lib {
+			static int triggerShutdownFunctions(OS * os, int params, int, int, void*)
+			{
+				((ConsoleOS*)os)->triggerShutdownFunctions();
+				return 0;
+			}
+		};
 		FuncDef funcs[] = {
 			{"registerShutdownFunction", ConsoleOS::registerShutdownFunction},
+			// {"triggerHeaderSent", ConsoleOS::triggerHeaderSent},
+			{"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
 			{}
 		};
 		pushGlobals();
