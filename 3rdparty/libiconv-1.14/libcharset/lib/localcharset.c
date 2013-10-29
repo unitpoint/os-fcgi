@@ -19,7 +19,7 @@
 
 /* Written by Bruno Haible <bruno@clisp.org>.  */
 
-#include <config.h>
+#include <config-iconv.h>
 
 /* Specification.  */
 #include "localcharset.h"
@@ -124,7 +124,7 @@ get_charset_aliases (void)
   cp = charset_aliases;
   if (cp == NULL)
     {
-#if !(defined DARWIN7 || defined VMS || defined WIN32_NATIVE || defined __CYGWIN__)
+#if 0 && !(defined DARWIN7 || defined VMS || defined WIN32_NATIVE || defined __CYGWIN__)
       const char *dir;
       const char *base = "charset.alias";
       char *file_name;

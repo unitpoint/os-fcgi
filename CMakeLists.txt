@@ -212,6 +212,13 @@ list(APPEND HEADERS os/ext-odbo/os-odbo.h)
 # end odbo
 
 # begin iconv
+list(APPEND SOURCES os/ext-iconv/os-iconv.cpp)
+list(APPEND HEADERS os/ext-iconv/os-iconv.h)
+
+include_directories(3rdparty/libiconv-1.14/libcharset/include)
+include_directories(3rdparty/libiconv-1.14/include)
+include_directories(3rdparty/libiconv-1.14/lib)
+
 list(APPEND SOURCES 3rdparty/libiconv-1.14/libcharset/lib/localcharset.c)
 list(APPEND SOURCES 3rdparty/libiconv-1.14/lib/iconv.c)
 
