@@ -44,6 +44,10 @@
 #include "os/ext-odbo/os-odbo.h"
 #endif
 
+#ifndef OS_ZLIB_DISABLED
+#include "os/ext-zlib/os-zlib.h"
+#endif
+
 #define PID_FILE "/var/run/os-fcgi.pid"
 
 using namespace ObjectScript;
@@ -108,6 +112,10 @@ protected:
 
 #ifndef OS_ODBO_DISABLED
 			initODBOLibrary(this);
+#endif
+
+#ifndef OS_ZLIB_DISABLED
+			initZLibrary(this);
 #endif
 			return true;
 		}
@@ -280,7 +288,7 @@ public:
 	static int registerShutdownFunction(OS * p_os, int params, int, int, void*)
 	{
 		if(params > 0){
-			FCGX_OS * os = (FCGX_OS*)p_os;
+			FCGX_OS * os = dynamic_cast<FCGX_OS*>(p_os);
 			int offs = os->getAbsoluteOffs(-params);
 			os->pushValueById(os->shutdown_funcs_id);
 			for(int i = params-1; i >= 0; i--){
