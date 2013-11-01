@@ -61,7 +61,7 @@ class FCGX_OS: public OS
 protected:
 
 	FCGX_Request * request;
-	int shutdown_funcs_id;
+	// int shutdown_funcs_id;
 	bool header_sent;
 #ifdef USE_BUFFERED_OUTPUT
 	Core::Buffer * buffer;
@@ -285,6 +285,7 @@ public:
 		return 0;
 	}
 
+	/*
 	static int registerShutdownFunction(OS * p_os, int params, int, int, void*)
 	{
 		if(params > 0){
@@ -300,6 +301,7 @@ public:
 		}
 		return 0;
 	}
+	*/
 
 	static int decodeHexChar(OS_CHAR c)
 	{
@@ -384,6 +386,7 @@ public:
 	void triggerShutdownFunctions()
 	{
 		resetTerminated();
+		/*
 		String iter_func(this, "reverseIter");
 		pushValueById(shutdown_funcs_id);
 		while(nextIteratorStep(2, iter_func)){
@@ -401,6 +404,10 @@ public:
 		getProperty("clear");
 		pushValueById(shutdown_funcs_id);
 		call();
+		*/
+		getGlobal("triggerShutdownFunctions");
+		pushGlobals();
+		call();
 	}
 
 	void initGlobalFunctions()
@@ -413,9 +420,9 @@ public:
 			}
 		};
 		FuncDef funcs[] = {
-			{"registerShutdownFunction", FCGX_OS::registerShutdownFunction},
+			// {"registerShutdownFunction", FCGX_OS::registerShutdownFunction},
 			{"triggerHeaderSent", FCGX_OS::triggerHeaderSent},
-			{"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
+			// {"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
 			{}
 		};
 		pushGlobals();
@@ -436,11 +443,11 @@ public:
 		request = p_request;
 
 		// pushStackValue(OS_REGISTER_USERPOOL);
-		newObject();
+		/* newObject();
 		shutdown_funcs_id = getValueId();
 		retainValueById(shutdown_funcs_id);
-		pop();
-
+		pop(); */
+ 
 		initGlobalFunctions();
 		initUrlLibrary();
 

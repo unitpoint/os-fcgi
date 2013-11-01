@@ -76,7 +76,7 @@ class ConsoleOS: public OS
 {
 protected:
 
-	int shutdown_funcs_id;
+	// int shutdown_funcs_id;
 	bool header_sent;
 	Core::String * cache_path;
 
@@ -234,6 +234,7 @@ public:
 		return LOAD_COMPILED_FILE;
 	}
 
+	/*
 	static int registerShutdownFunction(OS * p_os, int params, int, int, void*)
 	{
 		if(params > 0){
@@ -249,6 +250,7 @@ public:
 		}
 		return 0;
 	}
+	*/
 
 	static int decodeHexChar(OS_CHAR c)
 	{
@@ -333,6 +335,7 @@ public:
 	void triggerShutdownFunctions()
 	{
 		resetTerminated();
+		/*
 		String iter_func(this, "reverseIter");
 		pushValueById(shutdown_funcs_id);
 		while(nextIteratorStep(2, iter_func)){
@@ -350,6 +353,10 @@ public:
 		getProperty("clear");
 		pushValueById(shutdown_funcs_id);
 		call();
+		*/
+		getGlobal("triggerShutdownFunctions");
+		pushGlobals();
+		call();
 	}
 
 	void initGlobalFunctions()
@@ -362,9 +369,9 @@ public:
 			}
 		};
 		FuncDef funcs[] = {
-			{"registerShutdownFunction", ConsoleOS::registerShutdownFunction},
+			// {"registerShutdownFunction", ConsoleOS::registerShutdownFunction},
 			// {"triggerHeaderSent", ConsoleOS::triggerHeaderSent},
-			{"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
+			// {"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
 			{}
 		};
 		pushGlobals();
@@ -683,23 +690,24 @@ public:
 		getGlobal("process");
 		pushString("argv");
 		newArray();
-
-		pushStackValue();
-		pushString(argv[0]);
-		addProperty();
-
-		script = script > 0 ? script : argc;
-		for(int i = script; i < argc; i++){
+		{
 			pushStackValue();
-			pushString(argv[i]);
+			pushString(argv[0]);
 			addProperty();
+
+			script = script > 0 ? script : argc;
+			for(int i = script; i < argc; i++){
+				pushStackValue();
+				pushString(argv[i]);
+				addProperty();
+			}
 		}
 		setProperty();
 		
-		newObject();
+		/* newObject();
 		shutdown_funcs_id = getValueId();
 		retainValueById(shutdown_funcs_id);
-		pop();
+		pop(); */
 		// addProperty();
 
 		initGlobalFunctions();
