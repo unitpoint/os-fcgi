@@ -2009,6 +2009,8 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 							case OS_TEXT('r'): c = OS_TEXT('\r'); str++; break;
 							case OS_TEXT('n'): c = OS_TEXT('\n'); str++; break;
 							case OS_TEXT('t'): c = OS_TEXT('\t'); str++; break;
+							case OS_TEXT('b'): c = OS_TEXT('\b'); str++; break;
+							case OS_TEXT('f'): c = OS_TEXT('\f'); str++; break;
 							case OS_TEXT('\"'): c = OS_TEXT('\"'); str++; break;
 							// case OS_TEXT('\''): c = OS_TEXT('\''); str++; break;
 							case OS_TEXT('\\'): c = OS_TEXT('\\'); str++; break;
@@ -7458,6 +7460,7 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectForExpression(Scope *
 			allocator->deleteObj(pre_exp);
 			return NULL;
 		}
+		bool_exp = expectExpressionValues(bool_exp, 1);
 	}
 	if(bool_exp && !bool_exp->ret_values){
 		setError(ERROR_EXPECT_VALUE, bool_exp->token);
@@ -12177,17 +12180,8 @@ OS::Core::Values::~Values()
 
 void OS::Core::registerValueAndPush(GCValue * value)
 {
-	/* if(values.next_id == 15622){
-		OS_ASSERT(!isValueExist(value));
-		int i = 0;
-	} */
-
 	value->value_id = values.next_id++;
 	value->gc_step_type = gc_step_type;
-
-	/* if(value->value_id >= 15622 && value->value_id <= 15622){
-		int i = 0;
-	} */
 
 	if((values.count>>HASH_GROW_SHIFT) >= values.head_mask){
 		int new_size = values.heads ? (values.head_mask+1) * 2 : 32;
@@ -13277,6 +13271,8 @@ void OS::Core::appendQuotedString(Buffer& buf, const String& string)
 		case OS_TEXT('\r'): buf += OS_TEXT("\\r"); continue;
 		case OS_TEXT('\n'): buf += OS_TEXT("\\n"); continue;
 		case OS_TEXT('\t'): buf += OS_TEXT("\\t"); continue;
+		case OS_TEXT('\b'): buf += OS_TEXT("\\b"); continue;
+		case OS_TEXT('\f'): buf += OS_TEXT("\\f"); continue;
 		case OS_TEXT('\\'): buf += OS_TEXT("\\\\"); continue;
 		}
 		if(*str < OS_TEXT(' ')){
@@ -14888,6 +14884,10 @@ void OS::Core::triggerValueDestructor(GCValue * val)
 	Value self = val;
 	Value func(strings->__destruct);
 	for(Property * prop;;){
+		if(val == prototypes[PROTOTYPE_OBJECT]){
+			// don't allow override Object.__destruct
+			return;
+		}
 		Table * table = val->table;
 		if(table && (prop = table->get(func)) && prop->value.isFunction()){
 			pushValue(prop->value);
@@ -15393,18 +15393,12 @@ void OS::Core::retainValue(const Value& val)
 	if(OS_IS_VALUE_GC(val)){
 		GCValue * value = OS_VALUE_VARIANT(val).value;
 		OS_ASSERT(value && value->value_id);
-		/* if(value->value_id >= 15622 && value->value_id <= 15622){
-			int i = 0;
-		} */
 		++value->ref_count;
 	}
 }
 
 void OS::Core::retainValue(GCValue * value)
 {
-	/* if(value->value_id >= 15622 && value->value_id <= 15622){
-		int i = 0;
-	} */
 	++value->ref_count;
 }
 
@@ -15420,10 +15414,6 @@ void OS::Core::releaseValue(const Value& val)
 	if(OS_IS_VALUE_GC(val)){
 		GCValue * value = OS_VALUE_VARIANT(val).value;
 		OS_ASSERT(value);
-		/* if(value->value_id >= 15622 && value->value_id <= 15622){
-			int i = 0;
-			// OS_ASSERT(!isValueUsed(value));
-		} */
 		if(gc_fix_in_progress && value->gc_step_type != gc_step_type){
 			return;
 		}
@@ -15467,9 +15457,6 @@ void OS::Core::setValue(Value& out_val, const Value& b_val)
 			if(out != b){
 				// release
 				OS_ASSERT(out->ref_count > 0);
-				/* if(out->value_id >= 15622 && out->value_id <= 15622){
-					int i = 0;
-				} */
 				if(gc_fix_in_progress && out->gc_step_type != gc_step_type){
 					int i = 0;
 				}else if(!--out->ref_count){
@@ -15477,17 +15464,11 @@ void OS::Core::setValue(Value& out_val, const Value& b_val)
 				}
 				out_val = b_val;
 				// retain
-				/* if(b->value_id >= 15622 && b->value_id <= 15622){
-					int i = 0;
-				} */
 				++b->ref_count;
 			}
 		}else{
 			// release
 			OS_ASSERT(out->ref_count > 0);
-			/* if(out->value_id >= 15622 && out->value_id <= 15622){
-				int i = 0;
-			} */
 			if(gc_fix_in_progress && out->gc_step_type != gc_step_type){
 				int i = 0;
 			}else if(!--out->ref_count){
@@ -15501,9 +15482,6 @@ void OS::Core::setValue(Value& out_val, const Value& b_val)
 		if(OS_IS_VALUE_GC(b_val)){
 			OS_ASSERT(OS_VALUE_VARIANT(b_val).value);
 			GCValue * b = OS_VALUE_VARIANT(b_val).value;
-			/* if(b->value_id >= 15622 && b->value_id <= 15622){
-				int i = 0;
-			} */
 			++b->ref_count;
 		}
 	}
@@ -15635,7 +15613,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 				const void * buf2 = OS_VALUE_VARIANT(local7_index_copy).string->toChar(); \
 				int size2 = OS_VALUE_VARIANT(local7_index_copy).string->getDataSize(); \
 				GCStringValue * setter_name = pushStringValue(buf1, size1, buf2, size2); \
-				if(getPropertyValue(func, local7_table_value, setter_name, true)){ \
+				if(getPropertyValue(func, local7_table_value, setter_name, true) && func.isFunction()){ \
 					pop(); \
 					pushValue(func); \
 					pushValue(local7_table_value); \
@@ -15645,7 +15623,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 				} \
 				pop(); \
 			} \
-			if(getPropertyValue(func, local7_table_value, strings->__set, true)){ \
+			if(getPropertyValue(func, local7_table_value, strings->__set, true) && func.isFunction()){ \
 				pushValue(func); \
 				pushValue(local7_table_value); \
 				pushValue(local7_index_copy); \
@@ -15745,7 +15723,7 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 			const void * buf2 = OS_VALUE_VARIANT(index).string->toChar();
 			int size2 = OS_VALUE_VARIANT(index).string->getDataSize();
 			GCStringValue * setter_name = newStringValue(buf1, size1, buf2, size2);
-			if(getPropertyValue(func, table_value, setter_name, true)){
+			if(getPropertyValue(func, table_value, setter_name, true) && func.isFunction()){
 				pushValue(func);
 				pushValue(table_value);
 				pushValue(value);
@@ -15753,7 +15731,7 @@ void OS::Core::setPropertyValue(GCValue * table_value, const Value& _index, Valu
 				return;
 			}
 		}
-		if(getPropertyValue(func, table_value, strings->__set, true)){
+		if(getPropertyValue(func, table_value, strings->__set, true) && func.isFunction()){
 			pushValue(func);
 			pushValue(table_value);
 			pushValue(index);
@@ -18171,7 +18149,7 @@ bool OS::Core::hasProperty(GCValue * table_value, Value index, bool getter_enabl
 			const void * buf1 = strings->__getAt.toChar();
 			int size1 = strings->__getAt.getDataSize();
 			GCStringValue * getter_name = pushStringValue(buf1, size1, buf2, size2);
-			if(getPropertyValue(value, table_value, getter_name, prototype_enabled)){
+			if(getPropertyValue(value, table_value, getter_name, prototype_enabled) && value.isFunction()){
 				pop();
 				return true;
 			}
@@ -25029,7 +25007,7 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 		{
 			GCValue * object = initObjectInstance(pushObjectValue(OS_VALUE_VARIANT(func).value));
 			object->is_object_instance = true;
-			object->ref_count++;
+			object->external_ref_count++;
 
 			bool prototype_enabled = true;
 			if(getPropertyValue(stack_values.buf[start_pos], func, strings->__construct, prototype_enabled)
@@ -25045,7 +25023,7 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 					OS_SET_NULL_VALUES(stack_values.buf + start_pos + 1, ret_values - 1);
 				}
 			}
-			object->ref_count--;
+			object->external_ref_count--;
 			return;
 		}
 
