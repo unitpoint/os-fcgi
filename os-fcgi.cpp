@@ -212,7 +212,7 @@ public:
 	{
 		if(!header_sent){
 			header_sent = true;
-			appendBuffer("Content-type: text/html\r\n\r\n");
+			appendBuffer("Content-type: text/html; charset=utf-8\r\n\r\n");
 		}
 		appendBuffer(buf, size);
 	}
@@ -532,7 +532,8 @@ public:
 			buf.reserveCapacity(content_length+4);
 			for(int cur_len; (cur_len = FCGX_GetStr((char*)buf.buffer.buf, content_length, request->in)) > 0;){
 				buf.buffer.count = cur_len;
-				int temp;
+				OS_ASSERT(content_length == cur_len);
+				int temp; (void)temp;
 				OS_ASSERT(FCGX_GetStr((char*)&temp, sizeof(temp), request->in) == 0);
 				break;
 			}
@@ -579,7 +580,7 @@ public:
 		fprintf(stderr, "%s\n", script_filename.toChar());
 #endif
 		do{
-			static const char * not_found = "Content-type: text/html\r\n"
+			static const char * not_found = "Content-type: text/html; charset=utf-8\r\n"
 				"Status: 404 Not Found\r\n"
 				"\r\n\r\n"
 				"<html><head><title>404 Not Found</title></head><body bgcolor=\"white\">"
@@ -629,7 +630,7 @@ public:
 				triggerShutdownFunctions();
 				if(!header_sent){
 					header_sent = true;
-					FCGX_PutS("Content-type: text/html\r\n\r\n", request->out);
+					FCGX_PutS("Content-type: text/html; charset=utf-8\r\n\r\n", request->out);
 					FCGX_PutS("<h1>Server is just ready to use ObjectScript</h1>", request->out);
 				}
 			}else{
@@ -640,7 +641,7 @@ public:
 						header_sent = true;
 						FCGX_PutS("Content-type: ", request->out);
 						FCGX_PutS(getContentType(ext), request->out);
-						FCGX_PutS("\r\n\r\n", request->out);
+						FCGX_PutS("; charset=utf-8\r\n\r\n", request->out);
 					}
 					const int BUF_SIZE = 1024*256;
 					int size = getFileSize(f);
