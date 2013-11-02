@@ -584,7 +584,7 @@ public:
 				"\r\n\r\n"
 				"<html><head><title>404 Not Found</title></head><body bgcolor=\"white\">"
 				"<center><h1>404 Not Found</h1></center><hr><center>"
-					"ObjectScript " OS_VERSION_STR "<br />"
+					"ObjectScript " OS_VERSION "<br />"
 					// OS_COPYRIGHT "<br />"
 					OS_OPENSOURCE
 				"</center></body></html>"

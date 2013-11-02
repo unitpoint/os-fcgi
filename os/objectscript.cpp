@@ -9462,9 +9462,9 @@ bool OS::Core::Compiler::saveToStream(StreamWriter * writer)
 {
 	writer->writeBytes(OS_COMPILED_HEADER, (int)OS_STRLEN(OS_COMPILED_HEADER));
 
-	int i, len = (int)OS_STRLEN(OS_VERSION_STR)+1;
+	int i, len = (int)OS_STRLEN(OS_VERSION)+1;
 	writer->writeByte(len);
-	writer->writeBytes(OS_VERSION_STR, len);
+	writer->writeBytes(OS_VERSION, len);
 
 	MemStreamWriter int_stream(allocator);
 	MemStreamWriter float_stream(allocator);
@@ -9579,9 +9579,9 @@ bool OS::Core::Program::loadFromStream(StreamReader * reader)
 		return false;
 	}
 
-	len = (int)OS_STRLEN(OS_VERSION_STR)+1;
+	len = (int)OS_STRLEN(OS_VERSION)+1;
 	reader->movePos(1);
-	if(!reader->checkBytes(OS_VERSION_STR, len)){
+	if(!reader->checkBytes(OS_VERSION, len)){
 		return false;
 	}
 
@@ -21004,7 +21004,7 @@ void OS::initCoreFunctions()
 
 		static int getVersion(OS * os, int params, int, int, void*)
 		{
-			os->pushString(OS_VERSION_STR);
+			os->pushString(OS_VERSION);
 			return 1;
 		}
 
