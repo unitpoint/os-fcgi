@@ -1,1 +1,0 @@
-cd /tmp/os-igor/ncurses-5.9/mysql/scripts && '/usr/bin/cpack' -G TGZ --config CPackConfig.cmake

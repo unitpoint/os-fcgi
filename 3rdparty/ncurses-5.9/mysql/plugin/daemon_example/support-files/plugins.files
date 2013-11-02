@@ -1,4 +1,0 @@
-%attr(755, root, root) %{_prefix}/lib/plugin/libdaemon_example.so
-%attr(755, root, root) %{_prefix}/lib/plugin/debug/libdaemon_example.so
-%attr(755, root, root) %{_prefix}/lib/plugin/libdaemon_example.so
-%attr(755, root, root) %{_prefix}/lib/plugin/debug/libdaemon_example.so
