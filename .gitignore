@@ -1,3 +1,7 @@
+3rdparty/libmemcached*
+*.osc
+*.ost
+*.tmp
 win/os-fcgi/Release/
 win/os-fcgi/Debug/
 win/os-fcgi/DebugPrice/

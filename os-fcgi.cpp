@@ -10,6 +10,8 @@
 #include "3rdparty/MPFDParser-1.0/Parser.h"
 #include <stdlib.h>
 
+#define OS_FCGI_VERSION_STR	OS_TEXT("1.0.1-dev")
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
@@ -51,8 +53,6 @@
 #define PID_FILE "/var/run/os-fcgi.pid"
 
 using namespace ObjectScript;
-
-#define OS_FCGI_VERSION_STR	OS_TEXT("1.0-dev")
 
 // #define USE_BUFFERED_OUTPUT
 
@@ -441,12 +441,6 @@ public:
 	void processRequest(FCGX_Request * p_request)
 	{
 		request = p_request;
-
-		// pushStackValue(OS_REGISTER_USERPOOL);
-		/* newObject();
-		shutdown_funcs_id = getValueId();
-		retainValueById(shutdown_funcs_id);
-		pop(); */
  
 		initGlobalFunctions();
 		initUrlLibrary();
@@ -490,11 +484,11 @@ public:
 
 			int max_temp_buf_size = (int)(1024*1024*0.1);
 			int temp_buf_size = content_length < max_temp_buf_size ? content_length : max_temp_buf_size;
-			char * temp_buf = new char[temp_buf_size + 1];
+			char * temp_buf = (char*)malloc(temp_buf_size + 1 OS_DBG_FILEPOS); // new char[temp_buf_size + 1];
 			for(int cur_len; (cur_len = FCGX_GetStr(temp_buf, temp_buf_size, request->in)) > 0;){
 				POSTParser.AcceptSomeData(temp_buf, cur_len);
 			}
-			delete [] temp_buf;
+			free(temp_buf); // delete [] temp_buf;
 			temp_buf = NULL;
 			
 			// POSTParser.SetExternalDataBuffer(buf, len);
@@ -524,13 +518,54 @@ public:
 						
 						pushStackValue();
 						pushString(field->GetTempFileNameEx().c_str());
-						setProperty("tmp_name");
+						setProperty("temp");
 						
 						pushStackValue();
 						pushNumber(getFileSize(field->GetTempFileNameEx().c_str()));
 						setProperty("size");
 					}
 					setSmartProperty(it->first.c_str());
+				}
+			}
+		}else if(content_length > 0 && content_type == "application/x-www-form-urlencoded"){
+			Core::Buffer buf(this);
+			buf.reserveCapacity(content_length+4);
+			for(int cur_len; (cur_len = FCGX_GetStr((char*)buf.buffer.buf, content_length, request->in)) > 0;){
+				buf.buffer.count = cur_len;
+				int temp;
+				OS_ASSERT(FCGX_GetStr((char*)&temp, sizeof(temp), request->in) == 0);
+				break;
+			}
+			buf.buffer.buf[buf.buffer.count] = '\0';
+			char * form = (char*)buf.buffer.buf;
+			for(; form ;){
+				char * assign = strchr(form, '=');
+				if(assign){
+					pushCFunction(urlDecode);
+					pushNull();
+					pushString(form, assign - form);
+					call(1, 1);
+					String name = popString();
+
+					pushCFunction(urlDecode);
+					pushNull();
+					char * value_str = assign+1;
+					char * end_str = strchr(form, '&');
+					if(end_str){
+						pushString(value_str, end_str - value_str);
+						form = end_str+1;
+					}else{
+						pushString(value_str);
+						form = NULL;
+					}
+					call(1, 1);
+					String value = popString();
+					
+					getGlobal("_POST");
+					pushString(value);
+					setSmartProperty(name);
+				}else{
+					break;
 				}
 			}
 		}
