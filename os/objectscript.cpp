@@ -10919,7 +10919,7 @@ void OS::Core::deleteValueProperty(GCValue * table_value, Value index, bool del_
 		OS_ASSERT(dynamic_cast<GCArrayValue*>(table_value));
 		GCArrayValue * arr = (GCArrayValue*)table_value;
 		int i; OS_NUMBER_TO_INT(i, OS_VALUE_NUMBER(index)); // = (int)valueToInt(index);
-		if(i >= 0 && i < arr->values.count){
+		if((i >= 0 || (i += arr->values.count) >= 0) && i < arr->values.count){
 			releaseValue(arr->values.buf[i]); 
 			allocator->vectorRemoveAtIndex(arr->values, i);
 		}
@@ -11287,7 +11287,7 @@ OS::Core::Locals ** OS::Core::Locals::getParents()
 
 OS::Core::Locals * OS::Core::Locals::getParent(int i)
 {
-	OS_ASSERT(i >= 0 && i < num_parents);
+	OS_ASSERT(i >= 0 && i < func_decl->func_depth);
 	return ((Locals**)(this+1))[i];
 }
 
@@ -12525,7 +12525,7 @@ void OS::Core::gcFreeCandidateValues(bool full)
 					mark(locals->values[i]);
 				}
 			}
-			for(i = 0; i < locals->num_parents; i++){
+			for(i = 0; i < locals->func_decl->func_depth; i++){
 				mark(locals->getParent(i));
 			}
 		}
@@ -12949,7 +12949,7 @@ void OS::Core::dumpValues(Buffer& out)
 				appendDepthSpaces(depth);
 				appendString(OS_TEXT("]\n"));
 			}
-			for(i = 0; i < locals->num_parents; i++){
+			for(i = 0; i < locals->func_decl->func_depth; i++){
 				appendDepthSpaces(depth + 1);
 				appendString(OS_TEXT("parent: "));
 				dumpLocals(locals->getParent(i), depth + 1);
@@ -14355,7 +14355,7 @@ void OS::Core::gcMarkLocals(Locals * locals)
 	for(i = 0; i < locals->func_decl->num_locals; i++){
 		gcAddToGreyList(locals->values[i]);
 	}
-	for(i = 0; i < locals->num_parents; i++){
+	for(i = 0; i < locals->func_decl->func_depth; i++){
 		gcMarkLocals(locals->getParent(i));
 	}
 }
@@ -14454,7 +14454,7 @@ void OS::Core::gcAddToGreyList_r(GCValue * value)
 				for(i = 0; i < locals->func_decl->num_locals; i++){
 					core->gcAddToGreyList_r(locals->values[i]);
 				}
-				for(i = 0; i < locals->num_parents; i++){
+				for(i = 0; i < locals->func_decl->func_depth; i++){
 					add(locals->getParent(i));
 				}
 			}
@@ -15016,7 +15016,7 @@ bool OS::Core::isValueUsed(GCValue * val)
 					}
 				}
 			}
-			for(i = 0; i < locals->num_parents; i++){
+			for(i = 0; i < locals->func_decl->func_depth; i++){
 				if(findAt(locals->getParent(i))){
 					return true;
 				}
@@ -15213,7 +15213,7 @@ bool OS::Core::isValueExist(GCValue * p_val)
 					}
 				}
 			}
-			for(i = 0; i < locals->num_parents; i++){
+			for(i = 0; i < locals->func_decl->func_depth; i++){
 				if(findAt(locals->getParent(i))){
 					return true;
 				}
@@ -18431,7 +18431,7 @@ void OS::Core::releaseLocals(Locals * locals)
 void OS::Core::deleteLocals(Locals * locals)
 {
 	locals->prog->release();
-	if(locals->num_parents > 0){
+	if(locals->func_decl->func_depth > 0){
 		releaseLocals(locals->getParent(0));
 	}
 	if(!locals->is_stack_locals && locals->values){
@@ -19556,7 +19556,7 @@ corrupted:
 			c = OS_GETARG_C(instruction);
 			OS_ASSERT(c > 0 && c <= stack_func->func->func_decl->max_up_count);
 			scope = stack_func->locals;
-			OS_ASSERT(c <= scope->num_parents);
+			OS_ASSERT(c <= scope->func_decl->func_depth);
 			scope = scope->getParent(c-1);
 			OS_ASSERT(OS_GETARG_B(instruction) >= 0 && OS_GETARG_B(instruction) < scope->func_decl->num_locals);
 			OS_ASSERT(scope->func_decl->locals && scope->func_decl->locals[OS_GETARG_B(instruction)].upvalue);
@@ -19570,7 +19570,7 @@ corrupted:
 			c = OS_GETARG_C(instruction);
 			OS_ASSERT(c > 0 && c <= stack_func->func->func_decl->max_up_count);
 			scope = stack_func->locals;
-			OS_ASSERT(c <= scope->num_parents);
+			OS_ASSERT(c <= scope->func_decl->func_depth);
 			scope = scope->getParent(c-1);
 			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < scope->func_decl->num_locals);
 			OS_ASSERT(scope->func_decl->locals && scope->func_decl->locals[OS_GETARG_A(instruction)].upvalue);
@@ -22029,9 +22029,9 @@ dump_object:
 		{OS_TEXT("getProperty"), Object::getProperty},
 		{OS_TEXT("setProperty"), Object::setProperty},
 		{OS_TEXT("setSmartProperty"), Object::setSmartProperty},
-		{OS_TEXT("__get@id"), Object::getValueId},
+		{OS_TEXT("__get@__id"), Object::getValueId},
 		{OS_TEXT("getId"), Object::getValueId},
-		{OS_TEXT("__get@name"), Object::getValueName},
+		{OS_TEXT("__get@__name"), Object::getValueName},
 		{OS_TEXT("getName"), Object::getValueName},
 		{OS_TEXT("__get@classname"), Object::getValueClassname},
 		{OS_TEXT("getClassname"), Object::getValueClassname},
@@ -24896,11 +24896,11 @@ void OS::Core::call(int start_pos, int call_params, int ret_values, GCValue * se
 			func_locals->func_decl = func_decl;
 			func_locals->values = stack_values.buf + stack_func->locals_stack_pos;
 			func_locals->is_stack_locals = true;
-			func_locals->num_parents = func_decl->func_depth;
+			// func_locals->num_parents = func_decl->func_depth;
 			func_locals->ref_count = 1;
 			func_locals->gc_step_type = 0;
 			if(func_decl->func_depth > 0){
-				OS_ASSERT(func_value->locals && func_value->locals->num_parents == func_decl->func_depth-1);
+				OS_ASSERT(func_value->locals && func_value->locals->func_decl->func_depth == func_decl->func_depth-1);
 				Locals ** parents = func_locals->getParents();
 				parents[0] = func_value->locals->retain();
 				if(func_decl->func_depth > 1){
