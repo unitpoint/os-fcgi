@@ -13767,6 +13767,7 @@ OS::Core::Core(OS * p_allocator)
 	settings.create_text_opcodes = true;
 	settings.create_text_eval_opcodes = false;
 	settings.primary_compiled_file = false;
+	settings.sourcecode_must_exist = false;
 
 	// gcInitGreyList();
 	gc_start_used_bytes = 2*1024*1024;
@@ -14254,8 +14255,8 @@ OS::String OS::resolvePath(const String& filename)
 		}
 		pop();
 
-		String ext = getFilenameExt(resolved_path);
-		if(ext.isEmpty() || ext == OS_EXT_COMPILED){
+		String ext = getFilenameExt(filename);
+		if(((ext.isEmpty() || ext == OS_EXT_TEMPLATE) && !core->settings.sourcecode_must_exist) || ext == OS_EXT_COMPILED){
 			String new_filename = getCompiledFilename(filename);
 			if(new_filename == filename){
 				return String(this);
@@ -25086,6 +25087,9 @@ bool OS::compileFile(const String& p_filename, bool required, OS_ESourceCodeType
 	bool sourcecode_file_exist = is_compiled ? false : isFileExist(filename);
 	bool compiled_file_exist = isFileExist(compiled_filename);
 	bool recompile_enabled = false;
+	if(core->settings.sourcecode_must_exist && !sourcecode_file_exist){
+		compiled_file_exist = false;
+	}
 	if(compiled_file_exist && sourcecode_file_exist){
 		if(core->settings.primary_compiled_file || checkFileUsage(filename, compiled_filename) == LOAD_COMPILED_FILE){
 			sourcecode_file_exist = false;
@@ -25245,6 +25249,9 @@ int OS::getSetting(OS_ESettings setting)
 
 	case OS_SETTING_PRIMARY_COMPILED_FILE:
 		return core->settings.primary_compiled_file;
+
+	case OS_SETTING_SOURCECODE_MUST_EXIST:
+		return core->settings.sourcecode_must_exist;
 	}
 	return -1;
 }
@@ -25275,6 +25282,9 @@ int OS::setSetting(OS_ESettings setting, int value)
 
 	case OS_SETTING_PRIMARY_COMPILED_FILE:
 		return Lib::ret(core->settings.primary_compiled_file, value);
+
+	case OS_SETTING_SOURCECODE_MUST_EXIST:
+		return Lib::ret(core->settings.sourcecode_must_exist, value);
 
 	default:
 		OS_ASSERT(false);

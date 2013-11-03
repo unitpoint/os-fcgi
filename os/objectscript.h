@@ -49,7 +49,7 @@ inline void operator delete(void *, void *){}
 #include <vadefs.h>
 #endif
 
-#define OS_VERSION		OS_TEXT("1.9-dev")
+#define OS_VERSION		OS_TEXT("1.9.1-dev")
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
@@ -228,6 +228,7 @@ namespace ObjectScript
 		OS_SETTING_CREATE_DEBUG_INFO,
 		OS_SETTING_CREATE_COMPILED_FILE,
 		OS_SETTING_PRIMARY_COMPILED_FILE,
+		OS_SETTING_SOURCECODE_MUST_EXIST,
 	};
 
 	enum OS_EValueType
@@ -2551,6 +2552,7 @@ namespace ObjectScript
 				bool create_debug_info;
 				bool create_compiled_file;
 				bool primary_compiled_file;
+				bool sourcecode_must_exist;
 			} settings;
 
 			enum {
