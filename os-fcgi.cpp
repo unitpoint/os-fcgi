@@ -10,7 +10,7 @@
 #include "3rdparty/MPFDParser-1.0/Parser.h"
 #include <stdlib.h>
 
-#define OS_FCGI_VERSION_STR	OS_TEXT("1.0.1-dev")
+#define OS_FCGI_VERSION_STR	OS_TEXT("1.0.2-dev")
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -153,6 +153,8 @@ public:
 #endif
 		setSetting(OS_SETTING_CREATE_DEBUG_INFO, true);
 		setSetting(OS_SETTING_CREATE_COMPILED_FILE, true);
+
+		setSetting(OS_SETTING_SOURCECODE_MUST_EXIST, true);
 
 		OS::initPreScript();
 	}
@@ -582,20 +584,29 @@ public:
 		do{
 			static const char * not_found = "Content-type: text/html; charset=utf-8\r\n"
 				"Status: 404 Not Found\r\n"
-				"\r\n\r\n"
+				"\r\n"
 				"<html><head><title>404 Not Found</title></head><body bgcolor=\"white\">"
-				"<center><h1>404 Not Found</h1></center><hr><center>"
+				"<center><h1>404 Not Found %s</h1></center><hr><center>"
 					"ObjectScript " OS_VERSION "<br />"
 					// OS_COPYRIGHT "<br />"
 					OS_OPENSOURCE
-				"</center></body></html>"
-				;
+				"</center></body></html>";
+
+			static const char * just_ready = "Content-type: text/html; charset=utf-8\r\n"
+				"\r\n"
+				"<html><head><title>Server is just ready to use ObjectScript</title></head><body bgcolor=\"white\">"
+				"<center><h1>Server is just ready to use ObjectScript</h1></center><hr><center>"
+					"ObjectScript " OS_VERSION "<br />"
+					// OS_COPYRIGHT "<br />"
+					OS_OPENSOURCE
+				"</center></body></html>";
+
 			if(script_filename.isEmpty()){
 				if(!header_sent){
 					header_sent = true;
-					FCGX_PutS(not_found, request->out);
+					FCGX_PutS(just_ready, request->out);
 				}else
-					FCGX_PutS("Filename is not found", request->out);
+					FCGX_PutS("Server is just ready to use ObjectScript", request->out);
 				break;
 			}
 			if(getFilename(script_filename).isEmpty()){
@@ -618,9 +629,9 @@ public:
 				if(!found){
 					if(!header_sent){
 						header_sent = true;
-						FCGX_PutS(not_found, request->out);
+						FCGX_PutS(just_ready, request->out);
 					}else
-						FCGX_PutS("Filename is not found", request->out);
+						FCGX_PutS("Server is just ready to use ObjectScript", request->out);
 					break;
 				}
 			}
@@ -630,8 +641,7 @@ public:
 				triggerShutdownFunctions();
 				if(!header_sent){
 					header_sent = true;
-					FCGX_PutS("Content-type: text/html; charset=utf-8\r\n\r\n", request->out);
-					FCGX_PutS("<h1>Server is just ready to use ObjectScript</h1>", request->out);
+					FCGX_PutS(just_ready, request->out);
 				}
 			}else{
 				// print requested file, it's not recommended, only ObjectScript scripts are recommended
@@ -641,7 +651,7 @@ public:
 						header_sent = true;
 						FCGX_PutS("Content-type: ", request->out);
 						FCGX_PutS(getContentType(ext), request->out);
-						FCGX_PutS("; charset=utf-8\r\n\r\n", request->out);
+						FCGX_PutS("\r\n\r\n", request->out);
 					}
 					const int BUF_SIZE = 1024*256;
 					int size = getFileSize(f);
@@ -656,9 +666,10 @@ public:
 				}else{
 					if(!header_sent){
 						header_sent = true;
-						FCGX_PutS(not_found, request->out);
-					}else
-						FCGX_PutS("Filename is not found", request->out);
+						FCGX_FPrintF(request->out, not_found, getFilename(script_filename).toChar());
+					}else{
+						FCGX_FPrintF(request->out, "404 Not Found %s", getFilename(script_filename).toChar());
+					}
 				}
 			}
 		}while(false);
