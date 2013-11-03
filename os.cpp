@@ -6,18 +6,21 @@
 #endif
 
 #include "os/objectscript.h"
-#include "os/os-heap.h"
+
 #include <stdlib.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
 
-#include "3rdparty/md5/md5.h"
-
 #ifndef _MSC_VER
 #include <pthread.h>
 #endif
+
+#include "os/ext-hashlib/os-hashlib.h"
+#include "os/ext-url/os-url.h"
+#include "os/ext-base64/os-base64.h"
+#include "os/ext-datetime/os-datetime.h"
 
 #ifndef OS_CURL_DISABLED
 #include "os/ext-curl/os-curl.h"
@@ -35,10 +38,6 @@
 #include "os/ext-regexp/os-regexp.h"
 #endif
 
-#ifndef OS_DATETIME_DISABLED
-#include "os/ext-datetime/os-datetime.h"
-#endif
-
 #ifndef OS_ODBO_DISABLED
 #include "os/ext-odbo/os-odbo.h"
 #endif
@@ -46,6 +45,16 @@
 #ifndef OS_ZLIB_DISABLED
 #include "os/ext-zlib/os-zlib.h"
 #endif
+
+#ifdef _MSC_VER
+#ifndef IW_SDK
+#include <direct.h>
+#endif // IW_SDK
+#else // _MSC_VER
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif // _MSC_VER
 
 using namespace ObjectScript;
 
@@ -72,6 +81,36 @@ using namespace ObjectScript;
 #define EOFMARK		"<eof>"
 #define marklen		(sizeof(EOFMARK)/sizeof(char) - 1)
 
+char init_cache_path[128] = 
+#ifdef _MSC_VER
+	"cache-osc"
+#else
+	"/tmp"
+#endif
+;
+
+time_t start_time = 0;
+
+void initStartTime()
+{
+	char touch_filename[256];
+	strcpy(touch_filename, init_cache_path);
+#ifdef _MSC_VER
+	OS_MKDIR(touch_filename);
+#else
+	OS_MKDIR(touch_filename, 0755);
+#endif
+	strcat(touch_filename, "/os-cache-touch");
+	FILE * f = fopen(touch_filename, "wb");
+	OS_ASSERT(f);
+	if(f){
+		fclose(f);
+		struct stat filename_st;
+		stat(touch_filename, &filename_st);
+		start_time = filename_st.st_mtime;
+	}
+}
+
 class ConsoleOS: public OS
 {
 protected:
@@ -87,14 +126,13 @@ protected:
 	virtual bool init(MemoryManager * mem)
 	{
 		if(OS::init(mem)){
-			// core->gc_start_used_bytes = 32*1024*1024;
-			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, 
-#ifdef _MSC_VER
-				"cache-osc"
-#else
-				"/tmp"
-#endif
-				);
+			// setGCStartUsedBytes(32 * 1024 * 1024);
+			cache_path = new (malloc(sizeof(Core::String) OS_DBG_FILEPOS)) Core::String(this, init_cache_path);
+
+			initHashLibrary(this);
+			initUrlLibrary(this);
+			initBase64Library(this);
+			initDateTimeLibrary(this);
 
 #ifndef OS_CURL_DISABLED
 			initCurlLibrary(this);
@@ -110,10 +148,6 @@ protected:
 
 #ifndef OS_REGEXP_DISABLED
 			initRegexpLibrary(this);
-#endif
-
-#ifndef OS_DATETIME_DISABLED
-			initDateTimeLibrary(this);
 #endif
 
 #ifndef OS_ODBO_DISABLED
@@ -153,6 +187,8 @@ public:
 		setSetting(OS_SETTING_CREATE_DEBUG_INFO, true);
 		setSetting(OS_SETTING_CREATE_COMPILED_FILE, true);
 
+		setSetting(OS_SETTING_SOURCECODE_MUST_EXIST, true);
+
 		OS::initPreScript();
 	}
 
@@ -173,26 +209,16 @@ public:
 		setGlobal(var_name);
 	}
 
-	OS_CHAR * md5(OS_CHAR * r, const String& buf)
-	{
-		MD5Context context;
-		unsigned char digest[16];
-		MD5Init(&context);
-		MD5Update(&context, (md5byte*)buf.toChar(), buf.getDataSize());
-		MD5Final(&context, digest);
-		
-		for(int i = 0; i < 16; i++){
-			r[i*2+0] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 4) & 0xf];
-			r[i*2+1] = OS_TEXT("0123456789ABCDEF")[(digest[i] >> 0) & 0xf];
-		}
-		r[32] = 0;
-		return r;
-	}
-
 	String md5(const String& buf)
 	{
-		OS_CHAR r[34];
-		return String(this, md5(r, buf), 32);
+		getGlobal(OS_TEXT("hashlib"));
+		getProperty(OS_TEXT("md5"));
+		OS_ASSERT(isFunction());
+		pushNull();
+		pushString(buf);
+		call(1, 1);
+		OS_ASSERT(isString());
+		return popString();
 	}
 
 	String getCompiledFilename(const String& resolved_filename)
@@ -208,11 +234,10 @@ public:
 			return resolved_filename;
 		}
 #endif	
-		OS_CHAR temp[34];
 		Core::Buffer buf(this);
 		buf.append(*cache_path);
 		buf.append(OS_TEXT("/os-cache-"));
-		buf.append(md5(temp, resolved_filename), 32);
+		buf.append(md5(resolved_filename));
 		buf.append(OS_EXT_COMPILED);
 		// buf.append(changeFilenameExt(md5(resolved_filename), OS_EXT_COMPILED));
 		return buf.toStringOS(); 
@@ -228,7 +253,7 @@ public:
 		struct stat sourcecode_st, compiled_st;
 		stat(sourcecode_filename, &sourcecode_st);
 		stat(compiled_filename, &compiled_st);
-		if(sourcecode_st.st_mtime >= compiled_st.st_mtime){
+		if(sourcecode_st.st_mtime >= compiled_st.st_mtime || compiled_st.st_mtime < start_time){
 			return COMPILE_SOURCECODE_FILE;
 		}
 		return LOAD_COMPILED_FILE;
@@ -252,108 +277,9 @@ public:
 	}
 	*/
 
-	static int decodeHexChar(OS_CHAR c)
-	{
-		if(c >= '0' && c <= '9') return      c - '0';
-		if(c >= 'A' && c <= 'F') return 10 + c - 'A';
-		if(c >= 'a' && c <= 'f') return 10 + c - 'a';
-		return 0;
-	}
-
-	static OS_CHAR decodeHexCode(const OS_CHAR * s)
-	{
-		// OS_ASSERT(s[0] && s[1]);
-		int c = decodeHexChar(s[0]) * 16 + decodeHexChar(s[1]);
-		return (OS_CHAR)c;
-	}
-
-	static int urlDecode(OS * os, int params, int, int, void*)
-	{
-		if(params >= 1){
-			String str = os->toString(-params+0);
-			const OS_CHAR * s = str;
-			const OS_CHAR * end = s + str.getLen();
-			
-			Core::Buffer buf(os);
-			for(; s < end;){
-				if(*s == OS_TEXT('%')){
-					if(s+3 <= end){
-						buf.append(decodeHexCode(s+1));
-					}
-					s += 3;
-				}else if(*s == OS_TEXT('+')){
-					buf.append(OS_TEXT(' '));
-					s++;
-				}else{
-					buf.append(*s++);
-				}
-			}
-			os->pushString(buf);
-			return 1;
-		}
-		return 0;
-	}
-
-	static int urlEncode(OS * os, int params, int, int, void*)
-	{
-		if(params >= 1){
-			String str = os->toString(-params+0);
-			const OS_CHAR * s = str;
-			const OS_CHAR * end = s + str.getLen();
-			
-			Core::Buffer buf(os);
-			for(; s < end; s++){
-				if( (*s >= OS_TEXT('0') && *s <= OS_TEXT('9'))
-					|| (*s >= OS_TEXT('A') && *s <= OS_TEXT('Z'))
-					|| (*s >= OS_TEXT('a') && *s <= OS_TEXT('z')) )
-				{
-					buf.append(*s);
-				}else{
-					buf.append(OS_TEXT('%'));
-					buf.append(OS_TEXT("0123456789ABCDEF")[((OS_BYTE)(*s) >> 4) & 0xf]);
-					buf.append(OS_TEXT("0123456789ABCDEF")[((OS_BYTE)(*s) >> 0) & 0xf]);
-				}
-			}
-			os->pushString(buf);
-			return 1;
-		}
-		return 0;
-	}
-
-	void initUrlLibrary()
-	{
-		FuncDef funcs[] = {
-			{"decode", ConsoleOS::urlDecode},
-			{"encode", ConsoleOS::urlEncode},
-			{}
-		};
-		getModule(OS_TEXT("url"));
-		setFuncs(funcs);
-		pop();
-	}
-
 	void triggerShutdownFunctions()
 	{
 		resetTerminated();
-		/*
-		String iter_func(this, "reverseIter");
-		pushValueById(shutdown_funcs_id);
-		while(nextIteratorStep(2, iter_func)){
-			if(isFunction()){
-				pushStackValue();
-				pushNull();
-				call();
-			}
-			pop(2);
-		}
-		pop();
-		
-		// reset shutdown_funcs_id
-		pushValueById(shutdown_funcs_id);
-		getProperty("clear");
-		pushValueById(shutdown_funcs_id);
-		call();
-		*/
 		getGlobal("triggerShutdownFunctions");
 		pushGlobals();
 		call();
@@ -361,17 +287,8 @@ public:
 
 	void initGlobalFunctions()
 	{
-		struct Lib {
-			static int triggerShutdownFunctions(OS * os, int params, int, int, void*)
-			{
-				((ConsoleOS*)os)->triggerShutdownFunctions();
-				return 0;
-			}
-		};
 		FuncDef funcs[] = {
-			// {"registerShutdownFunction", ConsoleOS::registerShutdownFunction},
-			// {"triggerHeaderSent", ConsoleOS::triggerHeaderSent},
-			// {"triggerShutdownFunctions", Lib::triggerShutdownFunctions},
+			// {"triggerHeaderSent", FCGX_OS::triggerHeaderSent},
 			{}
 		};
 		pushGlobals();
@@ -711,7 +628,6 @@ public:
 		// addProperty();
 
 		initGlobalFunctions();
-		initUrlLibrary();
 
 		char * server_env[] = {NULL};
 		initEnv("_SERVER", server_env);
@@ -788,6 +704,8 @@ int _tmain(int argc, _TCHAR* _argv[])
 int main(int argc, char * argv[])
 {
 #endif
+
+	initStartTime();
 
 #if 1
 	ConsoleOS * os = OS::create(new ConsoleOS());

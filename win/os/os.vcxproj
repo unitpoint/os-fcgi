@@ -443,8 +443,12 @@
     <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\vietcomb.h" />
     <ClInclude Include="..\..\3rdparty\libiconv-1.14\lib\viscii.h" />
     <ClInclude Include="..\..\3rdparty\md5\md5.h" />
+    <ClInclude Include="..\..\os\ext-base64\cdecode.h" />
+    <ClInclude Include="..\..\os\ext-base64\cencode.h" />
     <ClInclude Include="..\..\os\ext-curl\os-curl.h" />
     <ClInclude Include="..\..\os\ext-datetime\os-datetime.h" />
+    <ClInclude Include="..\..\os\ext-hashlib\sha\sha-private.h" />
+    <ClInclude Include="..\..\os\ext-hashlib\sha\sha.h" />
     <ClInclude Include="..\..\os\ext-odbo\os-odbo.h" />
     <ClInclude Include="..\..\os\ext-regexp\os-regexp.h" />
     <ClInclude Include="..\..\os\ext-sqlite3\os-sqlite3.h" />
@@ -459,18 +463,29 @@
   <ItemGroup>
     <ClCompile Include="..\..\3rdparty\libiconv-1.14\libcharset\lib\localcharset.c" />
     <ClCompile Include="..\..\3rdparty\libiconv-1.14\lib\iconv.c" />
-    <ClCompile Include="..\..\3rdparty\md5\md5.cpp" />
     <ClCompile Include="..\..\os.cpp" />
+    <ClCompile Include="..\..\os\ext-base64\cdecode.cpp" />
+    <ClCompile Include="..\..\os\ext-base64\cencode.cpp" />
+    <ClCompile Include="..\..\os\ext-base64\os-base64.cpp" />
     <ClCompile Include="..\..\os\ext-curl\os-curl.cpp" />
     <ClCompile Include="..\..\os\ext-datetime\os-datetime.cpp">
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
       <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='DebugPrice|Win32'">true</ShowIncludes>
     </ClCompile>
+    <ClCompile Include="..\..\os\ext-hashlib\des\des.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\md5\md5.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\os-hashlib.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\sha\hmac.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\sha\sha1.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\sha\sha224-256.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\sha\sha384-512.cpp" />
+    <ClCompile Include="..\..\os\ext-hashlib\sha\usha.cpp" />
     <ClCompile Include="..\..\os\ext-iconv\os-iconv.cpp" />
     <ClCompile Include="..\..\os\ext-odbo\os-odbo.cpp" />
     <ClCompile Include="..\..\os\ext-regexp\os-regexp.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\os-sqlite3.cpp" />
     <ClCompile Include="..\..\os\ext-sqlite3\sqlite3.c" />
+    <ClCompile Include="..\..\os\ext-url\os-url.cpp" />
     <ClCompile Include="..\..\os\ext-zlib\os-zlib.cpp" />
     <ClCompile Include="..\..\os\ext-zlib\zlib\adler32.c" />
     <ClCompile Include="..\..\os\ext-zlib\zlib\compress.c" />

@@ -106,8 +106,8 @@ ENDIF()
 # begin objectscript
 list(APPEND SOURCES os/objectscript.cpp)
 list(APPEND SOURCES os/os-heap.cpp)
-list(APPEND HEADERS os/objectscript.cpp)
-list(APPEND HEADERS os/os-heap.cpp)
+list(APPEND HEADERS os/objectscript.h)
+list(APPEND HEADERS os/os-heap.h)
 # end objectscript
 
 list(APPEND SOURCES os-fcgi.cpp)
@@ -116,13 +116,11 @@ list(APPEND SOURCES 3rdparty/fcgi-2.4.1/libfcgi/fcgiapp.c)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Parser.cpp)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Field.cpp)
 list(APPEND SOURCES 3rdparty/MPFDParser-1.0/Exception.cpp)
-list(APPEND SOURCES 3rdparty/md5/md5.cpp)
 
 include_directories(os)
 include_directories(3rdparty/fcgi-2.4.1)
 include_directories(3rdparty/fcgi-2.4.1/include)
 include_directories(3rdparty/MPFDParser-1.0)
-include_directories(3rdparty/md5)
 
 
 find_package(Threads QUIET)
@@ -205,6 +203,35 @@ SET(GCC_COVERAGE_LINK_FLAGS    "${GCC_COVERAGE_LINK_FLAGS} -lpthread -ldl")
 list(APPEND SOURCES os/ext-datetime/os-datetime.cpp)
 list(APPEND HEADERS os/ext-datetime/os-datetime.h)
 # end datetime
+
+# begin hashlib
+list(APPEND SOURCES os/ext-hashlib/os-hashlib.cpp)
+list(APPEND HEADERS os/ext-hashlib/os-hashlib.h)
+list(APPEND SOURCES os/ext-hashlib/des/des.cpp)
+list(APPEND SOURCES os/ext-hashlib/md5/md5.cpp)
+list(APPEND HEADERS os/ext-hashlib/md5/md5.h)
+list(APPEND SOURCES os/ext-hashlib/sha/hmac.cpp)
+list(APPEND SOURCES os/ext-hashlib/sha/sha1.cpp)
+list(APPEND SOURCES os/ext-hashlib/sha/sha224-256.cpp)
+list(APPEND SOURCES os/ext-hashlib/sha/sha384-512.cpp)
+list(APPEND SOURCES os/ext-hashlib/sha/usha.cpp)
+list(APPEND HEADERS os/ext-hashlib/sha/sha.h)
+list(APPEND HEADERS os/ext-hashlib/sha/sha-private.h)
+# end hashlib
+
+# begin base64
+list(APPEND SOURCES os/ext-base64/os-base64.cpp)
+list(APPEND SOURCES os/ext-base64/cdecode.cpp)
+list(APPEND SOURCES os/ext-base64/cencode.cpp)
+list(APPEND HEADERS os/ext-base64/cdecode.h)
+list(APPEND HEADERS os/ext-base64/cencode.h)
+list(APPEND HEADERS os/ext-base64/os-base64.h)
+# end base64
+
+# begin url
+list(APPEND SOURCES os/ext-url/os-url.cpp)
+list(APPEND HEADERS os/ext-url/os-url.h)
+# end url
 
 # begin odbo
 list(APPEND SOURCES os/ext-odbo/os-odbo.cpp)
