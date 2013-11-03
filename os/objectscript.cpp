@@ -2009,6 +2009,7 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 							case OS_TEXT('r'): c = OS_TEXT('\r'); str++; break;
 							case OS_TEXT('n'): c = OS_TEXT('\n'); str++; break;
 							case OS_TEXT('t'): c = OS_TEXT('\t'); str++; break;
+							case OS_TEXT('v'): c = OS_TEXT('\v'); str++; break;
 							case OS_TEXT('b'): c = OS_TEXT('\b'); str++; break;
 							case OS_TEXT('f'): c = OS_TEXT('\f'); str++; break;
 							case OS_TEXT('\"'): c = OS_TEXT('\"'); str++; break;
@@ -13271,6 +13272,7 @@ void OS::Core::appendQuotedString(Buffer& buf, const String& string)
 		case OS_TEXT('\r'): buf += OS_TEXT("\\r"); continue;
 		case OS_TEXT('\n'): buf += OS_TEXT("\\n"); continue;
 		case OS_TEXT('\t'): buf += OS_TEXT("\\t"); continue;
+		case OS_TEXT('\v'): buf += OS_TEXT("\\v"); continue;
 		case OS_TEXT('\b'): buf += OS_TEXT("\\b"); continue;
 		case OS_TEXT('\f'): buf += OS_TEXT("\\f"); continue;
 		case OS_TEXT('\\'): buf += OS_TEXT("\\\\"); continue;
@@ -15605,6 +15607,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 		} \
 		\
 		Value local7_index_copy = local7_index; \
+		Value local7_value_copy = local7_value; \
 		const bool local7_setter_enabled = (_setter_enabled); \
 		if(local7_setter_enabled /*&& !hasSpecialPrefix(local7_index_copy)*/){ \
 			Value func; \
@@ -15618,7 +15621,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 					pop(); \
 					pushValue(func); \
 					pushValue(local7_table_value); \
-					pushValue(local7_value); \
+					pushValue(local7_value_copy); \
 					call(1, 0); \
 					break; \
 				} \
@@ -15628,7 +15631,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 				pushValue(func); \
 				pushValue(local7_table_value); \
 				pushValue(local7_index_copy); \
-				pushValue(local7_value); \
+				pushValue(local7_value_copy); \
 				call(2, 0); \
 				break; \
 			} \
@@ -15637,7 +15640,7 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 		if(!table){ \
 			local7_table_value->table = table = newTable(OS_DBG_FILEPOS_START); \
 		} \
-		addTableProperty(table, local7_index_copy, local7_value); \
+		addTableProperty(table, local7_index_copy, local7_value_copy); \
 	} while(false)
 
 
@@ -24099,6 +24102,11 @@ void OS::initMathModule()
 		{
 			return p * OS_RADIANS_PER_DEGREE;
 		}
+
+		static bool isNan(double p)
+		{
+			return OS_ISNAN((OS_FLOAT)p);
+		}
 	};
 	FuncDef list[] = {
 		{OS_TEXT("min"), Math::min_func},
@@ -24130,6 +24138,7 @@ void OS::initMathModule()
 		{OS_TEXT("log"), Math::log},
 		def(OS_TEXT("deg"), Math::deg),
 		def(OS_TEXT("rad"), Math::rad),
+		def(OS_TEXT("isNan"), Math::isNan),
 		{}
 	};
 	NumberDef numbers[] = {
