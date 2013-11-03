@@ -6,7 +6,7 @@
 #include "../objectscript.h"
 #include "../os-binder.h"
 
-#include <../../3rdparty/libiconv-1.14/include/iconv.h>
+#include <iconv.h>
 
 #include <errno.h>
 #include <stdlib.h>
