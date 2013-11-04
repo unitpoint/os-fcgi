@@ -49,7 +49,7 @@ inline void operator delete(void *, void *){}
 #include <vadefs.h>
 #endif
 
-#define OS_VERSION		OS_TEXT("1.9.4-dev")
+#define OS_VERSION		OS_TEXT("1.9.5-dev")
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
@@ -2451,6 +2451,7 @@ namespace ObjectScript
 			Value user_pool;
 			Value retain_pool;
 			Value check_get_recursion;
+			Value check_set_recursion;
 			Value check_valueof_recursion;
 			
 			enum {
@@ -2665,6 +2666,9 @@ namespace ObjectScript
 
 			bool pushGetRecursion(const Value& obj, const Value& name);
 			void popGetRecursion(const Value& obj, const Value& name);
+
+			bool pushSetRecursion(const Value& obj, const Value& name);
+			void popSetRecursion(const Value& obj, const Value& name);
 
 			bool pushValueOfRecursion(Value obj);
 			void popValueOfRecursion(Value obj);

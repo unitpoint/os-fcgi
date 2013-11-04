@@ -12743,6 +12743,7 @@ void OS::Core::gcFreeCandidateValues(bool full)
 		lib.mark(user_pool);
 		lib.mark(retain_pool);
 		lib.mark(check_get_recursion);
+		lib.mark(check_set_recursion);
 		lib.mark(check_valueof_recursion);
 		for(i = 0; i < PROTOTYPE_COUNT; i++){
 			lib.mark(prototypes[i]);
@@ -13180,6 +13181,10 @@ dump_object:
 
 	lib.appendString(OS_TEXT("=== CHECK_GET_RECURSION: "));
 	lib.dump(check_get_recursion, 0);
+	lib.appendString(OS_TEXT("\n"));
+
+	lib.appendString(OS_TEXT("=== CHECK_SET_RECURSION: "));
+	lib.dump(check_set_recursion, 0);
 	lib.appendString(OS_TEXT("\n"));
 
 	lib.appendString(OS_TEXT("=== CHECK_VALUEOF_RECURSION: "));
@@ -13792,6 +13797,7 @@ OS::Core::~Core()
 	OS_ASSERT(!strings && global_vars.isNull() && user_pool.isNull() 
 		&& retain_pool.isNull() 
 		&& check_get_recursion.isNull() 
+		&& check_set_recursion.isNull() 
 		&& check_valueof_recursion.isNull() 
 		);
 	for(int i = 0; i < PROTOTYPE_COUNT; i++){
@@ -13883,6 +13889,7 @@ bool OS::Core::init()
 	retainValue(user_pool = pushObjectValue()); pop();
 	retainValue(retain_pool = pushObjectValue()); pop();
 	retainValue(check_get_recursion = pushObjectValue()); pop();
+	retainValue(check_set_recursion = pushObjectValue()); pop();
 	retainValue(check_valueof_recursion = pushObjectValue()); pop();
 
 	retainValue(prototypes[PROTOTYPE_BOOL]->prototype = prototypes[PROTOTYPE_OBJECT]);
@@ -14054,6 +14061,7 @@ void OS::Core::shutdown()
 	user_pool = (GCValue*)NULL;
 	retain_pool = (GCValue*)NULL;
 	check_get_recursion = (GCValue*)NULL;
+	check_set_recursion = (GCValue*)NULL;
 	check_valueof_recursion = (GCValue*)NULL;
 
 	for(i = 0; i < PROTOTYPE_COUNT; i++){
@@ -14780,6 +14788,7 @@ int OS::Core::gcStep()
 		gcAddToGreyList(user_pool);
 		gcAddToGreyList(retain_pool);
 		gcAddToGreyList(check_get_recursion);
+		gcAddToGreyList(check_set_recursion);
 		int i;
 		for(i = 0; i < PROTOTYPE_COUNT; i++){
 			gcAddToGreyList(prototypes[i]);
@@ -15164,6 +15173,9 @@ bool OS::Core::isValueUsed(GCValue * val)
 		return true;
 	}
 	if(lib.findAt(check_get_recursion)){
+		return true;
+	}
+	if(lib.findAt(check_set_recursion)){
 		return true;
 	}
 	if(lib.findAt(check_valueof_recursion)){
@@ -15628,12 +15640,16 @@ bool OS::Core::hasSpecialPrefix(const Value& value)
 				pop(); \
 			} \
 			if(getPropertyValue(func, local7_table_value, strings->__set, true) && func.isFunction()){ \
-				pushValue(func); \
-				pushValue(local7_table_value); \
-				pushValue(local7_index_copy); \
-				pushValue(local7_value_copy); \
-				call(2, 0); \
-				break; \
+				if(pushSetRecursion(local7_table_value, local7_index_copy)){ \
+					pushValue(func); \
+					pushValue(local7_table_value); \
+					pushValue(local7_index_copy); \
+					pushValue(local7_value_copy); \
+					call(2, 0); \
+					popSetRecursion(local7_table_value, local7_index_copy); \
+					break; \
+				} \
+				allocator->setException(String::format(allocator, OS_TEXT("recursive set '%s'"), valueToString(local7_index_copy).toChar())); \
 			} \
 		} \
 		OS_ASSERT(local7_table_value->type != OS_VALUE_TYPE_STRING); \
@@ -19355,8 +19371,7 @@ corrupted:
 				// int env_index = stack_func->func->func_decl->num_params + VAR_ENV;
 				// GCFunctionValue * func_value = 
 				pushFunctionValue(stack_func, prog, func_decl, stack_func_locals[stack_func_env_index]);
-				OS_ASSERT(this->stack_func_locals == stack_func_locals);
-				stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count]; // func_value;
+				this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count]; // func_value;
 				stack_func->opcodes += func_decl->opcodes_size;
 				break;
 			}
@@ -19512,12 +19527,11 @@ corrupted:
 								break;
 							}
 						}
+						stack_func_locals = this->stack_func_locals;
 						if(value.isFunction()){
-							stack_func_locals = this->stack_func_locals;
 							stack_func_locals[a] = value;
 							stack_func_locals[a + 1] = stack_func_locals[PRE_VAR_THIS];
 						}else{
-							stack_func_locals = this->stack_func_locals;
 							stack_func_locals[a] = stack_func_locals[a + 1] = Value();
 						}
 						stack_func = this->stack_func;
@@ -19606,12 +19620,10 @@ corrupted:
 			b = OS_GETARG_B(instruction);
 			c = OS_GETARG_C(instruction);
 #if 1 // performance optimization
-			/* if(OS_IS_VALUE_GC(stack_func_locals[OS_GETARG_A(instruction)]) && stack_func_locals[OS_GETARG_A(instruction)].getGCValue()->value_id == 15380){
-				int i = 0;
-			} */
 			OS_SETTER_VALUE(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
 #else
-			setPropertyValue(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
+			setPropertyValue(value, OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), false);
+			this->stack_func_locals[OS_GETARG_A(instruction)] = value;
 #endif
 			break;
 
@@ -19621,12 +19633,10 @@ corrupted:
 			b = OS_GETARG_B(instruction);
 			c = OS_GETARG_C(instruction);
 #if 1 // performance optimization
-			/* if(OS_IS_VALUE_GC(stack_func_locals[OS_GETARG_A(instruction)]) && stack_func_locals[OS_GETARG_A(instruction)].getGCValue()->value_id == 15380){
-				int i = 0;
-			} */
 			OS_SETTER_VALUE(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
 #else
-			setPropertyValue(stack_func_locals[OS_GETARG_A(instruction)], OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
+			setPropertyValue(value, OS_GETARG_B_VALUE(), OS_GETARG_C_VALUE(), true);
+			this->stack_func_locals[OS_GETARG_A(instruction)] = value;
 #endif
 			break;
 
@@ -19634,7 +19644,7 @@ corrupted:
 			// a = OS_GETARG_A(instruction);
 			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			pushObjectValue();
-			stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
+			this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 			break;
 
 		OS_CASE_OPCODE(OP_NEW_ARRAY):
@@ -19642,7 +19652,7 @@ corrupted:
 			OS_ASSERT(OS_GETARG_A(instruction) >= 0 && OS_GETARG_A(instruction) < stack_func->func->func_decl->stack_size);
 			// b = OS_GETARG_B(instruction);
 			pushArrayValue(OS_GETARG_B(instruction));
-			stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
+			this->stack_func_locals[OS_GETARG_A(instruction)] = stack_values.buf[--stack_values.count];
 			break;
 
 		OS_CASE_OPCODE(OP_MULTI):
@@ -19815,6 +19825,16 @@ bool OS::Core::pushGetRecursion(const Value& obj, const Value& name)
 void OS::Core::popGetRecursion(const Value& obj, const Value& name)
 {
 	popRecursion(check_get_recursion, obj, name);
+}
+
+bool OS::Core::pushSetRecursion(const Value& obj, const Value& name)
+{
+	return pushRecursion(check_set_recursion, obj, name);
+}
+
+void OS::Core::popSetRecursion(const Value& obj, const Value& name)
+{
+	popRecursion(check_set_recursion, obj, name);
 }
 
 bool OS::Core::pushValueOfRecursion(Value obj)
