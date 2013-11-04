@@ -16433,7 +16433,7 @@ bool OS::Core::pushValueOf(Value val)
 	Value func;
 	GCValue * proto = OS_VALUE_VARIANT(val).value;
 	if(!OS_VALUE_VARIANT(val).value->is_object_instance){
-		proto = prototypes[PROTOTYPE_OBJECT];
+		// proto = prototypes[PROTOTYPE_OBJECT];
 	}
 	if(getPropertyValue(func, proto, strings->func_valueOf, prototype_enabled)
 		&& func.isFunction())
