@@ -2866,7 +2866,7 @@ namespace ObjectScript
 			void setPrototype(const Value& val, const Value& proto, int userdata_crc);
 			void pushPrototype(const Value& val);
 
-			void pushBackTrace(int skip_funcs, int max_trace_funcs);
+			void pushBackTrace(int skip_funcs, int max_trace_funcs = 20);
 			void pushArguments(StackFunction*);
 			void pushArgumentsWithNames(StackFunction*);
 			void pushRestArguments(StackFunction*);

@@ -13704,7 +13704,7 @@ void OS::Core::setExceptionValue(Value val)
 		allocator->pop();
 		
 		if(!is_array){
-			pushBackTrace(0, 10);
+			pushBackTrace(0);
 			allocator->setProperty(-2, OS_TEXT("trace"));
 		}
 
@@ -20863,11 +20863,11 @@ void OS::initCoreFunctions()
 		{
 			switch(params){
 			case 0:
-				os->core->pushBackTrace(0, 10);
+				os->core->pushBackTrace(0);
 				break;
 
 			case 1:
-				os->core->pushBackTrace(os->toInt(-params), 10);
+				os->core->pushBackTrace(os->toInt(-params));
 				break;
 
 			default:
