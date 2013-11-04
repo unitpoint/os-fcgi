@@ -11793,7 +11793,7 @@ bool OS::Core::isValueString(const Value& val, String * out)
 			// *out = String(allocator, val->value.boolean ? OS_TEXT("1") : OS_TEXT(""));
 			*out = OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false;
 		}
-		return true;
+		return false; // true;
 
 	case OS_VALUE_TYPE_NUMBER:
 		if(out){
@@ -11829,7 +11829,7 @@ bool OS::Core::isValueStringOS(const Value& val, OS::String * out)
 			// *out = String(allocator, val->value.boolean ? OS_TEXT("1") : OS_TEXT(""));
 			*out = OS_VALUE_VARIANT(val).boolean ? strings->syntax_true : strings->syntax_false;
 		}
-		return true;
+		return false; // true;
 
 	case OS_VALUE_TYPE_NUMBER:
 		if(out){
