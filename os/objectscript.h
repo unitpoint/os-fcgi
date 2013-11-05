@@ -49,7 +49,7 @@ inline void operator delete(void *, void *){}
 #include <vadefs.h>
 #endif
 
-#define OS_VERSION		OS_TEXT("1.9.5-dev")
+#define OS_VERSION		OS_TEXT("1.10-dev")
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
@@ -2344,10 +2344,6 @@ namespace ObjectScript
 				String __rbitand;
 				String __rbitor;
 				String __rbitxor;
-				String __rbitnot;
-				String __rplus;
-				String __rneg;
-				String __rlen;
 				String __radd;
 				String __rsub;
 				String __rmul;
@@ -2755,7 +2751,7 @@ namespace ObjectScript
 			void pushOpResultValue(OpcodeType opcode, const Value& value);
 
 			// binary operator
-			void pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value);
+			bool pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value);
 			static bool isEqualExactly(const Value& left_value, const Value& right_value);
 
 			void setGlobalValue(const String& name, Value value, bool setter_enabled);

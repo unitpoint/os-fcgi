@@ -12679,7 +12679,6 @@ void OS::Core::gcFreeCandidateValues(bool full)
 		if(OS_IS_VALUE_GC(value)){
 			OS_ASSERT(OS_VALUE_VARIANT(value).value);
 			if(candidate = gc_candidate_values.get(OS_VALUE_VARIANT(value).value->value_id)){
-				// candidate->mark_created_values = num_created_values;
 				candidate->gc_step_type = gc_step_type;
 			}
 		}
@@ -13339,10 +13338,6 @@ OS::Core::Strings::Strings(OS * allocator)
 	__rbitand(allocator, OS_TEXT("__rbitand")),
 	__rbitor(allocator, OS_TEXT("__rbitor")),
 	__rbitxor(allocator, OS_TEXT("__rbitxor")),
-	__rbitnot(allocator, OS_TEXT("__rbitnot")),
-	__rplus(allocator, OS_TEXT("__rplus")),
-	__rneg(allocator, OS_TEXT("__rneg")),
-	__rlen(allocator, OS_TEXT("__rlen")),
 	__radd(allocator, OS_TEXT("__radd")),
 	__rsub(allocator, OS_TEXT("__rsub")),
 	__rmul(allocator, OS_TEXT("__rmul")),
@@ -13661,7 +13656,7 @@ void OS::setTerminated(bool terminated, int code)
 {
 	core->terminated = terminated;
 	core->terminated_code = code;
-	core->terminated_exception = Core::Value();
+	core->setValue(core->terminated_exception, Core::Value());
 }
 
 void OS::resetTerminated()
@@ -13669,7 +13664,7 @@ void OS::resetTerminated()
 	if(core->terminated){
 		core->terminated = false;
 		core->terminated_code = 0;
-		core->terminated_exception = Core::Value();
+		core->setValue(core->terminated_exception, Core::Value());
 	}
 }
 
@@ -13708,7 +13703,7 @@ void OS::Core::setExceptionValue(Value val)
 			allocator->setProperty(-2, OS_TEXT("trace"));
 		}
 
-		terminated_exception = stack_values.buf[--stack_values.count];
+		setValue(terminated_exception, stack_values.buf[--stack_values.count]);
 		if(!terminated_exception.isNull()){
 			terminated = true;
 			terminated_code = TERMINATED_EXCEPTION_CODE;
@@ -13717,7 +13712,7 @@ void OS::Core::setExceptionValue(Value val)
 	}
 	terminated = false;
 	terminated_code = 0;
-	terminated_exception = Value();
+	setValue(terminated_exception, Value());
 }
 
 void OS::setException()
@@ -16651,7 +16646,7 @@ bool OS::Core::isEqualExactly(const Value& left_value, const Value& right_value)
 	return OS_EQUAL_EXACTLY(type, left_value, right_value);
 }
 
-void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value)
+bool OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, const Value& right_value)
 {
 	struct Lib
 	{
@@ -16685,75 +16680,99 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 
 	OS_NUMBER right;
 	int is_gc_left_value = 0;
+	bool not_null = true;
 	switch(OS_VALUE_TYPE(left_value)){
 	case OS_VALUE_TYPE_NULL:
+		not_null = false;
+		// no break;
+
 	case OS_VALUE_TYPE_NUMBER:
 	case OS_VALUE_TYPE_BOOL:
 		switch(OS_VALUE_TYPE(right_value)){
 		case OS_VALUE_TYPE_NULL:
+			not_null = false;
+			// no break;
+
 		case OS_VALUE_TYPE_NUMBER:
 		case OS_VALUE_TYPE_BOOL:
 			switch(opcode){
 			case OP_COMPARE:
-				return pushNumber(valueToNumber(left_value) - valueToNumber(right_value));
+				if(!not_null){
+					int left_null = OS_VALUE_TYPE(left_value) != OS_VALUE_TYPE_NULL;
+					int right_null = OS_VALUE_TYPE(right_value) != OS_VALUE_TYPE_NULL;
+					return pushNumber(left_null - right_null), false;
+				}
+				return pushNumber(valueToNumber(left_value) - valueToNumber(right_value)), true;
 
 			case OP_LOGIC_PTR_EQ:
-				return pushBool(isEqualExactly(left_value, right_value));
+				return pushBool(isEqualExactly(left_value, right_value)), true;
 
 			case OP_LOGIC_EQ:
-				return pushBool(valueToNumber(left_value) == valueToNumber(right_value));
+				if(!not_null){
+					pushBool(false);
+					return false;
+				}
+				return pushBool(valueToNumber(left_value) == valueToNumber(right_value)), not_null;
 
 			case OP_LOGIC_GE:
-				return pushBool(valueToNumber(left_value) >= valueToNumber(right_value));
+				if(!not_null){
+					pushBool(false);
+					return false;
+				}
+				return pushBool(valueToNumber(left_value) >= valueToNumber(right_value)), not_null;
 
 			case OP_LOGIC_GREATER:
-				return pushBool(valueToNumber(left_value) > valueToNumber(right_value));
+				if(!not_null){
+					pushBool(false);
+					return false;
+				}
+				return pushBool(valueToNumber(left_value) > valueToNumber(right_value)), not_null;
 
 			case OP_BIT_AND:
-				return pushNumber(valueToInt(left_value) & valueToInt(right_value));
+				return pushNumber(valueToInt(left_value) & valueToInt(right_value)), not_null;
 
 			case OP_BIT_OR:
-				return pushNumber(valueToInt(left_value) | valueToInt(right_value));
+				return pushNumber(valueToInt(left_value) | valueToInt(right_value)), not_null;
 
 			case OP_BIT_XOR:
-				return pushNumber(valueToInt(left_value) ^ valueToInt(right_value));
+				return pushNumber(valueToInt(left_value) ^ valueToInt(right_value)), not_null;
 
 			case OP_ADD: // +
-				return pushNumber(valueToNumber(left_value) + valueToNumber(right_value));
+				return pushNumber(valueToNumber(left_value) + valueToNumber(right_value)), not_null;
 
 			case OP_SUB: // -
-				return pushNumber(valueToNumber(left_value) - valueToNumber(right_value));
+				return pushNumber(valueToNumber(left_value) - valueToNumber(right_value)), not_null;
 
 			case OP_MUL: // *
-				return pushNumber(valueToNumber(left_value) * valueToNumber(right_value));
+				return pushNumber(valueToNumber(left_value) * valueToNumber(right_value)), not_null;
 
 			case OP_DIV: // /
 				right = valueToNumber(right_value);
 				if(!right){
 					errorDivisionByZero();
-					return pushNull();
+					return pushNull(), false;
 				}
-				return pushNumber(valueToNumber(left_value) / right);
+				return pushNumber(valueToNumber(left_value) / right), not_null;
 
 			case OP_MOD: // %
 				right = valueToNumber(right_value);
 				if(!right){
 					errorDivisionByZero();
-					return pushNull();
+					return pushNull(), false;
 				}
-				return pushNumber(OS_MATH_MOD_OPERATOR(valueToNumber(left_value), right));
+				return pushNumber(OS_MATH_MOD_OPERATOR(valueToNumber(left_value), right)), not_null;
 
 			case OP_LSHIFT: // <<
-				return pushNumber(valueToInt(left_value) << valueToInt(right_value));
+				return pushNumber(valueToInt(left_value) << valueToInt(right_value)), not_null;
 
 			case OP_RSHIFT: // >>
-				return pushNumber(valueToInt(left_value) >> valueToInt(right_value));
+				return pushNumber(valueToInt(left_value) >> valueToInt(right_value)), not_null;
 
 			case OP_POW: // **
-				return pushNumber(OS_MATH_POW_OPERATOR(valueToNumber(left_value), valueToNumber(right_value)));
+				return pushNumber(OS_MATH_POW_OPERATOR(valueToNumber(left_value), valueToNumber(right_value))), not_null;
 			}
 			OS_ASSERT(false);
-			return pushNull();
+			return pushNull(), false;
 		}
 		is_gc_left_value ^= 1;
 		// no break
@@ -16765,90 +16784,112 @@ void OS::Core::pushOpResultValue(OpcodeType opcode, const Value& left_value, con
 			if(is_gc_left_value){
 				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
-						return pushNumber((OS_NUMBER)0.0);
+						OS_ASSERT(not_null);
+						return pushNumber((OS_NUMBER)0.0), true;
 					}
 				}
 			}
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
+			if(!not_null){
+				int left_null = OS_VALUE_TYPE(left_value) != OS_VALUE_TYPE_NULL;
+				int right_null = OS_VALUE_TYPE(right_value) != OS_VALUE_TYPE_NULL;
+				return pushNumber(left_null - right_null), false;
+			}
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value), true;
 
 		case OP_LOGIC_PTR_EQ:
-			return pushBool(isEqualExactly(left_value, right_value));
+			return pushBool(isEqualExactly(left_value, right_value)), true;
 
 		case OP_LOGIC_EQ:
 			if(is_gc_left_value){
 				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
-						return pushBool(true);
+						OS_ASSERT(not_null);
+						return pushBool(true), true;
 					}
 					// no break
 				}
 			}
-			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
-			stack_values.lastElement() = valueToNumber(stack_values.lastElement()) == (OS_NUMBER)0.0;
-			return;
+			if(not_null){
+				Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
+				stack_values.lastElement() = valueToNumber(stack_values.lastElement()) == (OS_NUMBER)0.0;
+			}else{
+				pushBool(false);
+			}
+			return not_null;
 
 		case OP_LOGIC_GE:
 			if(is_gc_left_value){
 				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
-						return pushBool(true);
+						OS_ASSERT(not_null);
+						return pushBool(true), true;
 					}
 					// no break
 				}
 			}
-			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
-			stack_values.lastElement() = valueToNumber(stack_values.lastElement()) >= (OS_NUMBER)0.0;
-			return;
+			if(not_null){
+				Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
+				stack_values.lastElement() = valueToNumber(stack_values.lastElement()) >= (OS_NUMBER)0.0;
+			}else{
+				pushBool(false);
+			}
+			return not_null;
 
 		case OP_LOGIC_GREATER:
 			if(is_gc_left_value){
 				if(OS_IS_VALUE_GC(right_value)){
 					if(OS_VALUE_VARIANT(left_value).value == OS_VALUE_VARIANT(right_value).value){
-						return pushBool(false);
+						OS_ASSERT(not_null);
+						return pushBool(false), true;
 					}
 					// no break
 				}
 			}
-			Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
-			stack_values.lastElement() = valueToNumber(stack_values.lastElement()) > (OS_NUMBER)0.0;
-			return;
+			if(not_null){
+				Lib::pushObjectMethodOpcodeValue(this, strings->__cmp, strings->__rcmp, left_value, right_value);
+				stack_values.lastElement() = valueToNumber(stack_values.lastElement()) > (OS_NUMBER)0.0;
+			}else{
+				pushBool(false);
+			}
+			return not_null;
 
 		case OP_BIT_AND:
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitand, strings->__rbitand, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitand, strings->__rbitand, left_value, right_value), not_null;
 
 		case OP_BIT_OR:
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitor, strings->__rbitor, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitor, strings->__rbitor, left_value, right_value), not_null;
 
 		case OP_BIT_XOR:
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitxor, strings->__rbitxor, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__bitxor, strings->__rbitxor, left_value, right_value), not_null;
 
 		case OP_ADD: // +
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__add, strings->__radd, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__add, strings->__radd, left_value, right_value), not_null;
 
 		case OP_SUB: // -
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__sub, strings->__rsub, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__sub, strings->__rsub, left_value, right_value), not_null;
 
 		case OP_MUL: // *
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__mul, strings->__rmul, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__mul, strings->__rmul, left_value, right_value), not_null;
 
 		case OP_DIV: // /
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__div, strings->__rdiv, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__div, strings->__rdiv, left_value, right_value), not_null;
 
 		case OP_MOD: // %
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__mod, strings->__rmod, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__mod, strings->__rmod, left_value, right_value), not_null;
 
 		case OP_LSHIFT: // <<
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__lshift, strings->__rlshift, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__lshift, strings->__rlshift, left_value, right_value), not_null;
 
 		case OP_RSHIFT: // >>
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__rshift, strings->__rrshift, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__rshift, strings->__rrshift, left_value, right_value), not_null;
 
 		case OP_POW: // **
-			return Lib::pushObjectMethodOpcodeValue(this, strings->__pow, strings->__rpow, left_value, right_value);
+			return Lib::pushObjectMethodOpcodeValue(this, strings->__pow, strings->__rpow, left_value, right_value), not_null;
 		}
 	}
 	OS_ASSERT(false);
 	pushNull();
+	return false;
 }
 
 void OS::Core::setGlobalValue(const String& name, Value value, bool setter_enabled)
@@ -18558,7 +18599,7 @@ void OS::Core::execute()
 						// clear exception
 						terminated = false;
 						terminated_code = 0;
-						OS_SET_VALUE_NULL(terminated_exception);
+						setValue(terminated_exception, Value());
 						break;
 					}
 					// leave function
@@ -18709,10 +18750,12 @@ corrupted:
 
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
 					res = (int)(OS_VALUE_NUMBER(*left_value) == OS_VALUE_NUMBER(*right_value)) ^ b;
-				}else{
-					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
+				}else if(pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value)){
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
+				}else{
+					--stack_values.count;
+					res = 0; // b;
 				}
 				if(!(OS_GETARG_C(instruction))){
 					this->stack_func_locals[a] = res != 0;
@@ -18778,10 +18821,12 @@ corrupted:
 
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
 					res = (int)(OS_VALUE_NUMBER(*left_value) > OS_VALUE_NUMBER(*right_value)) ^ b;
-				}else{
-					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
+				}else if(pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value)){
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
+				}else{
+					--stack_values.count;
+					res = 0; // b;
 				}
 				if(!(OS_GETARG_C(instruction))){
 					this->stack_func_locals[a] = res != 0;
@@ -18847,10 +18892,12 @@ corrupted:
 
 				if(OS_IS_VALUE_NUMBER(*left_value) && OS_IS_VALUE_NUMBER(*right_value)){
 					res = (int)(OS_VALUE_NUMBER(*left_value) >= OS_VALUE_NUMBER(*right_value)) ^ b;
-				}else{
-					pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value);
+				}else if(pushOpResultValue((OpcodeType)OS_TO_OPCODE_TYPE(opcode), *left_value, *right_value)){
 					OS_ASSERT(OS_VALUE_TYPE(stack_values.lastElement()) == OS_VALUE_TYPE_BOOL);
 					res = OS_VALUE_VARIANT(stack_values.buf[--stack_values.count]).boolean ^ b;
+				}else{
+					--stack_values.count;
+					res = 0; // b;
 				}
 				if(!(OS_GETARG_C(instruction))){
 					this->stack_func_locals[a] = res != 0;
@@ -19860,17 +19907,18 @@ void OS::runOp(OS_EOpcode opcode)
 	{
 		Core * core;
 
-		void runBinaryOpcode(Core::OpcodeType opcode)
+		bool runBinaryOpcode(Core::OpcodeType opcode)
 		{
 			int count = core->stack_values.count;
 			if(count < 2){
 				core->pushNull();
-				return;
+				return false;
 			}
 			Core::Value left_value = core->stack_values[count-2];
 			Core::Value right_value = core->stack_values[count-1];
-			core->pushOpResultValue(opcode, left_value, right_value);
+			bool r = core->pushOpResultValue(opcode, left_value, right_value);
 			core->removeStackValues(-3, 2);
+			return r;
 		}
 
 		void runUnaryOpcode(Core::OpcodeType opcode)
@@ -19900,10 +19948,12 @@ void OS::runOp(OS_EOpcode opcode)
 
 	switch(opcode){
 	case OP_COMPARE:
-		return lib.runBinaryOpcode(Core::OP_COMPARE);
+		lib.runBinaryOpcode(Core::OP_COMPARE);
+		return;
 
 	case OP_LOGIC_PTR_EQ:	// ===
-		return lib.runBinaryOpcode(Core::OP_LOGIC_PTR_EQ);
+		lib.runBinaryOpcode(Core::OP_LOGIC_PTR_EQ);
+		return;
 
 	case OP_LOGIC_PTR_NE:	// !==
 		lib.runBinaryOpcode(Core::OP_LOGIC_PTR_EQ);
@@ -19911,61 +19961,90 @@ void OS::runOp(OS_EOpcode opcode)
 		return;
 
 	case OP_LOGIC_EQ:		// ==
-		return lib.runBinaryOpcode(Core::OP_LOGIC_EQ);
+		if(!lib.runBinaryOpcode(Core::OP_LOGIC_EQ)){
+			core->stack_values.lastElement() = false;
+		}
+		return;
 
 	case OP_LOGIC_NE:		// !=
-		lib.runBinaryOpcode(Core::OP_LOGIC_EQ);
-		core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		if(lib.runBinaryOpcode(Core::OP_LOGIC_EQ)){
+			core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		}else{
+			core->stack_values.lastElement() = false;
+		}
 		return;
 
 	case OP_LOGIC_GE:		// >=
-		return lib.runBinaryOpcode(Core::OP_LOGIC_GE);
+		if(!lib.runBinaryOpcode(Core::OP_LOGIC_GE)){
+			core->stack_values.lastElement() = false;
+		}
+		return;
 
 	case OP_LOGIC_LE:		// <=
-		lib.runBinaryOpcode(Core::OP_LOGIC_GREATER);
-		core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		if(lib.runBinaryOpcode(Core::OP_LOGIC_GREATER)){
+			core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		}else{
+			core->stack_values.lastElement() = false;
+		}
 		return;
 
 	case OP_LOGIC_GREATER:	// >
-		return lib.runBinaryOpcode(Core::OP_LOGIC_GREATER);
+		if(!lib.runBinaryOpcode(Core::OP_LOGIC_GREATER)){
+			core->stack_values.lastElement() = false;
+		}
+		return;
 
 	case OP_LOGIC_LESS:		// <
-		lib.runBinaryOpcode(Core::OP_LOGIC_GE);
-		core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		if(lib.runBinaryOpcode(Core::OP_LOGIC_GE)){
+			core->stack_values.lastElement() = !core->valueToBool(core->stack_values.lastElement());
+		}else{
+			core->stack_values.lastElement() = false;
+		}
 		return;
 
 	case OP_BIT_AND:	// &
-		return lib.runBinaryOpcode(Core::OP_BIT_AND);
+		lib.runBinaryOpcode(Core::OP_BIT_AND);
+		return;
 
 	case OP_BIT_OR:	// |
-		return lib.runBinaryOpcode(Core::OP_BIT_OR);
+		lib.runBinaryOpcode(Core::OP_BIT_OR);
+		return;
 
 	case OP_BIT_XOR:	// ^
-		return lib.runBinaryOpcode(Core::OP_BIT_XOR);
+		lib.runBinaryOpcode(Core::OP_BIT_XOR);
+		return;
 
 	case OP_ADD: // +
-		return lib.runBinaryOpcode(Core::OP_ADD);
+		lib.runBinaryOpcode(Core::OP_ADD);
+		return;
 
 	case OP_SUB: // -
-		return lib.runBinaryOpcode(Core::OP_SUB);
+		lib.runBinaryOpcode(Core::OP_SUB);
+		return;
 
 	case OP_MUL: // *
-		return lib.runBinaryOpcode(Core::OP_MUL);
+		lib.runBinaryOpcode(Core::OP_MUL);
+		return;
 
 	case OP_DIV: // /
-		return lib.runBinaryOpcode(Core::OP_DIV);
+		lib.runBinaryOpcode(Core::OP_DIV);
+		return;
 
 	case OP_MOD: // %
-		return lib.runBinaryOpcode(Core::OP_MOD);
+		lib.runBinaryOpcode(Core::OP_MOD);
+		return;
 
 	case OP_LSHIFT: // <<
-		return lib.runBinaryOpcode(Core::OP_LSHIFT);
+		lib.runBinaryOpcode(Core::OP_LSHIFT);
+		return;
 
 	case OP_RSHIFT: // >>
-		return lib.runBinaryOpcode(Core::OP_RSHIFT);
+		lib.runBinaryOpcode(Core::OP_RSHIFT);
+		return;
 
 	case OP_POW: // **
-		return lib.runBinaryOpcode(Core::OP_POW);
+		lib.runBinaryOpcode(Core::OP_POW);
+		return;
 
 	case OP_CONCAT: // ..
 		return lib.call(core->strings->func_concat);
