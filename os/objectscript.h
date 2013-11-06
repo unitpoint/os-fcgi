@@ -49,7 +49,7 @@ inline void operator delete(void *, void *){}
 #include <vadefs.h>
 #endif
 
-#define OS_VERSION		OS_TEXT("1.10-dev")
+#define OS_VERSION		OS_TEXT("1.11-dev")
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
@@ -306,7 +306,6 @@ namespace ObjectScript
 		OP_CONCAT,	// ..
 		OP_IN,		// in
 		OP_IS,		// is
-		OP_ISPROTOTYPEOF, // isprototypeof
 
 		// unary operators
 
@@ -971,7 +970,6 @@ namespace ObjectScript
 					OPERATOR_COLON,     // :
 
 					OPERATOR_IN,		// in
-					OPERATOR_ISPROTOTYPEOF,		// is
 					OPERATOR_IS,	// is
 					OPERATOR_LENGTH,	// #
 
@@ -1633,7 +1631,6 @@ namespace ObjectScript
 					EXP_TYPE_NEG,			// -
 					EXP_TYPE_LENGTH,		// #
 					EXP_TYPE_IN,			// in
-					EXP_TYPE_ISPROTOTYPEOF,		// is
 					EXP_TYPE_IS,	// is
 
 					EXP_TYPE_BIN_OPERATOR_BY_LOCALS,
@@ -2359,7 +2356,6 @@ namespace ObjectScript
 				String func_delete;
 				String func_in;
 				String func_is;
-				String func_isprototypeof;
 				String func_push;
 				String func_valueOf;
 				String func_clone;
@@ -2382,7 +2378,6 @@ namespace ObjectScript
 				String syntax_set;
 				String syntax_super;
 				String syntax_is;
-				String syntax_isprototypeof;
 				String syntax_extends;
 				String syntax_delete;
 				String syntax_prototype;
@@ -2736,6 +2731,7 @@ namespace ObjectScript
 
 			String getTypeStr(const Value& val);
 			void pushTypeOf(const Value& val);
+			bool pushBoolOf(const Value& val);
 			bool pushNumberOf(const Value& val);
 			bool pushStringOf(const Value& val);
 			bool pushValueOf(Value val);
@@ -2804,9 +2800,9 @@ namespace ObjectScript
 			bool isValueStringOS(const Value& val, OS::String * out = NULL);
 			bool isValueInstanceOf(GCValue * val, GCValue * prototype_val);
 			bool isValueInstanceOf(const Value& val, const Value& prototype_val);
-			bool isValuePrototypeOf(GCValue * val, GCValue * prototype_val);
-			bool isValuePrototypeOfUserdata(GCValue * val, int prototype_crc);
-			bool isValuePrototypeOf(const Value& val, const Value& prototype_val);
+			bool isValueOf(GCValue * val, GCValue * prototype_val);
+			bool isValueOfUserdata(GCValue * val, int prototype_crc);
+			bool isValueOf(const Value& val, const Value& prototype_val);
 			bool isValueInValue(const Value& val, const Value& prototype_val);
 
 			Table * newTable(OS_DBG_FILEPOS_START_DECL);
@@ -3100,7 +3096,6 @@ namespace ObjectScript
 		bool isFunction(int offs = -1);
 		bool isUserdata(int offs = -1);
 		bool isUserdata(int crc, int offs, int prototype_crc = 0);
-		bool isPrototypeOf(int value_offs = -2, int prototype_offs = -1);
 		bool is(int value_offs = -2, int prototype_offs = -1);
 		bool in(int name_offs = -2, int obj_offs = -1);
 

@@ -1502,7 +1502,6 @@ bool OS::Core::Tokenizer::TokenData::isTypeOf(TokenType token_type) const
 		case OS::Core::Tokenizer::BEFORE_INJECT_VAR:
 		case OS::Core::Tokenizer::AFTER_INJECT_VAR:
 		case OS::Core::Tokenizer::OPERATOR_IN:		// in
-		case OS::Core::Tokenizer::OPERATOR_ISPROTOTYPEOF:
 		case OS::Core::Tokenizer::OPERATOR_IS:
 
 		case OS::Core::Tokenizer::OPERATOR_LOGIC_AND: // &&
@@ -2384,7 +2383,6 @@ bool OS::Core::Compiler::Expression::isBinaryOperator() const
 	case EXP_TYPE_PARAMS:
 	case EXP_TYPE_QUESTION:
 	case EXP_TYPE_IN:
-	case EXP_TYPE_ISPROTOTYPEOF:
 	case EXP_TYPE_IS:
 	case EXP_TYPE_CONCAT: // ..
 	case EXP_TYPE_BEFORE_INJECT_VAR: // ..
@@ -2823,7 +2821,6 @@ void OS::Core::Compiler::Expression::debugPrint(Buffer& out, OS::Core::Compiler 
 	case EXP_TYPE_BEFORE_INJECT_VAR: // ..
 	case EXP_TYPE_AFTER_INJECT_VAR: // ..
 	case EXP_TYPE_IN:
-	case EXP_TYPE_ISPROTOTYPEOF:
 	case EXP_TYPE_IS:
 	case EXP_TYPE_BIT_AND: // &
 	case EXP_TYPE_BIT_OR:  // |
@@ -4030,7 +4027,6 @@ OS::Core::Compiler::ExpressionType OS::Core::Compiler::getExpressionType(TokenTy
 
 	case Tokenizer::OPERATOR_QUESTION: return EXP_TYPE_QUESTION;
 	case Tokenizer::OPERATOR_IN: return EXP_TYPE_IN;
-	case Tokenizer::OPERATOR_ISPROTOTYPEOF: return EXP_TYPE_ISPROTOTYPEOF;
 	case Tokenizer::OPERATOR_IS: return EXP_TYPE_IS;
 
 	case Tokenizer::OPERATOR_BIT_AND: return EXP_TYPE_BIT_AND;
@@ -4133,7 +4129,6 @@ OS::Core::Compiler::OpcodeLevel OS::Core::Compiler::getOpcodeLevel(ExpressionTyp
 
 	case EXP_TYPE_POW: // **
 	case EXP_TYPE_IN:
-	case EXP_TYPE_ISPROTOTYPEOF:
 	case EXP_TYPE_IS:
 		return OP_LEVEL_13;
 
@@ -5256,11 +5251,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompilePass3(Scope * sc
 		exp->slots.b = cacheString(allocator->core->strings->func_is);
 		break;
 
-	case EXP_TYPE_ISPROTOTYPEOF:
-		OS_ASSERT(exp->list.count == 2);
-		exp->slots.b = cacheString(allocator->core->strings->func_isprototypeof);
-		break;
-
 	case EXP_TYPE_CONST_NUMBER:
 		OS_ASSERT(exp->list.count == 0);
 		exp->slots.b = cacheNumber((OS_NUMBER)exp->token->getFloat());
@@ -5758,7 +5748,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::postCompileNewVM(Scope * sc
 	case EXP_TYPE_EXTENDS:
 	case EXP_TYPE_IN:
 	case EXP_TYPE_IS:
-	case EXP_TYPE_ISPROTOTYPEOF:
 	case EXP_TYPE_DELETE:
 		OS_ASSERT(exp->list.count == 2 && (exp->ret_values == 1 || (exp->ret_values == 0 && exp->type == EXP_TYPE_DELETE)));
 		stack_pos = scope->function->stack_cur_size;
@@ -8144,8 +8133,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::finishBinaryOperator(Scope 
 			if(p.allow_in_operator){
 				recent_token->type = Tokenizer::OPERATOR_IN;
 			}
-		}else if(recent_token->str == allocator->core->strings->syntax_isprototypeof){
-			recent_token->type = Tokenizer::OPERATOR_ISPROTOTYPEOF;
 		}else if(recent_token->str == allocator->core->strings->syntax_is){
 			recent_token->type = Tokenizer::OPERATOR_IS;
 		}
@@ -8369,18 +8356,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::finishValueExpression(Scope
 				OS_ASSERT(is_finished);
 				continue;
 			}
-			if(token->str == allocator->core->strings->syntax_isprototypeof){
-				if(!p.allow_binary_operator){
-					return exp;
-				}
-				token->type = Tokenizer::OPERATOR_ISPROTOTYPEOF;
-				exp = finishBinaryOperator(scope, OP_LEVEL_NOTHING, exp, p, is_finished);
-				if(!exp){
-					return NULL;
-				}
-				OS_ASSERT(is_finished);
-				continue;
-			}
 			if(token->str == allocator->core->strings->syntax_is){
 				if(!p.allow_binary_operator){
 					return exp;
@@ -8564,7 +8539,6 @@ bool OS::Core::Compiler::isVarNameValid(const String& name)
 	Core::Strings * strings = allocator->core->strings;
 	return !(name == strings->syntax_super
 		|| name == strings->syntax_is
-		|| name == strings->syntax_isprototypeof
 		|| name == strings->syntax_extends
 		|| name == strings->syntax_delete
 		|| name == strings->syntax_prototype
@@ -8906,10 +8880,6 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectSingleExpression(Scop
 			return finishValueExpression(scope, exp, p);
 		}
 		if(token->str == allocator->core->strings->syntax_is){
-			setError(ERROR_SYNTAX, token);
-			return NULL;
-		}
-		if(token->str == allocator->core->strings->syntax_isprototypeof){
 			setError(ERROR_SYNTAX, token);
 			return NULL;
 		}
@@ -9261,9 +9231,6 @@ const OS_CHAR * OS::Core::Compiler::getExpName(ExpressionType type, ECompiledVal
 
 	case EXP_TYPE_IN:
 		return OS_TEXT("in");
-
-	case EXP_TYPE_ISPROTOTYPEOF:
-		return OS_TEXT("isprototypeof");
 
 	case EXP_TYPE_IS:
 		return OS_TEXT("is");
@@ -13353,7 +13320,6 @@ OS::Core::Strings::Strings(OS * allocator)
 	func_delete(allocator, OS_TEXT("__delete")),
 	func_in(allocator, OS_TEXT("__in")),
 	func_is(allocator, OS_TEXT("__is")),
-	func_isprototypeof(allocator, OS_TEXT("__isprototypeof")),
 	func_push(allocator, OS_TEXT("push")),
 	func_valueOf(allocator, OS_TEXT("valueOf")),
 	func_clone(allocator, OS_TEXT("clone")),
@@ -13377,7 +13343,6 @@ OS::Core::Strings::Strings(OS * allocator)
 	syntax_set(allocator, OS_TEXT("set")),
 	syntax_super(allocator, OS_TEXT("super")),
 	syntax_is(allocator, OS_TEXT("is")),
-	syntax_isprototypeof(allocator, OS_TEXT("isprototypeof")),
 
 	syntax_extends(allocator, OS_TEXT("extends")),
 	syntax_delete(allocator, OS_TEXT("delete")),
@@ -16389,6 +16354,21 @@ void OS::Core::pushTypeOf(const Value& val)
 	pushStringValue(strings->typeof_null);
 }
 
+bool OS::Core::pushBoolOf(const Value& val)
+{
+	switch(OS_VALUE_TYPE(val)){
+	case OS_VALUE_TYPE_BOOL:
+		pushValue(val);
+		return true;
+
+	case OS_VALUE_TYPE_NUMBER:
+		pushBool(OS_VALUE_NUMBER(val) != 0);
+		return true;
+	}
+	pushNull();
+	return false;
+}
+
 bool OS::Core::pushNumberOf(const Value& val)
 {
 	if(OS_IS_VALUE_NUMBER(val)){
@@ -17489,7 +17469,7 @@ bool OS::isUserdata(int crc, int offs, int prototype_crc)
 			return true;
 		}
 		if(prototype_crc && OS_VALUE_VARIANT(val).userdata->prototype 
-			&& core->isValuePrototypeOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
+			&& core->isValueOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
 		{
 			return true;
 		}
@@ -17510,7 +17490,7 @@ void * OS::toUserdata(int crc, int offs, int prototype_crc)
 			return OS_VALUE_VARIANT(val).userdata->ptr;
 		}
 		if(prototype_crc && OS_VALUE_VARIANT(val).userdata->prototype 
-			&& core->isValuePrototypeOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
+			&& core->isValueOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
 		{
 			return OS_VALUE_VARIANT(val).userdata->ptr;
 		}
@@ -17531,7 +17511,7 @@ void OS::clearUserdata(int crc, int offs, int prototype_crc)
 			return;
 		}
 		if(prototype_crc && OS_VALUE_VARIANT(val).userdata->prototype 
-			&& core->isValuePrototypeOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
+			&& core->isValueOfUserdata(OS_VALUE_VARIANT(val).userdata->prototype, prototype_crc))
 		{
 			core->triggerValueDestructor(OS_VALUE_VARIANT(val).value);
 			core->clearValue(OS_VALUE_VARIANT(val).value);
@@ -17550,7 +17530,7 @@ bool OS::isFunction(int offs)
 	return core->getStackValue(offs).isFunction();
 }
 
-bool OS::Core::isValuePrototypeOf(GCValue * val, GCValue * prototype_val)
+bool OS::Core::isValueOf(GCValue * val, GCValue * prototype_val)
 {
 	while(val != prototype_val){
 		val = val->prototype;
@@ -17561,7 +17541,7 @@ bool OS::Core::isValuePrototypeOf(GCValue * val, GCValue * prototype_val)
 	return true;
 }
 
-bool OS::Core::isValuePrototypeOfUserdata(GCValue * val, int prototype_crc)
+bool OS::Core::isValueOfUserdata(GCValue * val, int prototype_crc)
 {
 	for(int value_crc;;){
 		switch(val->type){
@@ -17583,31 +17563,56 @@ bool OS::Core::isValuePrototypeOfUserdata(GCValue * val, int prototype_crc)
 
 bool OS::Core::isValueInstanceOf(GCValue * val, GCValue * prototype_val)
 {
-	return val->prototype ? isValuePrototypeOf(val->prototype, prototype_val) : false;
+	return val->prototype ? isValueOf(val->prototype, prototype_val) : false;
 }
 
-bool OS::Core::isValuePrototypeOf(const Value& val, const Value& prototype_val)
+bool OS::Core::isValueOf(const Value& val, const Value& prototype_val)
 {
-	GCValue * object = val.getGCValue();
 	GCValue * proto = prototype_val.getGCValue();
-	return object && proto && isValuePrototypeOf(object, proto);
+	if(!proto){
+		return false;
+	}
+	GCValue * object = val.getGCValue();
+	if(!object){
+		switch(OS_VALUE_TYPE(val)){
+		case OS_VALUE_TYPE_BOOL:
+			object = prototypes[PROTOTYPE_BOOL];
+			break;
+
+		case OS_VALUE_TYPE_NUMBER:
+			object = prototypes[PROTOTYPE_NUMBER];
+			break;
+
+		default:
+			return false;
+		}
+		OS_ASSERT(object);
+	}
+	return isValueOf(object, proto);
 }
 
 bool OS::Core::isValueInstanceOf(const Value& val, const Value& prototype_val)
 {
-	GCValue * object = val.getGCValue();
 	GCValue * proto = prototype_val.getGCValue();
-	return object && proto && isValueInstanceOf(object, proto);
-}
+	if(!proto){
+		return false;
+	}
+	GCValue * object = val.getGCValue();
+	if(!object){
+		switch(OS_VALUE_TYPE(val)){
+		case OS_VALUE_TYPE_BOOL:
+			return isValueOf(prototypes[PROTOTYPE_BOOL], proto);
 
-bool OS::isPrototypeOf(int value_offs, int prototype_offs)
-{
-	return core->isValuePrototypeOf(core->getStackValue(value_offs), core->getStackValue(prototype_offs));
+		case OS_VALUE_TYPE_NUMBER:
+			return isValueOf(prototypes[PROTOTYPE_NUMBER], proto);
+		}
+	}
+	return object && isValueInstanceOf(object, proto);
 }
 
 bool OS::is(int value_offs, int prototype_offs)
 {
-	return core->isValueInstanceOf(core->getStackValue(value_offs), core->getStackValue(prototype_offs));
+	return core->isValueOf(core->getStackValue(value_offs), core->getStackValue(prototype_offs));
 }
 
 bool OS::Core::isValueInValue(const Value& _name, const Value& _obj)
@@ -20055,9 +20060,6 @@ void OS::runOp(OS_EOpcode opcode)
 	case OP_IS: // is
 		return lib.call(core->strings->func_is);
 
-	case OP_ISPROTOTYPEOF: // is
-		return lib.call(core->strings->func_isprototypeof);
-
 	case OP_BIT_NOT: // ~
 		return lib.runUnaryOpcode(Core::OP_BIT_NOT);
 
@@ -21015,17 +21017,17 @@ void OS::initCoreFunctions()
 			return 1;
 		}
 
-		static int isPrototypeOf(OS * os, int params, int, int, void*)
-		{
-			if(params != 2) return 0;
-			os->pushBool(os->isPrototypeOf());
-			return 1;
-		}
-
 		static int typeOf(OS * os, int params, int, int, void*)
 		{
 			if(params < 1) return 0;
 			os->core->pushTypeOf(os->core->getStackValue(-params));
+			return 1;
+		}
+
+		static int booleanOf(OS * os, int params, int, int, void*)
+		{
+			if(params < 1) return 0;
+			os->core->pushBoolOf(os->core->getStackValue(-params));
 			return 1;
 		}
 
@@ -21126,9 +21128,9 @@ void OS::initCoreFunctions()
 		{core->strings->func_delete, Lib::deleteOp},
 		{core->strings->func_in, Lib::in},
 		{core->strings->func_is, Lib::is},
-		{core->strings->func_isprototypeof, Lib::isPrototypeOf},
 		{OS_TEXT("typeOf"), Lib::typeOf},
 		// {OS_TEXT("valueOf"), Lib::valueOf},
+		{OS_TEXT("booleanOf"), Lib::booleanOf},
 		{OS_TEXT("numberOf"), Lib::numberOf},
 		{OS_TEXT("stringOf"), Lib::stringOf},
 		{OS_TEXT("arrayOf"), Lib::arrayOf},
