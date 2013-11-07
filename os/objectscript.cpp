@@ -1631,16 +1631,27 @@ int OS::Core::Tokenizer::compareOperatorDesc(const void * a, const void * b)
 {
 	const OperatorDesc * op0 = (const OperatorDesc*)a;
 	const OperatorDesc * op1 = (const OperatorDesc*)b;
-	return (int)OS_STRLEN(op1->name) - (int)OS_STRLEN(op0->name);
+	// return (int)OS_STRLEN(op1->name) - (int)OS_STRLEN(op0->name);
+	return op1->len - op0->len;
 }
 
 void OS::Core::Tokenizer::initOperatorsTable()
 {
 	if(!operator_initialized){
+		for(int i = 0; i < operator_count; i++){
+			operator_desc[i].len = OS_STRLEN(operator_desc[i].name);
+		}
 		::qsort(operator_desc, operator_count, sizeof(operator_desc[0]), Tokenizer::compareOperatorDesc);
 		operator_initialized = true;
 	}
 }
+
+OS::Core::Tokenizer::InitOperators::InitOperators()
+{
+	initOperatorsTable();
+}
+
+OS::Core::Tokenizer::InitOperators OS::Core::Tokenizer::init_operators = OS::Core::Tokenizer::InitOperators();
 
 OS::Core::Tokenizer::TextData::TextData(OS * p_allocator): filename(p_allocator)
 {
@@ -2103,7 +2114,7 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 				}
 			}
 
-			if(*str == OS_TEXT('_') || *str == OS_TEXT('$') // || *str == OS_TEXT('@') 
+			if(*str == OS_TEXT('_') // || *str == OS_TEXT('$') // || *str == OS_TEXT('@') 
 				|| (*str >= OS_TEXT('a') && *str <= OS_TEXT('z'))
 				|| (*str >= OS_TEXT('A') && *str <= OS_TEXT('Z')) )
 			{ // parse name
@@ -2129,7 +2140,8 @@ bool OS::Core::Tokenizer::parseLines(OS_ESourceCodeType source_code_type, bool c
 			}else{
 				int i;
 				for(i = 0; i < operator_count; i++){
-					size_t len = OS_STRLEN(operator_desc[i].name);
+					// size_t len = OS_STRLEN(operator_desc[i].name);
+					int len = operator_desc[i].len;
 					if(OS_STRNCMP(str, operator_desc[i].name, len) == 0){
 						addToken(String(allocator, str, (int)len), operator_desc[i].type, cur_line, (int)(str - line_start) OS_DBG_FILEPOS);
 						str += len;
@@ -7604,13 +7616,16 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectTryExpression(Scope *
 	return new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_TRY_CATCH, try_exp->token, try_exp, catch_scope OS_DBG_FILEPOS);
 }
 
-OS::Core::Compiler::Expression * OS::Core::Compiler::expectFilenameExpression(Scope * scope)
+OS::Core::Compiler::Expression * OS::Core::Compiler::expectFilenameExpression(Scope * scope, EFilenameType fnt)
 {
-	OS_ASSERT(recent_token && recent_token->str == allocator->core->strings->syntax_file);
+	OS_ASSERT(recent_token 
+		&& (recent_token->str == (fnt == GET_FILENAME ? allocator->core->strings->syntax_file
+			: allocator->core->strings->syntax_dir)));
+
 	TokenData * token = recent_token;
 
 	TokenData * name_token = new (malloc(sizeof(TokenData) OS_DBG_FILEPOS)) TokenData(tokenizer->getTextData(), 
-		allocator->core->strings->func_getFilename, 
+		fnt == GET_FILENAME ? allocator->core->strings->func_getFilename : allocator->core->strings->func_getDirname, 
 		Tokenizer::NAME, token->line, token->pos);
 	Expression * exp2 = new (malloc(sizeof(Expression) OS_DBG_FILEPOS)) Expression(EXP_TYPE_CONST_STRING, name_token);
 	exp2->ret_values = 1;
@@ -8578,6 +8593,7 @@ bool OS::Core::Compiler::isVarNameValid(const String& name)
 		|| name == strings->syntax_debuglocals
 		|| name == strings->syntax_line
 		|| name == strings->syntax_file
+		|| name == strings->syntax_dir
 		|| name == strings->var_func
 		|| name == strings->var_this
 		|| name == strings->var_env
@@ -8876,7 +8892,11 @@ OS::Core::Compiler::Expression * OS::Core::Compiler::expectSingleExpression(Scop
 			return finishValueExpressionNoNextCall(scope, exp, p);
 		}
 		if(token->str == allocator->core->strings->syntax_file){
-			exp = expectFilenameExpression(scope);
+			exp = expectFilenameExpression(scope, GET_FILENAME);
+			return finishValueExpression(scope, exp, p);
+		}
+		if(token->str == allocator->core->strings->syntax_dir){
+			exp = expectFilenameExpression(scope, GET_DIRNAME);
 			return finishValueExpression(scope, exp, p);
 		}
 		if(token->str == allocator->core->strings->syntax_is){
@@ -13316,6 +13336,7 @@ OS::Core::Strings::Strings(OS * allocator)
 	
 	func_unhandledException(allocator, OS_TEXT("unhandledException")),
 	func_getFilename(allocator, OS_TEXT("__getfilename")),
+	func_getDirname(allocator, OS_TEXT("__getdirname")),
 	func_extends(allocator, OS_TEXT("__extends")),
 	func_delete(allocator, OS_TEXT("__delete")),
 	func_in(allocator, OS_TEXT("__in")),
@@ -13383,6 +13404,7 @@ OS::Core::Strings::Strings(OS * allocator)
 	syntax_debuglocals(allocator, OS_TEXT("debuglocals")),
 	syntax_line(allocator, OS_TEXT("__LINE__")),
 	syntax_file(allocator, OS_TEXT("__FILE__")),
+	syntax_dir(allocator, OS_TEXT("__DIR__")),
 	var_globals(allocator, OS_GLOBALS_VAR_NAME),
 	var_func(allocator, OS_FUNC_VAR_NAME),
 	var_this(allocator, OS_THIS_VAR_NAME),
@@ -21099,10 +21121,21 @@ void OS::initCoreFunctions()
 			Core * core = os->core;
 			for(int i = core->call_stack_funcs.count-1; i >= 0; i--){
 				Core::StackFunction * stack_func = core->call_stack_funcs.buf + i;
-				if(stack_func->func->prog->filename.getLen() > 0){
+				if(!stack_func->func->prog->filename.isEmpty()){
 					os->pushString(stack_func->func->prog->filename);
 					return 1;
 				}
+			}
+			return 0;
+		}
+
+		static int getDirname(OS * os, int params, int, int, void*)
+		{
+			int r = getFilename(os, params, 0, 0, NULL);
+			if(r > 0){
+				OS_ASSERT(r == 1);
+				os->pushString(os->getFilenamePath(os->toString()));
+				return 1;
 			}
 			return 0;
 		}
@@ -21124,6 +21157,7 @@ void OS::initCoreFunctions()
 		{core->strings->__construct, Lib::construct},
 		{OS_TEXT("__get@OS_VERSION"), Lib::getVersion},
 		{core->strings->func_getFilename, Lib::getFilename},
+		{core->strings->func_getDirname, Lib::getDirname},
 		{core->strings->func_extends, Lib::extends},
 		{core->strings->func_delete, Lib::deleteOp},
 		{core->strings->func_in, Lib::in},
@@ -24779,7 +24813,7 @@ void OS::initPreScript()
 			for(var i, t in e.trace){
 				printf("#${i} ${t.file}%s: %s, args: ${t.arguments}\n",
 					t.line > 0 ? "(${t.line},${t.pos})" : "",
-					t.object && t.object !== _G ? "<${typeOf(t.object)}#${t.object.id}>.${t.name}" : t.name)
+					t.object && t.object !== _G ? "<${typeOf(t.object)}#${t.object.__id}>.${t.func.__name}" : t.name)
 			}
 		}
 	));

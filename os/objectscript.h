@@ -49,7 +49,7 @@ inline void operator delete(void *, void *){}
 #include <vadefs.h>
 #endif
 
-#define OS_VERSION		OS_TEXT("1.11-dev")
+#define OS_VERSION		OS_TEXT("1.11.1-dev")
 #define OS_COPYRIGHT	OS_TEXT("OS ") OS_VERSION OS_TEXT(" Copyright (C) 2012-2013 by Evgeniy Golovin")
 #define OS_OPENSOURCE	OS_TEXT("ObjectScript is free and open source: https://github.com/unitpoint/os-fcgi")
 
@@ -1084,16 +1084,18 @@ namespace ObjectScript
 				{
 					TokenType type;
 					const OS_CHAR * name;
+					int len;
 				};
 
 				static const int operator_count;
 				static OperatorDesc operator_desc[];
 				static bool operator_initialized;
 
-				void printLines();
-				void printTokens();
-
-				// private:
+				struct InitOperators
+				{
+					InitOperators();
+				};
+				static InitOperators init_operators;
 
 				static int compareOperatorDesc(const void * a, const void * b) ;
 				static void initOperatorsTable();
@@ -2033,7 +2035,14 @@ namespace ObjectScript
 				Expression * expectReturnExpression(Scope*);
 				Expression * expectTryExpression(Scope*);
 				Expression * expectThrowExpression(Scope*);
-				Expression * expectFilenameExpression(Scope*);
+				
+				enum EFilenameType {
+					GET_FILENAME,
+					GET_DIRNAME
+				};
+				
+				Expression * expectFilenameExpression(Scope*, EFilenameType);
+				
 				Expression * expectIfExpression(Scope*);
 				Expression * expectForExpression(Scope*);
 				Expression * expectDebugLocalsExpression(Scope*);
@@ -2352,6 +2361,7 @@ namespace ObjectScript
 
 				String func_unhandledException;
 				String func_getFilename;
+				String func_getDirname;
 				String func_extends;
 				String func_delete;
 				String func_in;
@@ -2417,6 +2427,7 @@ namespace ObjectScript
 				String syntax_debuglocals;
 				String syntax_line;
 				String syntax_file;
+				String syntax_dir;
 
 				String var_globals;
 				String var_func;
